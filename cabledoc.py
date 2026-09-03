@@ -28,7 +28,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260903000000"
+APP_VERSION = "1.20260903020900"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -71,277 +71,33 @@ from pantallas_avanzadas import (
 )
 from diagrama_personalizado import DiagramaPersonalizado
 
-# ─── Utilidades ──────────────────────────────────────────────────────────────
-
-def s(val):
-    """Convierte None/cualquier cosa a cadena segura."""
-    return "" if val is None else str(val)
-
-
-def mostrar_error(padre, texto):
-    dlg = Gtk.MessageDialog(
-        transient_for=padre, flags=0,
-        message_type=Gtk.MessageType.ERROR,
-        buttons=Gtk.ButtonsType.OK, text=texto
-    )
-    dlg.run(); dlg.destroy()
-
-
-def mostrar_info(padre, texto):
-    dlg = Gtk.MessageDialog(
-        transient_for=padre, flags=0,
-        message_type=Gtk.MessageType.INFO,
-        buttons=Gtk.ButtonsType.OK, text=texto
-    )
-    dlg.run(); dlg.destroy()
-
-
-def confirmar(padre, texto):
-    dlg = Gtk.MessageDialog(
-        transient_for=padre, flags=0,
-        message_type=Gtk.MessageType.QUESTION,
-        buttons=Gtk.ButtonsType.YES_NO, text=texto
-    )
-    respuesta = dlg.run(); dlg.destroy()
-    return respuesta == Gtk.ResponseType.YES
-
-
-# ─── Clase base para ventanas de listado ──────────────────────────────────────
-
-def _sort_func_natural(model, a, b, col):
-    va = model.get_value(a, col) or ""
-    vb = model.get_value(b, col) or ""
-    try:
-        return (int(va) > int(vb)) - (int(va) < int(vb))
-    except ValueError:
-        va, vb = va.lower(), vb.lower()
-        return (va > vb) - (va < vb)
-
-
-class VentanaListado(Gtk.Dialog):
-    """
-    Ventana genérica de listado con TreeView, búsqueda y botones CRUD.
-    Puede usarse como ventana normal (show_all) o como diálogo modal (run).
-    """
-
-    def __init__(self, titulo, columnas, parent=None, modo_seleccion=False,
-                 botones_extra=None):
-        super().__init__(title=titulo, transient_for=parent,
-                         destroy_with_parent=True)
-        self.set_default_size(850, 520)
-        self.columnas = columnas
-        self.modo_seleccion = modo_seleccion
-        self.resultado_id = None
-        self.resultado_nombre = None
-
-        area = self.get_content_area()
-        area.set_spacing(4)
-
-        # ── Barra de búsqueda ──
-        hb = Gtk.Box(spacing=6)
-        hb.set_margin_start(8); hb.set_margin_end(8)
-        hb.set_margin_top(6)
-        hb.pack_start(Gtk.Label(label=_("Filtro:")), False, False, 0)
-        self.entry_filtro = Gtk.SearchEntry()
-        self.entry_filtro.set_hexpand(True)
-        self.entry_filtro.connect("search-changed", self._on_filtro)
-        hb.pack_start(self.entry_filtro, True, True, 0)
-        area.pack_start(hb, False, False, 0)
-
-        # ── TreeView ──
-        sw = Gtk.ScrolledWindow()
-        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        sw.set_vexpand(True)
-        sw.set_margin_start(8); sw.set_margin_end(8)
-        n_cols = len(self.columnas)
-        # Última columna del store: color de fondo (str, oculta)
-        self._COL_BG = n_cols
-        self.store = Gtk.ListStore(*([str] * n_cols + [str]))
-        self.filtro_model = self.store.filter_new()
-        self.filtro_model.set_visible_func(self._filtrar)
-        self.sort_model = Gtk.TreeModelSort(model=self.filtro_model)
-        self.tv = Gtk.TreeView(model=self.sort_model)
-        self.tv.set_headers_visible(True)
-        self.tv.set_headers_clickable(True)
-        self.tv.connect("row-activated", self._on_doble_click)
-        for i, titulo_col in enumerate(self.columnas):
-            rend = Gtk.CellRendererText(xpad=4)
-            rend.set_property("ellipsize", 3)  # Pango.EllipsizeMode.END
-            col = Gtk.TreeViewColumn(titulo_col, rend, text=i,
-                                     background=self._COL_BG)
-            col.set_resizable(True)
-            col.set_sort_column_id(i)
-            self.store.set_sort_func(i, _sort_func_natural, i)
-            col.set_expand(True)
-            if i == 0:   # columna ID: oculta por defecto para el usuario
-                col.set_visible(False)
-            self.tv.append_column(col)
-        sw.add(self.tv)
-        area.pack_start(sw, True, True, 0)
-
-        # ── Botones ──
-        hbtn = Gtk.Box(spacing=6)
-        hbtn.set_margin_start(8); hbtn.set_margin_end(8)
-        hbtn.set_margin_bottom(6)
-
-        self.btn_agregar = Gtk.Button(label="➕ " + _("Agregar"))
-        self.btn_editar = Gtk.Button(label="✏️ " + _("Editar"))
-        self.btn_eliminar = Gtk.Button(label="🗑️ " + _("Eliminar"))
-        self.btn_seleccionar = Gtk.Button(label="✔ " + _("Seleccionar"))
-        self.btn_seleccionar.get_style_context().add_class("suggested-action")
-
-        self.btn_agregar.connect("clicked", self._on_agregar)
-        self.btn_editar.connect("clicked", self._on_editar)
-        self.btn_eliminar.connect("clicked", self._on_eliminar)
-        self.btn_seleccionar.connect("clicked", self._on_seleccionar)
-
-        hbtn.pack_start(self.btn_agregar, False, False, 0)
-        hbtn.pack_start(self.btn_editar, False, False, 0)
-        hbtn.pack_start(self.btn_eliminar, False, False, 0)
-
-        if botones_extra:
-            for lbl, cb in botones_extra:
-                b = Gtk.Button(label=lbl)
-                b.connect("clicked", cb)
-                hbtn.pack_start(b, False, False, 0)
-
-        hbtn.pack_end(self.btn_seleccionar, False, False, 0)
-        area.pack_start(hbtn, False, False, 0)
-
-        self.btn_seleccionar.set_visible(self.modo_seleccion)
-        self.connect("key-press-event", self._on_tecla)
-        self.show_all()
-        self.btn_seleccionar.set_visible(self.modo_seleccion)
-
-    # ── Helpers ──
-    def _filtrar(self, model, iter_, data):
-        txt = self.entry_filtro.get_text().lower()
-        if not txt:
-            return True
-        for i in range(len(self.columnas)):
-            if txt in s(model.get_value(iter_, i)).lower():
-                return True
-        return False
-
-    def _on_filtro(self, entry):
-        self.filtro_model.refilter()
-
-    def _fila(self):
-        sel = self.tv.get_selection()
-        model, it = sel.get_selected()
-        if it is None:
-            return None
-        # sort_model → filtro_model → store
-        it2 = self.sort_model.convert_iter_to_child_iter(it)
-        it3 = self.filtro_model.convert_iter_to_child_iter(it2)
-        return [self.store.get_value(it3, i) for i in range(len(self.columnas))]
-
-    def _on_agregar(self, btn):
-        self.nuevo(); self.cargar_datos()
-
-    def _on_editar(self, btn):
-        f = self._fila()
-        if f:
-            self.editar(f[0]); self.cargar_datos()
-
-    def _on_eliminar(self, btn):
-        f = self._fila()
-        if not f:
-            return
-        if confirmar(self, f"¿Borrar el registro ID={f[0]}?"):
-            try:
-                self.eliminar(f[0]); self.cargar_datos()
-            except Exception as e:
-                mostrar_error(self, f"Error al eliminar:\n{e}")
-
-    def _on_seleccionar(self, btn):
-        f = self._fila()
-        if f:
-            self.resultado_id = f[0]
-            self.resultado_nombre = f[1] if len(f) > 1 else ""
-            self.response(Gtk.ResponseType.OK)
-
-    def _on_doble_click(self, tv, path, col):
-        if self.modo_seleccion:
-            self._on_seleccionar(None)
-        else:
-            self._on_editar(None)
-
-    def _on_tecla(self, widget, event):
-        alt = event.state & Gdk.ModifierType.MOD1_MASK
-        if alt and event.keyval == Gdk.KEY_a:
-            self._on_agregar(None)
-        elif alt and event.keyval == Gdk.KEY_e:
-            self._on_editar(None)
-        elif alt and event.keyval == Gdk.KEY_r:
-            self._on_eliminar(None)
-        elif event.keyval == Gdk.KEY_Escape:
-            self.hide()
-
-    def _poblar(self, filas, ids_resaltar=None, color_resaltar="#c8a800", color_por_id=None):
-        """Pobla el store.
-        ids_resaltar: set/list de str ids a colorear con color_resaltar (un
-            solo color parejo, uso histórico: "sin conectores", etc.)
-        color_por_id: dict {id_str: color_hex} para colorear cada fila con
-            un color distinto según su propio valor (ej. semáforo de riesgo:
-            verde/amarillo/naranja/rojo). Tiene prioridad sobre
-            ids_resaltar si un id aparece en ambos.
-        """
-        self.store.clear()
-        n = len(self.columnas)   # slots disponibles en el ListStore
-        ids_set = set(str(i) for i in ids_resaltar) if ids_resaltar else set()
-        colores = color_por_id or {}
-        for f in filas:
-            fila_str = [s(v) for v in list(f)[:n]]
-            while len(fila_str) < n:
-                fila_str.append("")
-            if fila_str[0] in colores:
-                bg = colores[fila_str[0]]
-            elif ids_set and fila_str[0] in ids_set:
-                bg = color_resaltar
-            else:
-                bg = None
-            self.store.append(fila_str + [bg])
-
-    # ── A implementar en subclases ──
-    def cargar_datos(self): raise NotImplementedError
-    def nuevo(self):        raise NotImplementedError
-    def editar(self, id_): raise NotImplementedError
-    def eliminar(self, id_): raise NotImplementedError
-
-    def run_and_destroy(self):
-        self.show_all()
-        self.run()
-        self.destroy()
-
-
-# ─── Diálogo simple de nombre (Marcas, Tipos, etc.) ──────────────────────────
-
-class DialogoNombre(Gtk.Dialog):
-    """Diálogo genérico para entidades con un solo campo 'nombre'."""
-
-    def __init__(self, titulo, etiqueta=_("Nombre:"), valor="", parent=None):
-        super().__init__(title=titulo, transient_for=parent,
-                         modal=True,
-                               destroy_with_parent=True)
-        self.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
-                         _("Aceptar"), Gtk.ResponseType.OK)
-        self.set_default_response(Gtk.ResponseType.OK)
-        self.set_default_size(350, 120)
-
-        grid = Gtk.Grid(column_spacing=8, row_spacing=6)
-        grid.set_margin_start(12); grid.set_margin_end(12)
-        grid.set_margin_top(12); grid.set_margin_bottom(12)
-        grid.attach(Gtk.Label(label=etiqueta, xalign=1), 0, 0, 1, 1)
-        self.entry = Gtk.Entry(text=valor, activates_default=True,
-                               hexpand=True)
-        grid.attach(self.entry, 1, 0, 1, 1)
-        self.get_content_area().add(grid)
-        self.show_all()
-
-    @property
-    def valor(self):
-        return self.entry.get_text().strip()
+# ─── Utilidades genéricas / base de listados / helpers de formulario ─────────
+#
+# Movidas a pantallas_comunes.py (plan_refactor_cabledoc.md, Entrega 1):
+# s, mostrar_error, mostrar_info, confirmar, _sort_func_natural,
+# VentanaListado, DialogoNombre, _grid, _lbl_entry, _entry, _entry_btn,
+# _searchable_combo, _get_combo_id, _set_combo_id, _repopulate_combo,
+# _pack_ultima_edicion. Se reexportan acá sin cambios para que todo el
+# código de este archivo (y los `from cabledoc import ...` externos de
+# patcheras_ui.py, rack_ui.py, etc.) siga funcionando idéntico.
+from pantallas_comunes import (
+    s,
+    mostrar_error,
+    mostrar_info,
+    confirmar,
+    _sort_func_natural,
+    VentanaListado,
+    DialogoNombre,
+    _grid,
+    _lbl_entry,
+    _entry,
+    _entry_btn,
+    _searchable_combo,
+    _get_combo_id,
+    _set_combo_id,
+    _repopulate_combo,
+    _pack_ultima_edicion,
+)
 
 
 # ─── Marcas ───────────────────────────────────────────────────────────────────
@@ -9291,124 +9047,6 @@ def _sel_imagen_desde_abm(parent):
             resultado = (str(fila[0]), s(fila[1]))
     dlg.destroy()
     return resultado
-
-
-def _grid():
-    g = Gtk.Grid(column_spacing=8, row_spacing=6,
-                 margin_start=12, margin_end=12,
-                 margin_top=12, margin_bottom=12)
-    return g
-
-
-def _lbl_entry(grid, texto, fila):
-    lbl = Gtk.Label(label=texto, xalign=1)
-    grid.attach(lbl, 0, fila, 1, 1)
-
-
-def _entry(grid, fila):
-    e = Gtk.Entry(hexpand=True, activates_default=True)
-    grid.attach(e, 1, fila, 2, 1)
-    return e
-
-
-def _entry_btn(grid, fila, btn_label, callback, readonly=False):
-    e = Gtk.Entry(hexpand=True)
-    if readonly:
-        e.set_editable(False)
-    btn = Gtk.Button(label=btn_label)
-    btn.connect("clicked", callback)
-    grid.attach(e, 1, fila, 1, 1)
-    grid.attach(btn, 2, fila, 1, 1)
-    return e
-
-
-def _searchable_combo(grid, fila, datos, btn_label=None, callback=None):
-    """
-    Crea un ComboBox con entrada de texto y autocompletado.
-    datos: lista de tuplas (id, nombre)
-
-    Si se pasan btn_label y callback, se agrega un botón al lado del combo
-    (por ejemplo "…" para abrir el ABM correspondiente y elegir/crear un
-    valor). En ese caso el combo ocupa una sola columna de grilla en lugar
-    de dos, dejando la siguiente columna libre para el botón.
-    """
-    store = Gtk.ListStore(str, str)
-    for d in datos:
-        store.append([str(d[0]), s(d[1])])
-    
-    combo = Gtk.ComboBox.new_with_model_and_entry(store)
-    combo.set_entry_text_column(1)
-    combo.set_hexpand(True)
-    
-    entry = combo.get_child()
-    completion = Gtk.EntryCompletion()
-    completion.set_model(store)
-    completion.set_text_column(1)
-    completion.set_inline_completion(True)
-    completion.set_popup_completion(True)
-    # Filtro que busca en cualquier parte de la cadena
-    completion.set_match_func(lambda comp, key, iter, *args: key.lower() in store.get_value(iter, 1).lower())
-    entry.set_completion(completion)
-    
-    if btn_label is not None and callback is not None:
-        grid.attach(combo, 1, fila, 1, 1)
-        btn = Gtk.Button(label=btn_label)
-        btn.connect("clicked", callback)
-        grid.attach(btn, 2, fila, 1, 1)
-    else:
-        grid.attach(combo, 1, fila, 2, 1)
-    return combo
-
-
-def _get_combo_id(combo):
-    it = combo.get_active_iter()
-    if it:
-        return combo.get_model().get_value(it, 0)
-    # Fallback: buscar el texto exacto en el modelo (si el usuario escribió y no seleccionó el iter)
-    txt = combo.get_child().get_text().strip()
-    if not txt:
-        return ""
-    model = combo.get_model()
-    it_busq = model.get_iter_first()
-    while it_busq:
-        if s(model.get_value(it_busq, 1)).strip().lower() == txt.lower():
-            return model.get_value(it_busq, 0)
-        it_busq = model.iter_next(it_busq)
-    return ""
-
-
-def _set_combo_id(combo, id_val):
-    if id_val is None:
-        return
-    model = combo.get_model()
-    it = model.get_iter_first()
-    while it:
-        if str(model.get_value(it, 0)) == str(id_val):
-            combo.set_active_iter(it)
-            return
-        it = model.iter_next(it)
-
-
-def _repopulate_combo(combo, datos):
-    """Limpia y vuelve a cargar los datos de un searchable combo."""
-    model = combo.get_model()
-    model.clear()
-    for d in datos:
-        model.append([str(d[0]), s(d[1])])
-
-
-def _pack_ultima_edicion(dialogo, tabla, pk_col, pk_val):
-    """Agrega label 'ULTIMA EDICION: <fecha>' al pie del dialogo si hay fecha."""
-    if not pk_val:
-        return
-    fecha = Modelo.devolver_fecha_ultima_edicion(tabla, pk_col, pk_val)
-    if not fecha:
-        return
-    lbl = Gtk.Label(xalign=1)
-    lbl.set_markup(f"<small><i>ULTIMA EDICIÓN: {fecha}</i></small>")
-    lbl.set_margin_end(12)
-    lbl.set_margin_bottom(6)
-    dialogo.get_content_area().pack_end(lbl, False, False, 0)
 
 
 # ─── Punto de entrada ─────────────────────────────────────────────────────────
