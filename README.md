@@ -137,11 +137,24 @@ several sessions with no other consumer.
 - GraphQLite (SQLite extension, Rust/C, Cypher query support) for
   `graph_impact.py`'s graph-based impact analysis
 - Pillow (optional, for image preview support)
+- **Rsvg GObject-introspection binding** (`gir1.2-rsvg-2.0` on
+  Debian/Ubuntu, or the equivalent package for your distro — e.g.
+  `mingw-w64-x86_64-librsvg` on MSYS2/Windows) — **required to display
+  `.svg` reference images** (floor plans, connector layout images, etc.).
+  This is a system-level typelib, not a `pip` package. Without it, SVG
+  images degrade gracefully to a placeholder explaining what's missing
+  instead of failing outright, but they won't render — install this
+  package if any of your reference images are `.svg`.
 
 ```bash
-apt install python3-gi gir1.2-gtk-3.0
+apt install python3-gi gir1.2-gtk-3.0 gir1.2-rsvg-2.0
 pip install pygobject pillow
 ```
+
+> If a reference image screen shows the "Sin imagen" placeholder, it now
+> states the specific reason (file not found, missing Rsvg binding,
+> unreadable SVG, etc.) instead of a generic message — check that text
+> first before assuming the image data itself is wrong.
 
 ## Running
 

@@ -29,7 +29,10 @@ generaría un import circular entre archivos hermanos.
 """
 
 import os
+import re
+import sys
 import math
+import textwrap
 import colorsys as _colorsys
 import hashlib as _hashlib
 
@@ -49,6 +52,47 @@ try:
 except Exception:
     Rsvg = None
     _RSVG_DISPONIBLE = False
+
+_AVISO_RSVG_FALTANTE_EMITIDO = False
+
+
+def _avisar_rsvg_faltante():
+    """Avisa una sola vez por consola cuando un .svg no se puede mostrar
+    porque falta el binding de introspección de Rsvg. Antes esto fallaba
+    en silencio y la única pista visible era el recuadro negro "Sin
+    imagen asignada" en pantalla, indistinguible de un archivo faltante
+    o corrupto — muy difícil de diagnosticar a distancia."""
+    global _AVISO_RSVG_FALTANTE_EMITIDO
+    if not _AVISO_RSVG_FALTANTE_EMITIDO:
+        _AVISO_RSVG_FALTANTE_EMITIDO = True
+        print("CableDoc: no se puede mostrar la imagen SVG porque falta el "
+              "binding de introspección de Rsvg (paquete del sistema "
+              "gir1.2-rsvg-2.0 en Debian/Ubuntu, o equivalente). Instalalo "
+              "y reiniciá la app para ver los archivos .svg.", file=sys.stderr)
+
+
+def _svg_viewbox_size(full_path):
+    """Último recurso para obtener el tamaño intrínseco de un SVG cuando
+    Rsvg.Handle.get_dimensions() devuelve 0x0 — algo frecuente en SVG
+    "vectorizados" (trace bitmap / exportadores) que sólo declaran
+    viewBox y dejan width/height en '100%' o directamente los omiten, ya
+    que get_dimensions() es una API vieja de librsvg que no siempre sabe
+    resolver ese caso. Lee el atributo viewBox del propio XML sin
+    depender de la versión de Rsvg instalada."""
+    try:
+        with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
+            encabezado = f.read(4096)  # <svg ...> siempre está al principio
+        m = re.search(r'viewBox\s*=\s*["\']([^"\']+)["\']', encabezado)
+        if m:
+            partes = m.group(1).replace(",", " ").split()
+            if len(partes) == 4:
+                ancho, alto = float(partes[2]), float(partes[3])
+                if ancho > 0 and alto > 0:
+                    return ancho, alto
+    except Exception:
+        pass
+    return None
+
 
 from modelo import IMG_DIR
 
@@ -101,27 +145,63 @@ class _ImagenSVG:
 
 
 def _pixbuf_from_name(nombre_archivo):
+    pb, _motivo = _pixbuf_from_name_con_motivo(nombre_archivo)
+    return pb
+
+
+def _pixbuf_from_name_con_motivo(nombre_archivo):
+    """Igual que _pixbuf_from_name, pero además devuelve un texto explicando
+    por qué falló cuando devuelve None (archivo no encontrado, falta Rsvg,
+    SVG sin dimensiones utilizables, error de lectura...). Antes, cualquiera
+    de estos motivos terminaba en el mismo recuadro negro genérico "Sin
+    imagen asignada", indistinguible entre "no copiaste el archivo" y "no
+    está instalado el binding de Rsvg" — un problema real se veía igual que
+    un dato faltante, muy difícil de diagnosticar a distancia."""
     if not nombre_archivo:
-        return None
-    ruta = os.path.join(IMG_DIR, s(nombre_archivo).strip())
+        return None, None
+    nombre_limpio = s(nombre_archivo).strip()
+    ruta = os.path.join(IMG_DIR, nombre_limpio)
     if not os.path.exists(ruta):
-        return None
+        return None, _(
+            "No se encontró el archivo '{0}' en la carpeta de imágenes "
+            "({1}).").format(nombre_limpio, IMG_DIR)
     if ruta.lower().endswith(".svg"):
         if not _RSVG_DISPONIBLE:
-            return None
+            _avisar_rsvg_faltante()
+            return None, _(
+                "El archivo '{0}' es un SVG, pero en esta instalación "
+                "falta el componente para mostrarlos (Rsvg). Instalá "
+                "gir1.2-rsvg-2.0 (o el paquete equivalente de tu sistema) "
+                "y reiniciá la app.").format(nombre_limpio)
         try:
             handle = Rsvg.Handle.new_from_file(ruta)
             dim = handle.get_dimensions()
-            if dim.width and dim.height:
-                return _ImagenSVG(ruta, handle, dim.width, dim.height)
-        except Exception:
-            pass
-        return None
+            ancho, alto = dim.width, dim.height
+            if not ancho or not alto:
+                # get_dimensions() (API vieja de librsvg) puede devolver
+                # 0x0 en SVG que sólo declaran viewBox — ver
+                # _svg_viewbox_size. Sin este fallback, esos SVG se
+                # mostraban en negro como "sin imagen" aunque el archivo
+                # existiera y fuera válido.
+                tam = _svg_viewbox_size(ruta)
+                if tam:
+                    ancho, alto = tam
+            if ancho and alto:
+                return _ImagenSVG(ruta, handle, ancho, alto), None
+            return None, _(
+                "El archivo '{0}' es un SVG válido pero no se le pudo "
+                "determinar el ancho/alto (no declara width/height ni un "
+                "viewBox utilizable).").format(nombre_limpio)
+        except Exception as ex:
+            return None, _(
+                "No se pudo leer '{0}' como SVG: {1}").format(
+                    nombre_limpio, ex)
     try:
-        return GdkPixbuf.Pixbuf.new_from_file(ruta)
-    except Exception:
-        pass
-    return None
+        return GdkPixbuf.Pixbuf.new_from_file(ruta), None
+    except Exception as ex:
+        return None, _(
+            "No se pudo leer '{0}' como imagen: {1}").format(
+                nombre_limpio, ex)
 
 
 PALETA = [
@@ -230,6 +310,7 @@ class _ImagenZoom(Gtk.Box):
         self.pixbuf     = None
         self.zoom       = 1.0
         self.overlay_fn = None      # callable(cr) — dibuja sobre la imagen
+        self._motivo_sin_imagen = None
 
         # ── barra de zoom ──
         hbz = Gtk.Box(spacing=4,
@@ -268,7 +349,18 @@ class _ImagenZoom(Gtk.Box):
     # ── público ───────────────────────────────────────────────────────────
     def set_pixbuf(self, pb):
         self.pixbuf = pb
+        if pb is not None:
+            self._motivo_sin_imagen = None
         self._update_size()
+
+    def set_motivo_sin_imagen(self, texto):
+        """Guarda por qué no se pudo cargar la imagen (ver
+        _pixbuf_from_name_con_motivo) para mostrarlo en el recuadro negro
+        en vez del texto genérico "Sin imagen asignada" — así un archivo
+        faltante, un SVG mal formado y una dependencia no instalada se
+        pueden distinguir a simple vista, sin abrir una terminal."""
+        self._motivo_sin_imagen = texto
+        self.da.queue_draw()
 
     def set_zoom(self, z):
         self.zoom = max(0.1, min(8.0, z))
@@ -311,16 +403,28 @@ class _ImagenZoom(Gtk.Box):
         self.set_zoom(min(zw, zh))
 
     def _on_draw(self, da, cr):
-        # fondo gris oscuro
-        cr.set_source_rgb(0.25, 0.25, 0.25)
+        # fondo blanco — antes era gris oscuro (0.25,0.25,0.25); con SVG
+        # de fondo transparente (como los planos vectorizados, que sólo
+        # traen los trazos) ese gris se veía por detrás de todo el dibujo.
+        cr.set_source_rgb(1, 1, 1)
         cr.paint()
 
         if not self.pixbuf:
-            cr.set_source_rgb(0.80, 0.80, 0.80)
+            cr.set_source_rgb(0.40, 0.40, 0.40)
             cr.select_font_face("Sans", 0, 0)
             cr.set_font_size(14)
             cr.move_to(20, 40)
-            cr.show_text(_("Sin imagen asignada al equipo/conector"))
+            if self._motivo_sin_imagen:
+                cr.show_text(_("Sin imagen:"))
+                cr.set_font_size(12)
+                # texto largo: cortar en varias líneas simples para que no
+                # se salga del recuadro visible
+                for i, linea in enumerate(textwrap.wrap(
+                        self._motivo_sin_imagen, 70)):
+                    cr.move_to(20, 60 + i * 18)
+                    cr.show_text(linea)
+            else:
+                cr.show_text(_("Sin imagen asignada al equipo/conector"))
             return
 
         # imagen escalada — SVG se re-renderiza como vector en cada
