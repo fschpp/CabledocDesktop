@@ -6,6 +6,7 @@ Usa parámetros en las consultas para evitar inyección SQL.
 
 import sqlite3
 import os
+import re
 import base64
 import contextlib
 
@@ -116,6 +117,32 @@ class Modelo:
     _CACHE_DIMENSIONES_IMAGEN = {}
 
     @staticmethod
+    def _svg_viewbox_size(full_path):
+        """Último recurso para el tamaño intrínseco de un SVG cuando
+        Rsvg.Handle.get_dimensions() (API vieja) devuelve 0x0 — pasa con
+        SVG "vectorizados" que sólo declaran viewBox y dejan width/height
+        en '100%' o los omiten. Lee el viewBox directo del XML, sin
+        depender de la versión de Rsvg instalada. Duplicado a propósito
+        de la copia homónima en pantallas_comunes.py (ver comentario ahí);
+        modelo.py no puede importar de pantallas_comunes.py porque la
+        dependencia va al revés (pantallas_comunes importa IMG_DIR de
+        acá), así que se evita el import circular repitiendo esta
+        función chica en vez de moverla a un tercer módulo compartido."""
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
+                encabezado = f.read(4096)
+            m = re.search(r'viewBox\s*=\s*["\']([^"\']+)["\']', encabezado)
+            if m:
+                partes = m.group(1).replace(",", " ").split()
+                if len(partes) == 4:
+                    ancho, alto = float(partes[2]), float(partes[3])
+                    if ancho > 0 and alto > 0:
+                        return ancho, alto
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
     def _dimensiones_imagen(path_archivo):
         """Devuelve (ancho_px, alto_px) de la imagen ubicada en IMG_DIR
         bajo el nombre `path_archivo`. Soporta cualquier raster que
@@ -157,6 +184,13 @@ class Modelo:
                 handle = Rsvg.Handle.new_from_file(full_path)
                 dim = handle.get_dimensions()
                 ancho, alto = dim.width, dim.height
+                if not ancho or not alto:
+                    # SVG con sólo viewBox (típico de archivos
+                    # vectorizados/exportados) — get_dimensions() no lo
+                    # resuelve bien en muchas versiones de librsvg.
+                    tam = Modelo._svg_viewbox_size(full_path)
+                    if tam:
+                        ancho, alto = tam
             else:
                 gi.require_version("GdkPixbuf", "2.0")
                 from gi.repository import GdkPixbuf

@@ -28,7 +28,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260901223100"
+APP_VERSION = "1.20260903000000"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -1956,20 +1956,56 @@ class _DialogoImagen(Gtk.Dialog):
         dlg.add_filter(filt)
         if dlg.run() == Gtk.ResponseType.OK:
             ruta = dlg.get_filename()
-            # Copiar a subcarpeta imagen/ junto al db
-            os.makedirs(IMG_DIR, exist_ok=True)
-            nombre = os.path.basename(ruta)
-            destino = os.path.join(IMG_DIR, nombre)
-            if not os.path.exists(destino):
-                import shutil
-                shutil.copy2(ruta, destino)
-            self.e_path.set_text(nombre)
+            if ruta:
+                # Copiar a subcarpeta imagen/ junto al db. A diferencia de
+                # la versión anterior ("copiar sólo si el destino no
+                # existe"), acá se pisa el archivo salvo que origen y
+                # destino sean literalmente el mismo archivo (ya está
+                # dentro de IMG_DIR) — mismo criterio que _sel_picon y el
+                # selector de manuales. Con el criterio viejo, si ya
+                # había un archivo con ese nombre en IMG_DIR (ej. un
+                # intento previo corrupto o vacío), volver a usar
+                # "Explorar" con el archivo corregido dejaba el campo con
+                # el nombre bien puesto pero el contenido en disco sin
+                # actualizar — la imagen quedaba "pisada" por la vieja
+                # sin ningún aviso.
+                os.makedirs(IMG_DIR, exist_ok=True)
+                nombre = os.path.basename(ruta)
+                destino = os.path.join(IMG_DIR, nombre)
+                if os.path.abspath(ruta) != os.path.abspath(destino):
+                    try:
+                        import shutil
+                        shutil.copy2(ruta, destino)
+                    except Exception as e:
+                        mostrar_error(self, f"Error al copiar la imagen: {e}")
+                self.e_path.set_text(nombre)
         dlg.destroy()
 
     def run_and_destroy(self):
         if self.run() == Gtk.ResponseType.OK:
             path = self.e_path.get_text().strip() or None
             desc = self.e_desc.get_text().strip() or None
+            # "Explorar" copia el archivo elegido a IMG_DIR y después
+            # completa este mismo campo, pero acá se puede escribir/pegar
+            # el nombre de archivo a mano sin pasar por esa copia. Si el
+            # archivo referenciado no está realmente en IMG_DIR, guardar
+            # igual deja la imagen "colgada": cualquier pantalla que la
+            # use (ej. abrir un equipo con esta imagen asociada) va a
+            # mostrar el recuadro negro "Sin imagen asignada" sin más
+            # explicación. Avisamos antes de guardar para que quede claro
+            # por qué — pero sin bloquear el guardado, porque cargar el
+            # registro antes de tener el archivo copiado es un flujo
+            # válido (p.ej. wip).
+            if path and not os.path.isfile(os.path.join(IMG_DIR, path)):
+                mostrar_error(
+                    self,
+                    _("El archivo '{0}' no está en la carpeta de imágenes "
+                      "({1}). El registro se va a guardar igual, pero la "
+                      "imagen va a aparecer en negro (\"Sin imagen\") "
+                      "hasta que copies el archivo ahí — usá el botón "
+                      "\"Explorar\" en vez de escribir la ruta a mano, o "
+                      "copiá el archivo manualmente a esa carpeta.")
+                    .format(path, IMG_DIR))
             if self.id_imagen:
                 Modelo.modificacion_imagen(self.id_imagen, path, desc)
             else:

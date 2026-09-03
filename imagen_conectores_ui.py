@@ -26,7 +26,10 @@ from gi.repository import Gtk, Gdk, GLib
 
 from modelo import Modelo
 
-from pantallas_comunes import _, s, _pixbuf_from_name, _ImagenZoom, PALETA
+from pantallas_comunes import (
+    _, s, _pixbuf_from_name, _pixbuf_from_name_con_motivo,
+    _ImagenZoom, PALETA,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -145,9 +148,11 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         if id_imagen:
             path = Modelo.path_imagen(id_imagen)
             if path:
-                pb = _pixbuf_from_name(path)
+                pb, motivo = _pixbuf_from_name_con_motivo(path)
                 if pb:
                     self._viz.set_pixbuf(pb)
+                else:
+                    self._viz.set_motivo_sin_imagen(motivo)
 
         self.show_all()
 
@@ -455,10 +460,12 @@ class ImagenConectoresYCables(Gtk.Dialog):
                 num += 1
 
         if path_img:
-            pb = _pixbuf_from_name(path_img)
+            pb, motivo = _pixbuf_from_name_con_motivo(path_img)
             if pb:
                 self._viz.set_pixbuf(pb)
                 GLib.idle_add(self._viz._zoom_fit)
+            else:
+                self._viz.set_motivo_sin_imagen(motivo)
 
     # ── overlay ───────────────────────────────────────────────────────────
     def _dibujar_overlay(self, cr):
