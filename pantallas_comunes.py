@@ -921,3 +921,22 @@ def _pack_ultima_edicion(dialogo, tabla, pk_col, pk_val):
     lbl.set_margin_end(12)
     lbl.set_margin_bottom(6)
     dialogo.get_content_area().pack_end(lbl, False, False, 0)
+
+
+def _parse_float_opt(texto):
+    """Convierte un Entry a float o None (campo vacío = sin dato, no 0)."""
+    texto = (texto or "").strip().replace(",", ".")
+    if not texto:
+        return None
+    try:
+        return float(texto)
+    except ValueError:
+        return None
+
+
+def _fmt_float_opt(valor):
+    if valor is None:
+        return ""
+    if float(valor) == int(valor):
+        return str(int(valor))
+    return str(valor)
