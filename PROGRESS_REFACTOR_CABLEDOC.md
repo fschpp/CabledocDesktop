@@ -9,28 +9,33 @@ para no mezclar tres historiales con ritmos distintos.
 
 ## Current Focus
 
-Entrega 3 completada: extraídos `equipos_ui.py` (1.207 líneas: `EquiposListado`,
-`_DialogoDireccionConector`, `_DialogoEquipo`) y `equipos_alta_rapida_ui.py`
-(591 líneas: `_DialogoAltaRapidaEquipo`), tal como estaba diseñado en
-`plan_refactor_cabledoc.md` §4 (split en 2 archivos porque juntos superaban
-las ~900 líneas objetivo). Los bloques de `EquiposListado` y de
-`_DialogoDireccionConector`+`_DialogoEquipo` no eran contiguos en el
-original — entre ellos quedan en `cabledoc.py` `_DialogoDuplicarMolde` y
-`_DialogoAltaRapidaCatalogo` (dominio de catálogo de equipos, Entrega 5) —
-así que se unieron en `equipos_ui.py` sin tocar esas dos clases.
-`cabledoc.py` reexporta los 4 nombres movidos. Referencias cruzadas a
-`CatalogoEquiposListado`, `_DialogoInstanciarCatalogo`, `ImagenesListado`,
-`MarcasListado`, `TiposEquipoListado`, `ConectoresListado`,
-`_DialogoRenombrarConectores`, `ProblemasEquipoListado`, `TiposConectorListado`
-(siguen en `cabledoc.py`) resueltas con import diferido; ídem la referencia
-cruzada entre los dos módulos nuevos (`_DialogoDireccionConector` ↔
-`_DialogoAltaRapidaEquipo`). `cabledoc.py`: 8.217 → 6.568 líneas. Validado con
-ast.parse, py_compile, import real bajo Xvfb con identidad de objeto
-confirmada (incluida la referencia cruzada entre módulos nuevos), import
-limpio de los 4 archivos que dependen de `cabledoc`, y smoke test funcional
-bajo Xvfb contra una copia descartable de `database/db.db` con 1 equipo de
-fixture insertado por SQL directo. Rama: `refactor/etapa3-equipos-ui`.
-`APP_VERSION` → `1.20260903223802`.
+Entrega 4 completada: extraído `conectores_ui.py` (466 líneas: `ConectoresListado`,
+`_DialogoConector`, `_DialogoRenombrarConectores`), bloque contiguo en el
+original (separador `# ─── Conectores ───`) — a diferencia de la Entrega 3,
+no hubo que unir rangos no adyacentes. `cabledoc.py` reexporta los 3 nombres
+movidos. Referencias cruzadas a `ImagenesListado` y `_DialogoSenal` (siguen
+en `cabledoc.py`) resueltas con import diferido, mismo patrón que las
+entregas anteriores; `abrir_coords_imagen` (usada en `_sel_coordenadas`) se
+importa a nivel de módulo desde `pantallas_avanzadas`, igual que hace
+`equipos_ui.py`. El uso interno residual de `_DialogoConector` dentro de
+`PanelArbol` (todavía en `cabledoc.py`) sigue funcionando sin cambios porque
+el nombre queda importado a nivel de módulo. `cabledoc.py`: 6.568 → 6.167
+líneas. Validado con ast.parse, py_compile, pyflakes (cero warnings nuevos:
+mismos 5 preexistentes en `main` más "imported but unused" esperado del
+patrón de reexport), *move* verificado byte a byte contra el bloque original
+(diff limpio salvo los 2 imports diferidos agregados), import real bajo
+Xvfb con identidad de objeto confirmada, import limpio de `equipos_ui.py` /
+`cables_conexiones_ui.py` / `pantallas_avanzadas.py`, referencia cruzada
+`equipos_ui` → `ConectoresListado`/`_DialogoRenombrarConectores` vía
+`cabledoc` resuelta al mismo objeto, y smoke test funcional bajo Xvfb contra
+una copia descartable de `database/db.db` con 1 equipo PATCHERA + 2
+conectores de fixture insertados por SQL directo: `ConectoresListado`
+abrió y cargó datos, `_DialogoConector` en modo edición (combo de función de
+patchera visible por ser equipo PATCHERA, sección de Armado visible
+confirmando que `asegurar_tablas_bitacora()` corrió su `ALTER TABLE` sin
+error) y en modo alta, y `_DialogoRenombrarConectores` cargó los 2
+conectores fixture. Rama: `refactor/etapa4-conectores-ui` (sin commitear —
+diff entregado para que Fede haga el commit en su terminal).
 
 ## Todo List
 
@@ -38,7 +43,7 @@ fixture insertado por SQL directo. Rama: `refactor/etapa3-equipos-ui`.
       genéricas de UI compartidas (base de todo lo demás)
 - [x] Entrega 2 — `cables_conexiones_ui.py` (desbloquea Extensión de cable)
 - [x] Entrega 3 — `equipos_ui.py` + `equipos_alta_rapida_ui.py`
-- [ ] Entrega 4 — `conectores_ui.py`
+- [x] Entrega 4 — `conectores_ui.py`
 - [ ] Entrega 5 — `catalogo_equipos_ui.py` + `catalogo_equipos_alta_rapida_ui.py`
 - [ ] Entrega 6 — `senal_catalogo_ui.py`
 - [ ] Entrega 7 — `racks_salas_ui.py` + `frames_slots_ui.py`
@@ -93,3 +98,29 @@ fixture insertado por SQL directo. Rama: `refactor/etapa3-equipos-ui`.
   también está vacío de equipos. Smoke test con 1 fila de fixture insertada
   por SQL directo sobre copia descartable. Pendiente arrastrada: correr
   contra el `db.db` real de Papi (acumulada de las 3 entregas).
+- **Entrega 4 — `graphqlite` sí está en PyPI**: a diferencia de lo que se
+  sospechaba en la Entrega 1, `pip install graphqlite --break-system-packages`
+  funcionó sin problema en este sandbox (`from graphqlite.graph import Graph`
+  importó OK). Sigue sin estar listado en `requisitos.txt` — Papi debería
+  confirmar si conviene agregarlo ahí para que quede documentado, aunque ya
+  no es un hallazgo bloqueante.
+- **Entrega 4 — bloque contiguo, sin sorpresas de layout**: a diferencia de
+  la Entrega 3, `ConectoresListado`, `_DialogoConector` y
+  `_DialogoRenombrarConectores` estaban contiguos en `cabledoc.py` (un solo
+  rango de líneas bajo el separador `# ─── Conectores ───`), así que el
+  *move* fue directo sin tener que concatenar rangos no adyacentes.
+- **Entrega 4 — confirmación de patrón de migración idempotente**: las
+  columnas `id_funcion_patchera` (tabla `conector`) y
+  `es_armado_correcto`/`detalle_armado` (tabla `conector`, no `conexion` a
+  pesar del nombre similar de columnas en esa otra tabla) no estaban en el
+  fixture creado desde `schema_db.sql` a pelo, pero se crearon solas al
+  llamar a `Modelo.funciones_patchera()` y `Modelo.asegurar_tablas_bitacora()`
+  respectivamente durante la apertura del diálogo — sin necesidad de tocar
+  nada a mano. Confirma que el patrón `asegurar_columnas_*`/`asegurar_tablas_*`
+  autoinvocado desde los métodos que lo necesitan (no sólo desde un setup
+  central) sigue funcionando correctamente tras el *move*.
+- **Entrega 4 — mismo hallazgo que las Entregas 2 y 3:** `database/db.db` del
+  repo sigue vacío de datos. Smoke test con 1 equipo (rol PATCHERA, para
+  ejercitar el combo de función de patchera) + 2 conectores de fixture
+  insertados por SQL directo sobre copia descartable. Pendiente arrastrada:
+  correr contra el `db.db` real de Papi (acumulada de las 4 entregas).
