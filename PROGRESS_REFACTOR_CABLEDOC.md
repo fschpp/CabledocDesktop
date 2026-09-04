@@ -9,6 +9,16 @@ para no mezclar tres historiales con ritmos distintos.
 
 ## Current Focus
 
+**Entrega 8 completada en esta sesión** (`catalogos_basicos_ui.py`) — ver
+sección propia abajo. Acotación de Fede incorporada: el plan (§4) dejaba
+sin destino asignado 4 bloques (`ConexionesDeEquipoVentana`,
+`DiagramasGuardadosListado`, `GeneradorDiagrama`, `EquipoInfoExtra` — este
+último ni siquiera existía cuando se escribió el plan), y como la Entrega
+9 es la última antes del cierre de la Entrega 10, se sumaron a
+`catalogos_basicos_ui.py` (único punto restante con perfil "catch-all")
+en vez de dejarlos varados — desviación documentada en el docstring del
+módulo nuevo y en `changelog.txt`.
+
 **Corrección de estado (2026-09-04):** al ponerme al día con los adjuntos
 de esta sesión, encontré que este documento y `changelog.txt` habían
 quedado desactualizados respecto del checkout real de Papi: la **Entrega 6
@@ -121,6 +131,46 @@ Fede corra ese checklist en su entorno antes de mergear. Rama: no creada
 (sin acceso a GitHub esta sesión) — diff entregado (`cabledoc.py.diff`)
 para que Fede haga `git checkout -b`, aplique los 3 archivos y commitee.
 
+Entrega 8 completada: `catalogos_basicos_ui.py` (1.007 líneas de código
+movido, ~1.083 con header/docstring/imports) — `MarcasListado`,
+`_DialogoTipoEquipo`, `TiposEquipoListado`, `TiposConectorListado`,
+`RiesgoSenalListado`, `_DialogoTipoCable`, `TiposCableListado`,
+`_DialogoTipoFicha`, `TiposFichaListado`, `CategoriasProblemaListado`,
+`ProblemasEquipoListado`, `_DialogoProblema`, `ImagenesListado`,
+`_DialogoImagen` (bloque "catálogos chicos" del plan, líneas 244-1031) +
+`ConexionesDeEquipoVentana`, `DiagramasGuardadosListado`,
+`GeneradorDiagrama`, `EquipoInfoExtra` (bloque "huérfanos", líneas
+1135-1350, separados del anterior por `_DialogoRenombrarConectoresCatalogo`
+que queda en `cabledoc.py`). Deviación respecto del plan documentada en el
+Current Focus de arriba y en el docstring del módulo nuevo: ~1.112 líneas
+totales del archivo final vs. ~774 estimadas por el plan §4, por sumar los
+4 bloques huérfanos. Referencia cruzada a `_DialogoCable`
+(`cables_conexiones_ui.py`) resuelta con import diferido dentro de
+`RiesgoSenalListado.editar`, ruteando vía `from cabledoc import
+_DialogoCable` — mismo patrón ya establecido por `racks_salas_ui.py` con
+`FramesListado`. `cabledoc.py`: 2.917 → 1.949 líneas. `APP_VERSION` →
+`1.20260904060000`. Validado con ast.parse + py_compile sobre ambos
+archivos, diff byte a byte de cada bloque movido contra el checkout de
+`main` en GitHub (idéntico salvo el import diferido agregado; confirma
+además que `_DialogoRenombrarConectoresCatalogo` quedó correctamente
+excluido del *move*), pyflakes comparado contra baseline de `main` (cero
+F821 nuevos, únicas advertencias nuevas son "imported but unused" del
+patrón de reexport esperado), import real bajo Xvfb con identidad de
+objeto confirmada para los 18 nombres movidos + `_DialogoRenombrarConectoresCatalogo`
+(no movido), import limpio de los 13 módulos externos que dependen de
+`cabledoc`, y smoke test funcional bajo Xvfb contra una copia descartable
+de `database/db.db` (que en esta sesión sí venía versionado en el repo,
+con esquema pero sin datos) con 1 fila de fixture por tabla insertada por
+SQL directo. Único hallazgo: no se pudo instanciar `EquipoInfoExtra` en
+el smoke test porque su `__init__` llama a un diálogo modal (`.run()`)
+que bloquea esperando respuesta interactiva — cubierto por el diff byte a
+byte y la validación por separado de sus dos dependencias directas. Esta
+sesión sí tuvo acceso de red (a diferencia de la Entrega 7): se instalaron
+`gir1.2-gtk-3.0`, `python3-gi-cairo`, `xvfb` y `pip graphqlite` sin
+problemas. Rama: `refactor/etapa8-catalogos-basicos-ui` (creada localmente
+desde `main` de GitHub, sin commitear — diff entregado para que Fede haga
+el commit en su terminal).
+
 
 
 ## Todo List
@@ -133,7 +183,11 @@ para que Fede haga `git checkout -b`, aplique los 3 archivos y commitee.
 - [x] Entrega 5 — `catalogo_equipos_ui.py` + `catalogo_equipos_alta_rapida_ui.py`
 - [x] Entrega 6 — `senal_catalogo_ui.py`
 - [x] Entrega 7 — `racks_salas_ui.py` + `frames_slots_ui.py`
-- [ ] Entrega 8 — `catalogos_basicos_ui.py`
+- [x] Entrega 8 — `catalogos_basicos_ui.py` (incluye 4 bloques huérfanos
+      del plan: `ConexionesDeEquipoVentana`, `DiagramasGuardadosListado`,
+      `GeneradorDiagrama`, `EquipoInfoExtra` — ver desviación documentada
+      arriba; `_DialogoRenombrarConectoresCatalogo` queda pendiente de
+      asignar destino, no forma parte de esta entrega)
 - [ ] Entrega 9 — `panel_arbol_ui.py` (penúltimo a propósito: orquestador
       que referencia diálogos de todos los dominios anteriores)
 - [ ] Entrega 10 — Cierre: `cabledoc.py` queda como fachada delgada
