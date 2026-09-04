@@ -9,6 +9,16 @@ para no mezclar tres historiales con ritmos distintos.
 
 ## Current Focus
 
+**Corrección de estado (2026-09-04):** al ponerme al día con los adjuntos
+de esta sesión, encontré que este documento y `changelog.txt` habían
+quedado desactualizados respecto del checkout real de Papi: la **Entrega 6
+(`senal_catalogo_ui.py`) ya estaba aplicada en el código** (cabledoc.py ya
+la reexportaba, 4.986 → 4.150 líneas) pero nunca se registró su entrada de
+changelog/PROGRESS — probablemente un corte de sesión. Se agregó la
+entrada retroactiva en `changelog.txt` y se marca acá como hecha. A partir
+de ahí se completó la **Entrega 7** (`racks_salas_ui.py` +
+`frames_slots_ui.py`) en esta sesión — ver sección propia abajo.
+
 Entrega 5 completada: extraído `catalogo_equipos_ui.py` (792 líneas:
 `CatalogoEquiposListado`, `_DialogoConflictosImportacion`,
 `_DialogoCatalogoEquipo`, `_ConectoresCatalogoListado`,
@@ -52,6 +62,67 @@ cargó los 2 conectores-molde. Rama: `refactor/etapa5-catalogo-equipos-ui`
 (sin commitear — diff entregado para que Fede haga el commit en su
 terminal).
 
+Entrega 6 completada (confirmación retroactiva): `senal_catalogo_ui.py`
+(915 líneas) — `_DialogoSenal`, `SenalesListado`, `TiposFormatoSenalListado`,
+`_mostrar_donde_esta_senal`, `abrir_buscador_senal`, `_DialogoLinajeSenal`,
+`_ArbolLinajeSenal`, `_mostrar_lista_simple`, `_DialogoPropagacionSenal`,
+`abrir_propagacion_senal`, `_DialogoReportesSenal`, `abrir_reportes_senal`,
+`abrir_limpiar_senales_propagadas`. `cabledoc.py`: 4.986 → 4.150 líneas.
+Confirmado por inspección directa del checkout de Papi al arrancar esta
+sesión — el código ya estaba aplicado, pero la entrega nunca se documentó
+en `changelog.txt`/PROGRESS (corte de sesión). Entrada retroactiva agregada
+en `changelog.txt`; validación detallada (diff byte a byte, import real,
+smoke test) no se pudo reconstruir retroactivamente en esta sesión — sólo
+se confirmó `ast.parse`/`py_compile` sobre el archivo tal cual estaba en el
+checkout, sin cambios.
+
+Entrega 7 completada: `racks_salas_ui.py` (529 líneas: `RacksListado`,
+`_DialogoRack`, `PosicionEnRackListado`, `_DialogoPosicionRack`,
+`SalasListado`, `_DialogoRackPorSala`, `RackPorSalaListado`,
+`_DialogoEquipoNoRackSala`, `EquiposNoRackSalaListado`) +
+`frames_slots_ui.py` (890 líneas: `CatalogoFramesListado`,
+`_DialogoCatalogoFrame`, `_SlotsCatalogoListado`, `_DialogoSlotCatalogo`,
+`_DialogoInstanciarCatalogoFrame`, `FramesListado`, `_DialogoFrame`,
+`SlotsListado`, `_DialogoSlot`). El bloque "Racks" (1091-1338) y "Salas"
+(2214-2431) no eran contiguos entre sí (entre ellos queda Frames/Slots,
+que se extrae al archivo hermano, y `ConexionesDeEquipoVentana`, que
+permanece en `cabledoc.py` fuera del alcance de esta entrega) — se unieron
+en `racks_salas_ui.py`, mismo criterio de tamaño que las Entregas 3 y 5.
+El bloque "Catálogo de frames + Frames + Slots" (1340-2147) sí era
+contiguo, sin sorpresas de layout (como la Entrega 4). `cabledoc.py`
+reexporta los 18 nombres movidos (9+9). Referencias cruzadas a
+`EquiposListado`, `MarcasListado`, `ImagenesListado`,
+`_escribir_json_comprimido`, `_leer_json_generico`, `_sel_imagen_desde_abm`
+(siguen en `cabledoc.py`/`equipos_ui.py`) resueltas con import diferido,
+mismo patrón que las entregas anteriores — incluida la referencia cruzada
+entre los dos módulos hermanos de esta misma entrega (`racks_salas_ui.py`
+importa `FramesListado` dentro de `_DialogoPosicionRack._sel_frame`), que
+también rutea vía `from cabledoc import FramesListado` en vez de un import
+directo entre hermanos, siguiendo la convención ya establecida por
+`cables_conexiones_ui.py` con `EquiposListado`. `abrir_vista_rack` se
+importa a nivel de módulo en ambos archivos nuevos; `abrir_coords_imagen`,
+`abrir_vista_frame_slots`, `abrir_editor_masivo_slots` y
+`abrir_editor_masivo_slots_catalogo` a nivel de módulo en
+`frames_slots_ui.py`. `cabledoc.py`: 4.150 → 2.917 líneas. `APP_VERSION`
+→ `1.20260904050000`. Validado con ast.parse + py_compile sobre los 3
+archivos, diff línea por línea de cada bloque movido contra su ubicación
+original (script propio, idéntico carácter por carácter salvo los imports
+diferidos agregados), diff completo de `cabledoc.py` contra el original
+(confirma que sólo se tocaron 4 zonas: APP_VERSION, bloque de reexport
+nuevo, y los dos bloques removidos), grep de los 16 archivos externos que
+hacen `from cabledoc import` (confirma que `RacksListado`/`_DialogoFrame`,
+únicos nombres de esta entrega referenciados fuera de `cabledoc.py`, ambos
+desde `rack_ui.py`, siguen resolviendo sin cambios) y chequeo manual de
+nombres libres por función (script ast propio, sustituto de pyflakes) sin
+hallazgos reales. **No se pudo correr** import real bajo Xvfb ni pyflakes
+real ni smoke test funcional — este sandbox no tuvo acceso de red en esta
+sesión (ver Blockers), a diferencia de las Entregas 1-6. Pendiente que
+Fede corra ese checklist en su entorno antes de mergear. Rama: no creada
+(sin acceso a GitHub esta sesión) — diff entregado (`cabledoc.py.diff`)
+para que Fede haga `git checkout -b`, aplique los 3 archivos y commitee.
+
+
+
 ## Todo List
 
 - [x] Entrega 1 — `pantallas_comunes.py` como única fuente de utilidades
@@ -60,8 +131,8 @@ terminal).
 - [x] Entrega 3 — `equipos_ui.py` + `equipos_alta_rapida_ui.py`
 - [x] Entrega 4 — `conectores_ui.py`
 - [x] Entrega 5 — `catalogo_equipos_ui.py` + `catalogo_equipos_alta_rapida_ui.py`
-- [/] Entrega 6 — `senal_catalogo_ui.py`
-- [ ] Entrega 7 — `racks_salas_ui.py` + `frames_slots_ui.py`
+- [x] Entrega 6 — `senal_catalogo_ui.py`
+- [x] Entrega 7 — `racks_salas_ui.py` + `frames_slots_ui.py`
 - [ ] Entrega 8 — `catalogos_basicos_ui.py`
 - [ ] Entrega 9 — `panel_arbol_ui.py` (penúltimo a propósito: orquestador
       que referencia diálogos de todos los dominios anteriores)
@@ -161,3 +232,35 @@ terminal).
   (moldes)" de esta entrega — no hubo sorpresas de layout como en la
   Entrega 3, el bloque completo (1.205 líneas) estaba de corrido bajo un
   único separador.
+- **Entrega 6 — hallazgo de esta sesión (documentación desincronizada):**
+  al arrancar esta sesión, `PROGRESS_REFACTOR_CABLEDOC.md` marcaba la
+  Entrega 6 como "en progreso" y `changelog.txt` no tenía ninguna entrada
+  posterior a la Entrega 5, pero el checkout de Papi ya tenía
+  `senal_catalogo_ui.py` completo y `cabledoc.py` ya la reexportaba
+  (4.986 → 4.150 líneas). Se verificó por inspección directa de los
+  archivos antes de dar por buena cualquiera de las dos fuentes. Lección
+  para las próximas sesiones: **siempre confirmar el estado real del
+  checkout (grep de imports + `wc -l`) contra lo que dicen estos
+  documentos antes de asumir en qué entrega hay que seguir** — la
+  documentación puede quedar atrás del código si una sesión se corta
+  antes de cerrar sus propios archivos de seguimiento.
+- **Entrega 7 — sin acceso de red en esta sesión:** a diferencia de las
+  Entregas 1-6, este sandbox no tuvo egress habilitado, así que no se
+  pudo instalar `gir1.2-gtk-3.0`/`python3-gi-cairo` ni `pyflakes`, y por lo
+  tanto no se corrió el import real bajo Xvfb ni el smoke test funcional
+  para esta entrega. Se compensó con `ast.parse` + `py_compile` + un
+  chequeo manual de nombres libres por función (script ast propio,
+  sustituto aproximado de pyflakes F821) sobre los 3 archivos tocados, más
+  el diff byte a byte de cada bloque movido. Sin hallazgos. **Pendiente
+  no bloqueante:** correr el checklist completo de validación (import real
+  + Xvfb + smoke test contra `database/db.db` real) en un entorno con red,
+  antes de mergear esta entrega.
+- **Entrega 7 — mismo criterio de bloques no contiguos que la Entrega 3:**
+  el plan (§4) agrupaba "Racks/Frames" como un solo dominio a splitear por
+  tamaño en `racks_salas_ui.py` + `frames_slots_ui.py`, pero no anticipaba
+  que dentro de "Racks/Frames" los sub-bloques "Racks" y "Salas" (que van
+  juntos en `racks_salas_ui.py`) no fueran contiguos entre sí en el
+  original — separados por el bloque completo de Frames/Slots y por
+  `ConexionesDeEquipoVentana`. Se resolvió igual que en la Entrega 3:
+  concatenando los dos rangos no adyacentes en un único archivo, sin tocar
+  el orden relativo interno de cada uno.
