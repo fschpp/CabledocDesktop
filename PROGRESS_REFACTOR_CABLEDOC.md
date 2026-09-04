@@ -9,33 +9,48 @@ para no mezclar tres historiales con ritmos distintos.
 
 ## Current Focus
 
-Entrega 4 completada: extraído `conectores_ui.py` (466 líneas: `ConectoresListado`,
-`_DialogoConector`, `_DialogoRenombrarConectores`), bloque contiguo en el
-original (separador `# ─── Conectores ───`) — a diferencia de la Entrega 3,
-no hubo que unir rangos no adyacentes. `cabledoc.py` reexporta los 3 nombres
-movidos. Referencias cruzadas a `ImagenesListado` y `_DialogoSenal` (siguen
-en `cabledoc.py`) resueltas con import diferido, mismo patrón que las
-entregas anteriores; `abrir_coords_imagen` (usada en `_sel_coordenadas`) se
-importa a nivel de módulo desde `pantallas_avanzadas`, igual que hace
-`equipos_ui.py`. El uso interno residual de `_DialogoConector` dentro de
-`PanelArbol` (todavía en `cabledoc.py`) sigue funcionando sin cambios porque
-el nombre queda importado a nivel de módulo. `cabledoc.py`: 6.568 → 6.167
-líneas. Validado con ast.parse, py_compile, pyflakes (cero warnings nuevos:
-mismos 5 preexistentes en `main` más "imported but unused" esperado del
-patrón de reexport), *move* verificado byte a byte contra el bloque original
-(diff limpio salvo los 2 imports diferidos agregados), import real bajo
-Xvfb con identidad de objeto confirmada, import limpio de `equipos_ui.py` /
-`cables_conexiones_ui.py` / `pantallas_avanzadas.py`, referencia cruzada
-`equipos_ui` → `ConectoresListado`/`_DialogoRenombrarConectores` vía
-`cabledoc` resuelta al mismo objeto, y smoke test funcional bajo Xvfb contra
-una copia descartable de `database/db.db` con 1 equipo PATCHERA + 2
-conectores de fixture insertados por SQL directo: `ConectoresListado`
-abrió y cargó datos, `_DialogoConector` en modo edición (combo de función de
-patchera visible por ser equipo PATCHERA, sección de Armado visible
-confirmando que `asegurar_tablas_bitacora()` corrió su `ALTER TABLE` sin
-error) y en modo alta, y `_DialogoRenombrarConectores` cargó los 2
-conectores fixture. Rama: `refactor/etapa4-conectores-ui` (sin commitear —
-diff entregado para que Fede haga el commit en su terminal).
+Entrega 5 completada: extraído `catalogo_equipos_ui.py` (792 líneas:
+`CatalogoEquiposListado`, `_DialogoConflictosImportacion`,
+`_DialogoCatalogoEquipo`, `_ConectoresCatalogoListado`,
+`_DialogoConectorCatalogo`, `_DialogoInstanciarCatalogo`,
+`_DialogoDuplicarMolde`) + `catalogo_equipos_alta_rapida_ui.py` (549 líneas:
+`_DialogoAltaRapidaCatalogo`), bloque contiguo "Catálogo de equipos
+(moldes)" en el original (líneas 1902-3106, 1.205 líneas) — split en 2
+archivos por tamaño, mismo criterio que la Entrega 3. `_DialogoDuplicarMolde`
+y `_DialogoAltaRapidaCatalogo` eran justo los dos nombres que la Entrega 3
+había dejado pendientes en `cabledoc.py` por pertenecer a este dominio.
+`cabledoc.py` reexporta los 8 nombres movidos. Referencias cruzadas a
+`MarcasListado`, `TiposEquipoListado`, `TiposConectorListado`,
+`ImagenesListado`, `_DialogoRenombrarConectoresCatalogo`,
+`_escribir_json_comprimido`, `_leer_json_generico`, `_sel_imagen_desde_abm`
+(siguen en `cabledoc.py`) y `_DialogoDireccionConector` (vive en
+`equipos_ui.py` desde la Entrega 3) resueltas con import diferido, mismo
+patrón que las entregas anteriores; `abrir_coords_imagen`,
+`abrir_reglas_logicas_molde` y `abrir_editor_masivo_conectores_catalogo` se
+importan a nivel de módulo desde `pantallas_avanzadas`. Import diferido
+cruzado entre los dos módulos nuevos: `catalogo_equipos_ui.py` importa
+`_DialogoAltaRapidaCatalogo` desde `catalogo_equipos_alta_rapida_ui.py`
+dentro de `_alta_rapida()`, y viceversa `_DialogoDuplicarMolde` dentro de
+`_duplicar_con_patron()` — mismo patrón usado entre `equipos_ui.py` /
+`equipos_alta_rapida_ui.py`. `cabledoc.py`: 6.167 → 4.986 líneas. Validado
+con ast.parse, py_compile, pyflakes (cero warnings nuevos reales: sólo
+"imported but unused" esperado del patrón de reexport, comparado contra
+baseline de `main`), *move* verificado byte a byte contra el bloque
+original (diff limpio salvo los imports diferidos agregados), import real
+bajo Xvfb con identidad de objeto confirmada para los 8 nombres + la
+referencia cruzada `equipos_ui` → `cabledoc` → `CatalogoEquiposListado` /
+`_DialogoInstanciarCatalogo`, import limpio de `equipos_ui.py` /
+`cables_conexiones_ui.py` / `conectores_ui.py` / `pantallas_avanzadas.py`, y
+smoke test funcional bajo Xvfb contra una base de fixture generada desde
+`schema_db.sql` (el repo, en esta sesión, no traía `database/db.db`
+versionado ni siquiera vacío — ver Blockers) con 1 molde + 2
+conectores-molde de fixture insertados por SQL directo: `CatalogoEquiposListado`
+cargó la fila del molde, `_DialogoCatalogoEquipo` en modo edición
+(`e_nombre.get_text()=="Molde Fixture"`) y en modo alta,
+`_DialogoAltaRapidaCatalogo` abrió sin excepciones, `_ConectoresCatalogoListado`
+cargó los 2 conectores-molde. Rama: `refactor/etapa5-catalogo-equipos-ui`
+(sin commitear — diff entregado para que Fede haga el commit en su
+terminal).
 
 ## Todo List
 
@@ -44,8 +59,8 @@ diff entregado para que Fede haga el commit en su terminal).
 - [x] Entrega 2 — `cables_conexiones_ui.py` (desbloquea Extensión de cable)
 - [x] Entrega 3 — `equipos_ui.py` + `equipos_alta_rapida_ui.py`
 - [x] Entrega 4 — `conectores_ui.py`
-- [ ] Entrega 5 — `catalogo_equipos_ui.py` + `catalogo_equipos_alta_rapida_ui.py`
-- [ ] Entrega 6 — `senal_catalogo_ui.py`
+- [x] Entrega 5 — `catalogo_equipos_ui.py` + `catalogo_equipos_alta_rapida_ui.py`
+- [/] Entrega 6 — `senal_catalogo_ui.py`
 - [ ] Entrega 7 — `racks_salas_ui.py` + `frames_slots_ui.py`
 - [ ] Entrega 8 — `catalogos_basicos_ui.py`
 - [ ] Entrega 9 — `panel_arbol_ui.py` (penúltimo a propósito: orquestador
@@ -124,3 +139,25 @@ diff entregado para que Fede haga el commit en su terminal).
   ejercitar el combo de función de patchera) + 2 conectores de fixture
   insertados por SQL directo sobre copia descartable. Pendiente arrastrada:
   correr contra el `db.db` real de Papi (acumulada de las 4 entregas).
+- **Entrega 5 — hallazgo nuevo, distinto a las Entregas 2-4:** el clon de
+  `main` usado en esta sesión no traía `database/db.db` versionado en
+  absoluto (ni siquiera el fixture de esquema vacío de las entregas
+  anteriores). Se generó una base descartable ejecutando `schema_db.sql`
+  completo por `sqlite3` directo (vía `sqlite3.Connection.executescript` de
+  Python, ya que el binario `sqlite3` de línea de comandos tampoco estaba
+  instalado en el sandbox), y se insertaron 1 `tipo_equipo` (rol
+  ENRUTADOR)/1 `marca`/1 `tipo_conector`/1 `equipo_catalogo` ("Molde
+  Fixture")/2 `conector_catalogo` por SQL directo para poder ejercitar
+  `_DialogoCatalogoEquipo` en modo edición y `_ConectoresCatalogoListado`
+  con datos reales. No cambia la validación de fondo (mismo patrón:
+  fixture descartable, nunca la base real de Papi) pero sí el punto de
+  partida — Papi debería confirmar si `database/db.db` dejó de versionarse
+  a propósito (por ejemplo al pasar a sync vía rclone/RoundSync con Google
+  Drive como fuente de verdad) o si es un descuido del repo en GitHub.
+- **Entrega 5 — confirmación del split anticipado en la Entrega 3:** los dos
+  nombres que quedaron pendientes en `cabledoc.py` en la Entrega 3
+  (`_DialogoDuplicarMolde` y `_DialogoAltaRapidaCatalogo`) resultaron ser,
+  efectivamente, parte del mismo bloque contiguo "Catálogo de equipos
+  (moldes)" de esta entrega — no hubo sorpresas de layout como en la
+  Entrega 3, el bloque completo (1.205 líneas) estaba de corrido bajo un
+  único separador.
