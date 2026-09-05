@@ -41,7 +41,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260904235900"
+APP_VERSION = "1.20260905160000"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -232,6 +232,18 @@ from racks_salas_ui import (
     EquiposNoRackSalaListado,
 )
 
+# ─── Planos (ubicación física) ──────────────────────────────────────────────
+#
+# plan_desarrollo_ubicacion_fisica_planos.md, Fase 2: catálogo simple de
+# planos (PlanosListado, _DialogoPlano), sin overlay todavía — eso llega en
+# las Fases 3 a 7. Nuevo dominio, en su propio módulo desde el arranque
+# (mismo criterio que racks_salas_ui.py / frames_slots_ui.py), no un *move*
+# desde cabledoc.py.
+from planos_ui import (
+    PlanosListado,
+    _DialogoPlano,
+)
+
 # ─── Frames / Slots (catálogo e instancia) ─────────────────────────────────────
 #
 # Movidas a frames_slots_ui.py (plan_refactor_cabledoc.md, Entrega 7, parte
@@ -377,6 +389,8 @@ class VentanaPrincipal(Gtk.Window):
             (_("Equipos sueltos por Sala"), self._abrir_equipos_no_rack_sala),
             ("---", None),
             (_("🖼 Vista gráfica de rack…"), self._abrir_vista_rack),
+            ("---", None),
+            (_("🗺 Planos"), self._abrir_planos),
         ])
         menu(_("Catálogos"), [
             (_("Marcas"), self._abrir_marcas),
@@ -887,6 +901,12 @@ class VentanaPrincipal(Gtk.Window):
 
     def _abrir_equipos_no_rack_sala(self, *a):
         EquiposNoRackSalaListado(parent=self).run_and_destroy()
+
+    def _abrir_planos(self, *a):
+        """Catálogo de planos (plan_desarrollo_ubicacion_fisica_planos.md,
+        Fase 2). Todavía sin overlay: solo alta/baja/edición de nombre +
+        imagen de cada plano."""
+        PlanosListado(parent=self).run_and_destroy()
 
     def _abrir_diagrama(self, *a):
         abrir_diagrama_conexiones(parent=self)
