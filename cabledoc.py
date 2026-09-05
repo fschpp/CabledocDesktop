@@ -10,6 +10,19 @@ Requisitos:
 
 Uso:
     python3 cabledoc.py
+
+Entrega 10 (plan_refactor_cabledoc.md) cierra el refactor iniciado en la
+Entrega 1: este archivo pasó de 9.405 líneas originales a una fachada
+delgada de ~1.000 líneas que contiene únicamente `VentanaPrincipal`
+(ventana principal y menú de la app), `APP_VERSION`, los helpers de
+formularios que no encontraron un dominio propio
+(`_escribir_json_comprimido`, `_leer_json_generico`,
+`_sel_imagen_desde_abm`), el punto de entrada (`if __name__ ==
+"__main__"`), y las reexportaciones de los 12 módulos `*_ui.py` extraídos
+en las Entregas 1-10, preservadas para no romper los `from cabledoc import
+...` externos que ya dependían de estos nombres. Toda la lógica de negocio
+de cada dominio (racks, equipos, conectores, señal, catálogos, etc.) vive
+en su módulo dedicado.
 """
 
 import gi
@@ -28,7 +41,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260904230000"
+APP_VERSION = "1.20260904235900"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -279,110 +292,13 @@ from catalogos_basicos_ui import (
 
 # ─── Conectores de catálogo — Renombrado masivo ────────────────────────────────
 #
-# _DialogoRenombrarConectoresCatalogo queda en cabledoc.py: no forma parte de
-# ningún dominio de la Entrega 8 (catálogos básicos), pendiente de asignar
-# destino en una entrega futura (candidato natural: conectores_ui.py o
-# catalogo_equipos_ui.py, junto a quien lo consume).
-
-class _DialogoRenombrarConectoresCatalogo(Gtk.Dialog):
-    """Igual que _DialogoRenombrarConectores pero para los conectores de un
-    MOLDE de catálogo (conector_catalogo), no de un equipo real."""
-
-    def __init__(self, id_equipo_catalogo, parent=None):
-        super().__init__(
-            title=_("Renombrar Conectores del Molde"),
-            transient_for=parent,
-            modal=True,
-            destroy_with_parent=True
-        )
-        self.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
-                         _("Aceptar"), Gtk.ResponseType.OK)
-        self.set_default_size(600, 500)
-        self.id_equipo_catalogo = id_equipo_catalogo
-
-        # Contenedor principal
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
-        vbox.set_margin_top(12)
-        vbox.set_margin_bottom(12)
-        self.get_content_area().add(vbox)
-
-        # Obtener conectores del molde
-        # cols: id_conector_catalogo, nombre, tipo_nombre, id_tipo_conector,
-        #       id_imagen, img_path, x, y
-        conectores = Modelo.devolver_conectores_de_catalogo(id_equipo_catalogo)
-
-        # Crear grid para los conectores
-        grid = Gtk.Grid()
-        grid.set_column_spacing(6)
-        grid.set_row_spacing(4)
-        grid.set_vexpand(True)
-        grid.set_hexpand(True)
-
-        # Crear lista para guardar los entries
-        self.entries = []
-
-        for i, c in enumerate(conectores):
-            id_cc, nombre = c[0], c[1]
-            # Label con el nombre actual
-            lbl = Gtk.Label(label=nombre)
-            lbl.set_xalign(0)
-            grid.attach(lbl, 0, i, 1, 1)
-
-            # Entry para el nuevo nombre
-            entry = Gtk.Entry()
-            entry.set_text(nombre)
-            entry.set_hexpand(True)
-            grid.attach(entry, 1, i, 1, 1)
-
-            # Guardar referencia al entry junto con el id y nombre original
-            self.entries.append({
-                'id': id_cc,
-                'original': nombre,
-                'entry': entry
-            })
-
-        if not conectores:
-            lbl_vacio = Gtk.Label(label=_("Este molde todavía no tiene conectores."))
-            lbl_vacio.set_xalign(0)
-            grid.attach(lbl_vacio, 0, 0, 2, 1)
-
-        # ScrolledWindow para el grid
-        sw = Gtk.ScrolledWindow()
-        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_hexpand(True)
-        sw.set_vexpand(True)
-        sw.add(grid)
-        vbox.pack_start(sw, True, True, 0)
-
-        self.show_all()
-
-    def run_and_destroy(self):
-        if self.run() == Gtk.ResponseType.OK:
-            # Guardar los cambios
-            for item in self.entries:
-                nuevo_nombre = item['entry'].get_text().strip()
-                # Si está en blanco, mantener el nombre original
-                if not nuevo_nombre:
-                    nuevo_nombre = item['original']
-                # Solo actualizar si el nombre cambió
-                if nuevo_nombre != item['original']:
-                    # Obtener los otros datos del conector-molde para no perderlos
-                    conectores = Modelo.devolver_conectores_de_catalogo(
-                        self.id_equipo_catalogo)
-                    fila = next((c for c in conectores if str(c[0]) == str(item['id'])), None)
-                    if fila:
-                        Modelo.modificacion_conector_catalogo(
-                            item['id'],
-                            nuevo_nombre,
-                            fila[3],  # id_tipo_conector
-                            fila[4],  # id_imagen
-                            fila[6],  # x
-                            fila[7],  # y
-                            fila[8] if len(fila) > 8 else None,  # fila_patchera
-                        )
-        self.destroy()
+# Movida a catalogo_equipos_ui.py (plan_refactor_cabledoc.md, Entrega 10,
+# cierre): _DialogoRenombrarConectoresCatalogo. Era el único bloque de
+# dominio que seguía sin mover desde la Entrega 8 (el plan §4 no la
+# contemplaba porque no pertenece al bloque "catálogos básicos"). Se
+# reexporta acá sin cambios, junto a su único consumidor
+# (_DialogoCatalogoEquipo, ya vive en el mismo archivo destino).
+from catalogo_equipos_ui import _DialogoRenombrarConectoresCatalogo
 
 
 # ─── Panel de árbol de infraestructura ───────────────────────────────────────

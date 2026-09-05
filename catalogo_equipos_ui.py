@@ -13,6 +13,8 @@ Contiene:
   - _DialogoConectorCatalogo (ficha de conector-molde)
   - _DialogoInstanciarCatalogo (crear equipo real a partir de un molde)
   - _DialogoDuplicarMolde (duplicar un molde existente)
+  - _DialogoRenombrarConectoresCatalogo (renombrado masivo de conectores
+    de un molde; sumada en la Entrega 10 — ver nota más abajo)
 
 Es un *move* 1:1 desde cabledoc.py: no cambia comportamiento ni lógica de
 negocio. `cabledoc.py` reexporta estos nombres sin cambios.
@@ -23,11 +25,21 @@ archivos), siguiendo el mismo criterio de tamaño usado en la Entrega 3 para
 equipos_ui.py / equipos_alta_rapida_ui.py.
 
 Referencias a clases de otros dominios que todavía viven en `cabledoc.py`
-(MarcasListado, TiposEquipoListado, ImagenesListado,
-_DialogoRenombrarConectoresCatalogo) se resuelven con import diferido dentro
-del método que las usa, siguiendo el mismo patrón que ya usa el proyecto
-para evitar ciclos. `abrir_coords_imagen` se importa a nivel de módulo desde
-`pantallas_avanzadas`, igual que hace `conectores_ui.py`.
+(MarcasListado, TiposEquipoListado, ImagenesListado) se resuelven con
+import diferido dentro del método que las usa, siguiendo el mismo patrón
+que ya usa el proyecto para evitar ciclos. `abrir_coords_imagen` se importa
+a nivel de módulo desde `pantallas_avanzadas`, igual que hace
+`conectores_ui.py`.
+
+`_DialogoRenombrarConectoresCatalogo` (plan_refactor_cabledoc.md, Entrega
+10 — cierre del refactor) quedó pendiente de destino desde la Entrega 8:
+el plan (§4) no la contemplaba porque no forma parte del bloque "catálogos
+básicos", y era el único bloque de dominio que seguía viviendo en
+`cabledoc.py` fuera de la fachada. Se asigna acá, junto a
+`_DialogoCatalogoEquipo` (su único consumidor, vía `_renombrar_conectores`,
+ahora import directo en vez de `from cabledoc import ...`), en lugar de
+`conectores_ui.py` (que es el dominio de conectores de equipos reales, no
+de moldes de catálogo).
 """
 
 import os
@@ -472,7 +484,6 @@ class _DialogoCatalogoEquipo(Gtk.Dialog):
             fn_sel_imagen=_sel_imagen_desde_abm)
 
     def _renombrar_conectores(self, btn):
-        from cabledoc import _DialogoRenombrarConectoresCatalogo
         dlg = _DialogoRenombrarConectoresCatalogo(
             id_equipo_catalogo=self.id_equipo_catalogo, parent=self)
         dlg.run_and_destroy()
@@ -790,3 +801,112 @@ class _DialogoDuplicarMolde(Gtk.Dialog):
                 mostrar_error(self, "Patrón de nombre o cantidad inválidos.")
         self.destroy()
         return resultado
+
+
+# ─── Conectores de catálogo — Renombrado masivo ────────────────────────────────
+#
+# Movida desde cabledoc.py (plan_refactor_cabledoc.md, Entrega 10, cierre):
+# único bloque de dominio que seguía sin mover desde la Entrega 8. Su único
+# consumidor es _DialogoCatalogoEquipo._renombrar_conectores, en este mismo
+# archivo — se asigna acá en vez de conectores_ui.py (dominio de conectores
+# de equipos reales, no de moldes).
+
+class _DialogoRenombrarConectoresCatalogo(Gtk.Dialog):
+    """Igual que _DialogoRenombrarConectores pero para los conectores de un
+    MOLDE de catálogo (conector_catalogo), no de un equipo real."""
+
+    def __init__(self, id_equipo_catalogo, parent=None):
+        super().__init__(
+            title=_("Renombrar Conectores del Molde"),
+            transient_for=parent,
+            modal=True,
+            destroy_with_parent=True
+        )
+        self.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
+                         _("Aceptar"), Gtk.ResponseType.OK)
+        self.set_default_size(600, 500)
+        self.id_equipo_catalogo = id_equipo_catalogo
+
+        # Contenedor principal
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        vbox.set_margin_start(12)
+        vbox.set_margin_end(12)
+        vbox.set_margin_top(12)
+        vbox.set_margin_bottom(12)
+        self.get_content_area().add(vbox)
+
+        # Obtener conectores del molde
+        # cols: id_conector_catalogo, nombre, tipo_nombre, id_tipo_conector,
+        #       id_imagen, img_path, x, y
+        conectores = Modelo.devolver_conectores_de_catalogo(id_equipo_catalogo)
+
+        # Crear grid para los conectores
+        grid = Gtk.Grid()
+        grid.set_column_spacing(6)
+        grid.set_row_spacing(4)
+        grid.set_vexpand(True)
+        grid.set_hexpand(True)
+
+        # Crear lista para guardar los entries
+        self.entries = []
+
+        for i, c in enumerate(conectores):
+            id_cc, nombre = c[0], c[1]
+            # Label con el nombre actual
+            lbl = Gtk.Label(label=nombre)
+            lbl.set_xalign(0)
+            grid.attach(lbl, 0, i, 1, 1)
+
+            # Entry para el nuevo nombre
+            entry = Gtk.Entry()
+            entry.set_text(nombre)
+            entry.set_hexpand(True)
+            grid.attach(entry, 1, i, 1, 1)
+
+            # Guardar referencia al entry junto con el id y nombre original
+            self.entries.append({
+                'id': id_cc,
+                'original': nombre,
+                'entry': entry
+            })
+
+        if not conectores:
+            lbl_vacio = Gtk.Label(label=_("Este molde todavía no tiene conectores."))
+            lbl_vacio.set_xalign(0)
+            grid.attach(lbl_vacio, 0, 0, 2, 1)
+
+        # ScrolledWindow para el grid
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.set_hexpand(True)
+        sw.set_vexpand(True)
+        sw.add(grid)
+        vbox.pack_start(sw, True, True, 0)
+
+        self.show_all()
+
+    def run_and_destroy(self):
+        if self.run() == Gtk.ResponseType.OK:
+            # Guardar los cambios
+            for item in self.entries:
+                nuevo_nombre = item['entry'].get_text().strip()
+                # Si está en blanco, mantener el nombre original
+                if not nuevo_nombre:
+                    nuevo_nombre = item['original']
+                # Solo actualizar si el nombre cambió
+                if nuevo_nombre != item['original']:
+                    # Obtener los otros datos del conector-molde para no perderlos
+                    conectores = Modelo.devolver_conectores_de_catalogo(
+                        self.id_equipo_catalogo)
+                    fila = next((c for c in conectores if str(c[0]) == str(item['id'])), None)
+                    if fila:
+                        Modelo.modificacion_conector_catalogo(
+                            item['id'],
+                            nuevo_nombre,
+                            fila[3],  # id_tipo_conector
+                            fila[4],  # id_imagen
+                            fila[6],  # x
+                            fila[7],  # y
+                            fila[8] if len(fila) > 8 else None,  # fila_patchera
+                        )
+        self.destroy()

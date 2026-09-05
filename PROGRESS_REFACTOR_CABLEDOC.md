@@ -9,14 +9,26 @@ para no mezclar tres historiales con ritmos distintos.
 
 ## Current Focus
 
-**Entrega 9 completada en esta sesión** (`panel_arbol_ui.py`) — ver
-sección propia abajo. Al arrancar esta sesión se clonó el repo real de
-GitHub (`fschpp/CabledocDesktop`) en vez de asumir el estado a partir de
-los archivos adjuntos: confirmó que `main` ya tenía la Entrega 8 mergeada
-(PR #9) y que este documento coincidía byte a byte con el del checkout —
-sin discrepancia de documentación esta vez (a diferencia de lo que pasó
-en la Entrega 6). Sólo queda la Entrega 10 (cierre) para completar todo
-el plan.
+**Entrega 10 completada en esta sesión — plan_refactor_cabledoc.md
+CERRADO.** Al arrancar esta sesión se clonó el repo real de GitHub
+(`fschpp/CabledocDesktop`) en vez de asumir el estado a partir de los
+archivos adjuntos: confirmó que `main` ya tenía la Entrega 9 mergeada
+(PR #10, `panel_arbol_ui.py`) y que este documento coincidía exactamente
+con el estado del checkout — misma práctica de verificación que viene
+funcionando desde la lección de la Entrega 6. Único trabajo pendiente:
+asignar destino a `_DialogoRenombrarConectoresCatalogo` (el único bloque
+de dominio sin mover desde la Entrega 8). Se movió a
+`catalogo_equipos_ui.py`, junto a su único consumidor
+(`_DialogoCatalogoEquipo._renombrar_conectores`) — ver sección propia
+abajo. `cabledoc.py`: 1.080 → 996 líneas (9.405 líneas originales →
+996, repartidas en 12 módulos `*_ui.py` de dominio). El archivo queda
+documentado en su propio docstring como fachada final: `VentanaPrincipal`
++ `APP_VERSION` + helpers sin dominio propio (`_escribir_json_comprimido`,
+`_leer_json_generico`, `_sel_imagen_desde_abm`) + entry point +
+reexportaciones. `APP_VERSION` → `1.20260904235900`.
+
+Entrega 9 completada (sesión anterior): `panel_arbol_ui.py` — ver
+sección propia abajo.
 
 Entrega 8 completada (sesión anterior): `catalogos_basicos_ui.py` — ver
 sección propia abajo. Acotación de Fede incorporada: el plan (§4) dejaba
@@ -222,17 +234,51 @@ graphqlite` y `pip pyflakes` sin problemas. Rama:
 GitHub, sin commitear — diff entregado para que Fede haga el commit en su
 terminal).
 
-Con la Entrega 9 cerrada, sólo queda la Entrega 10 (cierre): verificar que
-`cabledoc.py` quede como fachada delgada (`VentanaPrincipal` +
-reexportaciones + `APP_VERSION` + entry point) y que baje de las 9.405
-líneas originales a ~700. Estado actual: 1.080 líneas — ya por debajo de
-la meta, así que la Entrega 10 es más una entrega de **verificación y
-limpieza final** que de movimiento de código: confirmar que no queda
-ningún bloque de dominio suelto (sólo queda pendiente
-`_DialogoRenombrarConectoresCatalogo`, sin destino asignado desde la
-Entrega 8 — candidato natural: `conectores_ui.py` o `catalogo_equipos_ui.py`,
-junto a quien lo consume) y dejar `cabledoc.py` documentado como fachada
-final.
+Entrega 10 completada (cierre): se movió `_DialogoRenombrarConectoresCatalogo`
+(105 líneas) a `catalogo_equipos_ui.py`, junto a su único consumidor
+(`_DialogoCatalogoEquipo._renombrar_conectores`, mismo archivo) — se
+descartó `conectores_ui.py` como candidato porque ese módulo es el dominio
+de conectores de *equipos reales*, no de *moldes* de catálogo. El import
+diferido `from cabledoc import _DialogoRenombrarConectoresCatalogo` dentro
+de `_renombrar_conectores` se eliminó (deja de hacer falta: la clase ahora
+vive en el mismo módulo). `cabledoc.py` reexporta la clase sin cambios,
+mismo patrón que el resto de la fachada. `cabledoc.py`: 1.080 → 996 líneas.
+`APP_VERSION` → `1.20260904235900`. Docstring de `cabledoc.py` actualizado
+documentando el cierre: el archivo queda como fachada delgada
+(`VentanaPrincipal` + `APP_VERSION` + helpers sin dominio propio + entry
+point + reexports de los 12 módulos `*_ui.py`).
+
+Validado con ast.parse + py_compile sobre ambos archivos, diff byte a byte
+de la clase movida contra su ubicación original en `main` (idéntico
+carácter por carácter salvo la eliminación del import diferido ya
+innecesario), pyflakes comparado contra baseline de `main` (cero F821
+nuevos; en `cabledoc.py` la única advertencia nueva es
+`catalogo_equipos_ui._DialogoRenombrarConectoresCatalogo imported but
+unused`, consistente con el patrón de reexport; `catalogo_equipos_ui.py`:
+cero advertencias nuevas en ambos casos), grep de los 17 módulos externos
+que hacen `from cabledoc import ...` (import real bajo Xvfb de todos,
+limpio salvo dos `PyGIWarning` preexistentes en `main` no relacionados con
+este cambio — `grafo_diagrama_ui.py` e `interaccion_diagrama_ui.py`, ya
+sin `gi.require_version` antes del import de Gtk/Gdk desde antes de esta
+entrega), identidad de objeto confirmada
+(`cabledoc._DialogoRenombrarConectoresCatalogo is
+catalogo_equipos_ui._DialogoRenombrarConectoresCatalogo`), y smoke test
+funcional bajo Xvfb contra una copia descartable de `database/db.db` (este
+repo no traía `database/db.db` versionado, generada desde `schema_db.sql`)
+con 1 `tipo_equipo`/1 `marca`/1 `tipo_conector`/1 `equipo_catalogo`
+("Molde Fixture")/2 `conector_catalogo` de fixture insertados por SQL
+directo: `_DialogoRenombrarConectoresCatalogo` instanciado directamente
+cargó los 2 conectores-molde sin excepciones. Adicionalmente (cierre de
+todo el refactor, más allá del checklist estándar de las Entregas 1-9):
+`VentanaPrincipal` completa instanciada bajo Xvfb contra la misma base de
+fixture, sin excepciones — confirma que el cierre de la fachada no rompió
+el arranque de la app. Esta sesión sí tuvo acceso de red: se instalaron
+`gir1.2-gtk-3.0`, `python3-gi-cairo`, `xvfb` y `pip graphqlite` sin
+problemas. Rama: `refactor/etapa10-cierre-facade` (creada localmente desde
+`main` de GitHub, sin commitear — diff entregado para que Fede haga el
+commit en su terminal).
+
+**Con esta entrega se cierra `plan_refactor_cabledoc.md` en su totalidad.**
 
 
 
@@ -254,14 +300,39 @@ final.
 - [x] Entrega 9 — `panel_arbol_ui.py` (penúltimo a propósito: orquestador
       que referencia diálogos de todos los dominios anteriores; sin
       consumidores externos, a diferencia del resto de las entregas)
-- [ ] Entrega 10 — Cierre: `cabledoc.py` queda como fachada delgada
-      (`VentanaPrincipal` + reexportaciones + entry point), verificar que
-      baje de 9.405 a ~700 líneas (estado actual: 1.080 líneas, ya por
-      debajo de la meta; pendiente asignar destino a
-      `_DialogoRenombrarConectoresCatalogo`, único bloque sin mover desde
-      la Entrega 8)
+- [x] Entrega 10 — Cierre: `cabledoc.py` queda como fachada delgada
+      (`VentanaPrincipal` + reexportaciones + entry point), 9.405 → 996
+      líneas; `_DialogoRenombrarConectoresCatalogo` (único bloque sin
+      mover desde la Entrega 8) asignado a `catalogo_equipos_ui.py`
+
+**`plan_refactor_cabledoc.md` CERRADO — las 10 entregas están completas.**
 
 ## Latest Blockers/Discoveries
+
+- **Entrega 10 — sin discrepancia de documentación al arrancar la sesión**
+  (mismo patrón que la Entrega 9, a diferencia de la Entrega 6): se clonó
+  el repo real de GitHub antes de asumir en qué estado seguir, y tanto
+  `main` (PR #10 mergeado) como este documento coincidían exactamente con
+  el estado post-Entrega 9 esperado.
+- **Entrega 10 — última vez que aparece el hallazgo de `database/db.db`
+  no versionado** (mismo patrón que las Entregas 5, 7 y 9): este clon de
+  `main` tampoco traía `database/db.db` en el repo. Se generó una base
+  descartable desde `schema_db.sql` con fixture insertado por SQL directo,
+  como en las entregas anteriores. Con el refactor cerrado, esta
+  discrepancia (repo sin `db.db` versionado vs. Papi trabajando siempre
+  contra su base real vía rclone/RoundSync) queda como pendiente general
+  del proyecto, no específica de ninguna entrega — Papi debería confirmar
+  si conviene versionar al menos un `db.db` vacío (sólo esquema) para que
+  las próximas sesiones no tengan que regenerarlo cada vez.
+- **Entrega 10 — dos `PyGIWarning` preexistentes detectados al validar,
+  no introducidos por esta entrega:** `grafo_diagrama_ui.py` e
+  `interaccion_diagrama_ui.py` importan `Gtk`/`Gdk` sin llamar
+  `gi.require_version` antes (a diferencia del resto del proyecto, que sí
+  lo hace). Confirmado por comparación directa contra el checkout de
+  `main` sin tocar: el warning ya existía antes de esta sesión. No
+  bloqueante, pero Papi podría querer agregar los `gi.require_version`
+  faltantes en algún momento por consistencia con el resto del código.
+
 
 - **Acceso de escritura a GitHub**: este sandbox no tiene credenciales para
   pushear a `fschpp/CabledocDesktop` ni abrir PRs vía API. Se resolvió
