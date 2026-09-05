@@ -575,6 +575,10 @@ class VentanaPrincipal(Gtk.Window):
         # calidad de señal (atenuación / ancho de banda / mismatch de
         # formato), separado del impacto lógico de asegurar_tablas_riesgo.
         Modelo.asegurar_columnas_riesgo_senal()
+        # plan_desarrollo_ubicacion_fisica_planos.md — Fase 1: tablas
+        # plano/mueble/equipo_sobre_mueble + columnas de posición en
+        # sala/rack_por_sala/equiponoraqueable_por_sala/equipo.
+        Modelo.asegurar_tablas_plano()
 
         self.show_all()
 

@@ -4488,6 +4488,438 @@ class Modelo:
             "WHERE id_equiponoraqueable_por_sala=?", (id_,)
         )
 
+    # ── Ubicación física en planos ───────────────────────────────────────────
+    # plan_desarrollo_ubicacion_fisica_planos.md — Fase 1: schema y modelo.
+    @staticmethod
+    def asegurar_tablas_plano():
+        """Crea/migra las tablas y columnas necesarias para la ubicación
+        física en planos:
+          - plano                : imagen de planta + nombre (multi-plano:
+            varios pisos/edificios en simultáneo).
+          - sala.id_plano / .poligono : a qué plano pertenece la sala y el
+            contorno (polígono libre, JSON de vértices en % del plano).
+          - rack_por_sala.x_pct / .y_pct : punto del rack, heredado por
+            todos los equipos montados en él (directo o vía frame
+            rackeado) — no se marca equipo por equipo.
+          - equiponoraqueable_por_sala.x_pct / .y_pct / .tipo_montaje :
+            punto del equipo suelto + si va contra el piso o la pared
+            (solo cambia el ícono, no hay geometría de pared).
+          - mueble                : rectángulo a escala (mesa/escritorio u
+            otro mobiliario a futuro) dentro de una sala.
+          - equipo_sobre_mueble   : posición del equipo RELATIVA al
+            rectángulo del mueble (0-100%) — se recalcula sola si el
+            mueble se mueve o redimensiona.
+          - equipo.es_modulo_de_frame : marca si el equipo requiere estar
+            instalado en un slot de un frame para tener sentido físico
+            (sin frame, sin ubicación — no se ofrece como equipo suelto).
+        Idempotente: seguro de llamar en cada arranque de la app.
+        """
+        with Modelo._conn_ctx() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS plano ("
+                "  id_plano INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "  nombre    TEXT NOT NULL,"
+                "  id_imagen INTEGER REFERENCES imagen(id_imagen) ON DELETE SET NULL,"
+                "  orden     INTEGER DEFAULT 0,"
+                "  fecha_creacion TEXT"
+                ")"
+            )
+
+            cols_sala = [c[1] for c in conn.execute(
+                "PRAGMA table_info(sala)").fetchall()]
+            if "id_plano" not in cols_sala:
+                conn.execute(
+                    "ALTER TABLE sala ADD COLUMN id_plano "
+                    "INTEGER REFERENCES plano(id_plano) ON DELETE SET NULL")
+            if "poligono" not in cols_sala:
+                conn.execute("ALTER TABLE sala ADD COLUMN poligono TEXT")
+
+            cols_rps = [c[1] for c in conn.execute(
+                "PRAGMA table_info(rack_por_sala)").fetchall()]
+            if "x_pct" not in cols_rps:
+                conn.execute("ALTER TABLE rack_por_sala ADD COLUMN x_pct REAL")
+            if "y_pct" not in cols_rps:
+                conn.execute("ALTER TABLE rack_por_sala ADD COLUMN y_pct REAL")
+
+            cols_en = [c[1] for c in conn.execute(
+                "PRAGMA table_info(equiponoraqueable_por_sala)").fetchall()]
+            if "x_pct" not in cols_en:
+                conn.execute(
+                    "ALTER TABLE equiponoraqueable_por_sala ADD COLUMN x_pct REAL")
+            if "y_pct" not in cols_en:
+                conn.execute(
+                    "ALTER TABLE equiponoraqueable_por_sala ADD COLUMN y_pct REAL")
+            if "tipo_montaje" not in cols_en:
+                conn.execute(
+                    "ALTER TABLE equiponoraqueable_por_sala "
+                    "ADD COLUMN tipo_montaje TEXT DEFAULT 'PISO'")
+
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS mueble ("
+                "  id_mueble INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "  id_sala   INTEGER NOT NULL REFERENCES sala(id_sala) ON DELETE CASCADE,"
+                "  nombre    TEXT NOT NULL,"
+                "  tipo      TEXT DEFAULT 'MESA',"
+                "  x_pct     REAL,"
+                "  y_pct     REAL,"
+                "  ancho_pct REAL,"
+                "  alto_pct  REAL,"
+                "  fecha_ultima_edicion TEXT"
+                ")"
+            )
+
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS equipo_sobre_mueble ("
+                "  id_equipo INTEGER NOT NULL PRIMARY KEY "
+                "    REFERENCES equipo(id_equipo) ON DELETE CASCADE,"
+                "  id_mueble INTEGER NOT NULL "
+                "    REFERENCES mueble(id_mueble) ON DELETE CASCADE,"
+                "  x_pct_relativo REAL,"
+                "  y_pct_relativo REAL"
+                ")"
+            )
+
+            cols_equipo = [c[1] for c in conn.execute(
+                "PRAGMA table_info(equipo)").fetchall()]
+            if "es_modulo_de_frame" not in cols_equipo:
+                conn.execute(
+                    "ALTER TABLE equipo ADD COLUMN es_modulo_de_frame "
+                    "INTEGER DEFAULT 0")
+
+            conn.commit()
+
+    # ── Planos ───────────────────────────────────────────────────────────────
+    @staticmethod
+    def devolver_todos_los_planos():
+        return Modelo._query(
+            "SELECT p.id_plano, p.nombre, COALESCE(i.path_archivo,''), "
+            "COALESCE(p.orden,0) "
+            "FROM plano p LEFT JOIN imagen i ON i.id_imagen = p.id_imagen "
+            "ORDER BY COALESCE(p.orden,0), p.nombre"
+        )
+
+    @staticmethod
+    def devolver_plano(id_plano):
+        return Modelo._query(
+            "SELECT p.id_plano, p.nombre, p.id_imagen, "
+            "COALESCE(i.path_archivo,''), COALESCE(p.orden,0) "
+            "FROM plano p LEFT JOIN imagen i ON i.id_imagen = p.id_imagen "
+            "WHERE p.id_plano=?", (id_plano,)
+        )
+
+    @staticmethod
+    def alta_plano_retorna_id(nombre, path_imagen, orden=0):
+        """Da de alta un plano nuevo, registrando su imagen en la tabla
+        `imagen` compartida (mismo mecanismo que frame/equipo). Retorna el
+        id del plano creado."""
+        with Modelo._conn_ctx() as conn:
+            cur = conn.execute(
+                "INSERT INTO imagen (path_archivo, descripcion) VALUES (?,?)",
+                (_n(path_imagen), _n(nombre)),
+            )
+            id_imagen = cur.lastrowid
+            cur = conn.execute(
+                "INSERT INTO plano (nombre, id_imagen, orden, fecha_creacion) "
+                "VALUES (?,?,?, datetime('now'))",
+                (_n(nombre), id_imagen, orden),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    @staticmethod
+    def modificacion_plano(id_plano, nombre, path_imagen=None, orden=0):
+        """Si se pasa path_imagen, actualiza la fila `imagen` ya asociada
+        al plano en vez de crear una nueva (evita huérfanas)."""
+        with Modelo._conn_ctx() as conn:
+            if path_imagen:
+                fila = conn.execute(
+                    "SELECT id_imagen FROM plano WHERE id_plano=?",
+                    (id_plano,)).fetchone()
+                id_imagen = fila[0] if fila else None
+                if id_imagen:
+                    conn.execute(
+                        "UPDATE imagen SET path_archivo=?, descripcion=? "
+                        "WHERE id_imagen=?",
+                        (_n(path_imagen), _n(nombre), id_imagen))
+                else:
+                    cur = conn.execute(
+                        "INSERT INTO imagen (path_archivo, descripcion) "
+                        "VALUES (?,?)", (_n(path_imagen), _n(nombre)))
+                    id_imagen = cur.lastrowid
+                    conn.execute(
+                        "UPDATE plano SET id_imagen=? WHERE id_plano=?",
+                        (id_imagen, id_plano))
+            conn.execute(
+                "UPDATE plano SET nombre=?, orden=? WHERE id_plano=?",
+                (_n(nombre), orden, id_plano))
+            conn.commit()
+
+    @staticmethod
+    def eliminar_plano(id_plano):
+        Modelo._exec("DELETE FROM plano WHERE id_plano=?", (id_plano,))
+
+    # ── Muebles ──────────────────────────────────────────────────────────────
+    @staticmethod
+    def devolver_muebles_de_sala(id_sala):
+        return Modelo._query(
+            "SELECT id_mueble, nombre, tipo, x_pct, y_pct, ancho_pct, alto_pct "
+            "FROM mueble WHERE id_sala=? ORDER BY nombre", (id_sala,)
+        )
+
+    @staticmethod
+    def devolver_mueble(id_mueble):
+        return Modelo._query(
+            "SELECT id_mueble, id_sala, nombre, tipo, x_pct, y_pct, "
+            "ancho_pct, alto_pct FROM mueble WHERE id_mueble=?", (id_mueble,)
+        )
+
+    @staticmethod
+    def alta_mueble_retorna_id(id_sala, nombre, x_pct, y_pct, ancho_pct,
+                                alto_pct, tipo='MESA'):
+        with Modelo._conn_ctx() as conn:
+            cur = conn.execute(
+                "INSERT INTO mueble (id_sala, nombre, tipo, x_pct, y_pct, "
+                "ancho_pct, alto_pct, fecha_ultima_edicion) "
+                "VALUES (?,?,?,?,?,?,?, datetime('now'))",
+                (id_sala, _n(nombre), _n(tipo), x_pct, y_pct, ancho_pct,
+                 alto_pct),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    @staticmethod
+    def modificacion_mueble(id_mueble, nombre, x_pct, y_pct, ancho_pct,
+                             alto_pct, tipo='MESA'):
+        Modelo._exec(
+            "UPDATE mueble SET nombre=?, tipo=?, x_pct=?, y_pct=?, "
+            "ancho_pct=?, alto_pct=?, fecha_ultima_edicion=datetime('now') "
+            "WHERE id_mueble=?",
+            (_n(nombre), _n(tipo), x_pct, y_pct, ancho_pct, alto_pct,
+             id_mueble),
+        )
+
+    @staticmethod
+    def eliminar_mueble(id_mueble):
+        # equipo_sobre_mueble cae solo por ON DELETE CASCADE
+        Modelo._exec("DELETE FROM mueble WHERE id_mueble=?", (id_mueble,))
+
+    # ── Equipo sobre mueble ──────────────────────────────────────────────────
+    @staticmethod
+    def devolver_equipos_de_mueble(id_mueble):
+        return Modelo._query(
+            "SELECT e.id_equipo, e.nombre, esm.x_pct_relativo, "
+            "esm.y_pct_relativo "
+            "FROM equipo_sobre_mueble esm "
+            "JOIN equipo e ON e.id_equipo = esm.id_equipo "
+            "WHERE esm.id_mueble=? ORDER BY e.nombre", (id_mueble,)
+        )
+
+    @staticmethod
+    def asignar_equipo_a_mueble(id_equipo, id_mueble, x_pct_relativo,
+                                 y_pct_relativo):
+        """Un equipo está sobre, a lo sumo, un mueble a la vez (PK =
+        id_equipo). No se permite si el equipo es módulo de frame: ver
+        regla de exclusión en devolver_ubicacion_fisica_de_equipo."""
+        fila = Modelo._query(
+            "SELECT es_modulo_de_frame FROM equipo WHERE id_equipo=?",
+            (id_equipo,))
+        if fila and fila[0][0]:
+            raise ValueError(
+                "Un equipo marcado como módulo de frame no puede ubicarse "
+                "sobre un mueble: requiere estar instalado en un frame "
+                "para tener ubicación física.")
+        Modelo._exec(
+            "INSERT OR REPLACE INTO equipo_sobre_mueble "
+            "(id_equipo, id_mueble, x_pct_relativo, y_pct_relativo) "
+            "VALUES (?,?,?,?)",
+            (id_equipo, id_mueble, x_pct_relativo, y_pct_relativo),
+        )
+
+    @staticmethod
+    def quitar_equipo_de_mueble(id_equipo):
+        Modelo._exec(
+            "DELETE FROM equipo_sobre_mueble WHERE id_equipo=?", (id_equipo,))
+
+    # ── Ubicación de sala / rack / equipo suelto ────────────────────────────
+    @staticmethod
+    def actualizar_ubicacion_sala(id_sala, id_plano, poligono_json):
+        """poligono_json: string JSON con la lista de vértices del
+        contorno, en % del plano: [{"x_pct":.., "y_pct":..}, ...]."""
+        Modelo._exec(
+            "UPDATE sala SET id_plano=?, poligono=? WHERE id_sala=?",
+            (id_plano, poligono_json, id_sala),
+        )
+
+    @staticmethod
+    def actualizar_posicion_rack_por_sala(id_rack_x_sala, x_pct, y_pct):
+        Modelo._exec(
+            "UPDATE rack_por_sala SET x_pct=?, y_pct=? "
+            "WHERE id_rack_x_sala=?",
+            (x_pct, y_pct, id_rack_x_sala),
+        )
+
+    @staticmethod
+    def actualizar_posicion_equipo_no_rack_sala(id_, x_pct, y_pct,
+                                                 tipo_montaje='PISO'):
+        Modelo._exec(
+            "UPDATE equiponoraqueable_por_sala "
+            "SET x_pct=?, y_pct=?, tipo_montaje=? "
+            "WHERE id_equiponoraqueable_por_sala=?",
+            (x_pct, y_pct, _n(tipo_montaje), id_),
+        )
+
+    @staticmethod
+    def actualizar_es_modulo_de_frame(id_equipo, es_modulo):
+        Modelo._exec(
+            "UPDATE equipo SET es_modulo_de_frame=? WHERE id_equipo=?",
+            (1 if es_modulo else 0, id_equipo),
+        )
+
+    # ── Resolución de ubicación física de un equipo ─────────────────────────
+    @staticmethod
+    def _ubicacion_desde_rack(id_rack):
+        """Arma el dict de ubicación a partir de un id_rack ya resuelto
+        (directo o vía frame rackeado), vía su vínculo en
+        rack_por_sala -> sala -> plano. Si el rack figura en más de una
+        sala (dato inconsistente) toma la primera con punto cargado."""
+        filas = Modelo._query(
+            "SELECT rps.x_pct, rps.y_pct, s.id_sala, s.poligono, "
+            "s.id_plano, COALESCE(i.path_archivo,'') "
+            "FROM rack_por_sala rps "
+            "JOIN sala s ON s.id_sala = rps.id_sala "
+            "LEFT JOIN plano p ON p.id_plano = s.id_plano "
+            "LEFT JOIN imagen i ON i.id_imagen = p.id_imagen "
+            "WHERE rps.id_rack = ? AND rps.x_pct IS NOT NULL "
+            "LIMIT 1", (id_rack,)
+        )
+        if not filas:
+            return None
+        x_pct, y_pct, id_sala, poligono, id_plano, imagen_plano = filas[0]
+        return {
+            "id_plano": id_plano, "imagen_plano": imagen_plano,
+            "id_sala": id_sala, "poligono_sala": poligono,
+            "x_pct": x_pct, "y_pct": y_pct,
+            "tipo_montaje": None, "origen": "rack",
+        }
+
+    @staticmethod
+    def devolver_ubicacion_fisica_de_equipo(id_equipo):
+        """Resuelve dónde mostrar un equipo en el plano, en este orden
+        (ver plan_desarrollo_ubicacion_fisica_planos.md, sección 3.1):
+          1-2) directo en rack, o módulo en un slot de un frame que SÍ
+               está rackeado -> hereda el punto del rack.
+          (si está en un slot pero el frame NO está rackeado -> sin
+               ubicación; no cae al fallback de suelto/mueble)
+          3a) si es módulo de frame y no está en ningún slot -> sin
+               ubicación (no tiene una posición física relevante).
+          3b) sobre un mueble -> posición relativa al rectángulo del
+               mueble, resuelta a coordenada absoluta del plano.
+          3c) suelto directo (equiponoraqueable_por_sala) -> su propio
+               punto + tipo_montaje.
+        Devuelve None si el equipo no tiene ubicación física asignable.
+        """
+        racks = Modelo.devolver_rack_de_equipo(id_equipo)
+        if racks:
+            ubic = Modelo._ubicacion_desde_rack(racks[0][0])
+            if ubic:
+                return ubic
+
+        en_slot = Modelo._query(
+            "SELECT 1 FROM slot WHERE id_equipo=? LIMIT 1", (id_equipo,))
+        if en_slot:
+            # Instalado en un frame que no está (o todavía no está)
+            # rackeado: no hay una posición que mostrar.
+            return None
+
+        fila_eq = Modelo._query(
+            "SELECT es_modulo_de_frame FROM equipo WHERE id_equipo=?",
+            (id_equipo,))
+        if fila_eq and fila_eq[0][0]:
+            return None
+
+        filas_mueble = Modelo._query(
+            "SELECT m.id_sala, m.x_pct, m.y_pct, m.ancho_pct, m.alto_pct, "
+            "esm.x_pct_relativo, esm.y_pct_relativo, s.poligono, "
+            "s.id_plano, COALESCE(i.path_archivo,'') "
+            "FROM equipo_sobre_mueble esm "
+            "JOIN mueble m ON m.id_mueble = esm.id_mueble "
+            "JOIN sala s ON s.id_sala = m.id_sala "
+            "LEFT JOIN plano p ON p.id_plano = s.id_plano "
+            "LEFT JOIN imagen i ON i.id_imagen = p.id_imagen "
+            "WHERE esm.id_equipo=?", (id_equipo,)
+        )
+        if filas_mueble:
+            (id_sala, mx, my, mw, mh, rx, ry, poligono, id_plano,
+             imagen_plano) = filas_mueble[0]
+            if None not in (mx, my, mw, mh, rx, ry):
+                return {
+                    "id_plano": id_plano, "imagen_plano": imagen_plano,
+                    "id_sala": id_sala, "poligono_sala": poligono,
+                    "x_pct": mx + (rx / 100.0) * mw,
+                    "y_pct": my + (ry / 100.0) * mh,
+                    "tipo_montaje": None, "origen": "mueble",
+                }
+
+        filas_suelto = Modelo._query(
+            "SELECT en.x_pct, en.y_pct, en.tipo_montaje, s.id_sala, "
+            "s.poligono, s.id_plano, COALESCE(i.path_archivo,'') "
+            "FROM equiponoraqueable_por_sala en "
+            "JOIN sala s ON s.id_sala = en.id_sala "
+            "LEFT JOIN plano p ON p.id_plano = s.id_plano "
+            "LEFT JOIN imagen i ON i.id_imagen = p.id_imagen "
+            "WHERE en.id_equipo=?", (id_equipo,)
+        )
+        if filas_suelto:
+            (x_pct, y_pct, tipo_montaje, id_sala, poligono, id_plano,
+             imagen_plano) = filas_suelto[0]
+            if x_pct is not None and y_pct is not None:
+                return {
+                    "id_plano": id_plano, "imagen_plano": imagen_plano,
+                    "id_sala": id_sala, "poligono_sala": poligono,
+                    "x_pct": x_pct, "y_pct": y_pct,
+                    "tipo_montaje": tipo_montaje or "PISO",
+                    "origen": "suelto",
+                }
+
+        return None
+
+    @staticmethod
+    def devolver_contenido_plano(id_plano):
+        """Todo lo que hay que dibujar en el overlay de un plano: por cada
+        sala que le pertenece, su polígono, sus racks (con posición), sus
+        muebles y los equipos sueltos directos. Pensado para alimentar
+        VistaPlanoInteractivo de una sola vez, sin N+1 queries desde la UI."""
+        salas = Modelo._query(
+            "SELECT id_sala, nombre, poligono FROM sala "
+            "WHERE id_plano=? AND poligono IS NOT NULL", (id_plano,)
+        )
+        resultado = []
+        for id_sala, nombre_sala, poligono in salas:
+            racks = Modelo._query(
+                "SELECT rps.id_rack_x_sala, r.id_rack, r.nombre, "
+                "rps.x_pct, rps.y_pct "
+                "FROM rack_por_sala rps "
+                "JOIN rack r ON r.id_rack = rps.id_rack "
+                "WHERE rps.id_sala=? AND rps.x_pct IS NOT NULL", (id_sala,)
+            )
+            muebles = Modelo._query(
+                "SELECT id_mueble, nombre, x_pct, y_pct, ancho_pct, alto_pct "
+                "FROM mueble WHERE id_sala=?", (id_sala,)
+            )
+            sueltos = Modelo._query(
+                "SELECT en.id_equiponoraqueable_por_sala, e.id_equipo, "
+                "e.nombre, en.x_pct, en.y_pct, en.tipo_montaje "
+                "FROM equiponoraqueable_por_sala en "
+                "JOIN equipo e ON e.id_equipo = en.id_equipo "
+                "WHERE en.id_sala=? AND en.x_pct IS NOT NULL", (id_sala,)
+            )
+            resultado.append({
+                "id_sala": id_sala, "nombre": nombre_sala,
+                "poligono": poligono, "racks": racks, "muebles": muebles,
+                "equipos_sueltos": sueltos,
+            })
+        return resultado
+
     # ── Patcheras ─────────────────────────────────────────────────────────────
     @staticmethod
     def devolver_equipos_patchera():
