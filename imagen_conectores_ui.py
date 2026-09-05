@@ -10,6 +10,27 @@ plan_refactor_pantallas_avanzadas.md). Move 1:1, sin cambio de lógica:
   ImagenConectoresYCables      vista de imagen de equipo + tabla de cables/conectores
   abrir_imagen_conectores      función de conveniencia
 
+Fase 3 de plan_desarrollo_ubicacion_fisica_planos.md ("Selector de
+polígono sobre imagen"): CoordenadasImagenSeleccion gana un tercer modo,
+modo_poligono=True, además de los dos existentes (solo_xy=True/False).
+No es un cuarto valor de solo_xy porque ese parámetro ya significa
+"punto vs. rectángulo" — el polígono es ortogonal a esa distinción, así
+que se agregó aparte y solo_xy se ignora cuando modo_poligono=True.
+Interacción sobre la imagen (sin tocar los modos existentes):
+  • clic en un área vacía            → agrega un vértice al final
+  • clic-y-arrastre sobre un vértice → lo mueve
+  • clic sobre el primer vértice
+    (con 3+ vértices ya cargados)    → cierra el polígono
+Expone el resultado en self.vertices (lista de tuplas (x, y) en píxeles
+de imagen, mismo sistema de coordenadas que x/y en los otros dos modos —
+la conversión a x_pct/y_pct para persistir en sala.poligono es
+responsabilidad del llamador, igual que ya hacen los llamadores de
+solo_xy=True con Modelo._punto_px_a_pct) y en self.cerrado (bool). El
+llamador puede precargar un polígono ya guardado con el parámetro
+vertices= (lista de (x, y)) para seguir editándolo — reabre siempre
+como cerrado si ya tenía 3+ vértices, consistente con que un polígono
+guardado en sala.poligono ya está cerrado por definición.
+
 Columnas de CONEXIONES_AMBOS_EXTREMOS (WHERE id_equipo = X):
   0  Cable                   1  EA: equipo (= el CONECTADO)
   3  EA: conector            5  EB: Equipo (= el CONSULTADO)
@@ -39,23 +60,38 @@ from pantallas_comunes import (
 class CoordenadasImagenSeleccion(Gtk.Dialog):
     """
     Muestra una imagen y permite seleccionar coordenadas con el ratón:
-      solo_xy=True  → clic simple         → punto (x, y)
-      solo_xy=False → clic + arrastre     → rectángulo (x, y, ancho, alto)
+      solo_xy=True     → clic simple      → punto (x, y)
+      solo_xy=False    → clic + arrastre  → rectángulo (x, y, ancho, alto)
+      modo_poligono=True → clic para agregar vértices, clic-y-arrastre
+                           para moverlos, clic sobre el primero para
+                           cerrar → polígono (self.vertices, self.cerrado)
 
-    Uso:
+    Uso (punto/rectángulo, sin cambios):
         dlg = CoordenadasImagenSeleccion(
                   id_imagen="5", solo_xy=True, x="100", y="200", parent=p)
         if dlg.run() == Gtk.ResponseType.OK:
             x, y = dlg.x, dlg.y
         dlg.destroy()
+
+    Uso (polígono, Fase 3 de plan_desarrollo_ubicacion_fisica_planos.md):
+        dlg = CoordenadasImagenSeleccion(
+                  id_imagen="5", modo_poligono=True,
+                  vertices=vertices_previos, parent=p)
+        if dlg.run() == Gtk.ResponseType.OK and dlg.cerrado:
+            vertices = dlg.vertices   # [(x, y), ...] en píxeles de imagen
+        dlg.destroy()
     """
 
     MARCADOR = 50
+    RADIO_VERTICE = 16  # px de imagen; mismo criterio que MARCADOR/2 usado
+                        # como radio de acierto para los marcadores existentes
 
     def __init__(self, id_imagen=None, solo_xy=True,
-                 x="", y="", ancho="", alto="", parent=None):
+                 x="", y="", ancho="", alto="", parent=None,
+                 modo_poligono=False, vertices=None):
         super().__init__(
-            title=_("Seleccionar coordenadas en imagen"),
+            title=_("Seleccionar polígono en imagen") if modo_poligono
+                  else _("Seleccionar coordenadas en imagen"),
             transient_for=parent,
             modal=True, destroy_with_parent=True,
         )
@@ -67,12 +103,21 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         self.x     = x;  self.y    = y
         self.ancho = ancho; self.alto = alto
         self.solo_xy = solo_xy
+        self.modo_poligono = modo_poligono
+
+        # resultado público del modo polígono
+        self.vertices = [(int(vx), int(vy)) for vx, vy in vertices] if vertices else []
+        # un polígono recargado ya tenía 3+ vértices guardados → ya estaba
+        # cerrado por definición (sala.poligono solo persiste polígonos
+        # cerrados); uno nuevo (vertices=None) arranca abierto
+        self.cerrado = bool(self.vertices)
 
         # estado interno
         self._puntos   = []
         self._rect_ini = None
         self._rect_fin = None
         self._drag     = False
+        self._vertice_arrastrado = None  # índice del vértice en arrastre, o None
 
         # ── layout ──────────────────────────────────────────────────────
         hpaned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
@@ -100,22 +145,47 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
             grid.attach(e, 1, fila, 1, 1)
             return e
 
-        self._ex = campo("X (píxeles):", 0)
-        self._ey = campo("Y (píxeles):", 1)
-        fila_btn = 2
-        if not solo_xy:
-            self._eancho = campo(_("Ancho (px):"), 2)
-            self._ealto  = campo(_("Alto  (px):"), 3)
-            fila_btn = 4
+        if modo_poligono:
+            self._lbl_vertices = Gtk.Label(xalign=0)
+            grid.attach(self._lbl_vertices, 0, 0, 2, 1)
+            self._actualizar_label_poligono()
 
-        btn_ir = Gtk.Button(label=_("⊙ Ir a coordenadas"))
-        btn_ir.connect("clicked", self._ir)
-        grid.attach(btn_ir, 0, fila_btn, 2, 1)
+            btn_deshacer = Gtk.Button(label=_("↶ Deshacer último vértice"))
+            btn_deshacer.connect("clicked", self._deshacer_ultimo_vertice)
+            grid.attach(btn_deshacer, 0, 1, 2, 1)
+
+            btn_reabrir = Gtk.Button(label=_("🔓 Reabrir para seguir editando"))
+            btn_reabrir.connect("clicked", self._reabrir_poligono)
+            grid.attach(btn_reabrir, 0, 2, 2, 1)
+
+            btn_reiniciar = Gtk.Button(label=_("🗑 Reiniciar polígono"))
+            btn_reiniciar.connect("clicked", self._reiniciar_poligono)
+            grid.attach(btn_reiniciar, 0, 3, 2, 1)
+        else:
+            self._ex = campo("X (píxeles):", 0)
+            self._ey = campo("Y (píxeles):", 1)
+            fila_btn = 2
+            if not solo_xy:
+                self._eancho = campo(_("Ancho (px):"), 2)
+                self._ealto  = campo(_("Alto  (px):"), 3)
+                fila_btn = 4
+
+            btn_ir = Gtk.Button(label=_("⊙ Ir a coordenadas"))
+            btn_ir.connect("clicked", self._ir)
+            grid.attach(btn_ir, 0, fila_btn, 2, 1)
         vbox_r.pack_start(grid, False, False, 0)
         vbox_r.pack_start(Gtk.Separator(), False, False, 0)
 
         leyenda = Gtk.Label(xalign=0)
-        if solo_xy:
+        if modo_poligono:
+            leyenda.set_markup(
+                "<small><b>Modo polígono</b>\n"
+                "• Clic en un área vacía: agrega un vértice\n"
+                "• Clic y arrastrar sobre un vértice: lo mueve\n"
+                "• Clic sobre el primer vértice (3+ vértices): "
+                "cierra el polígono\n"
+                "• Rueda del ratón: zoom</small>")
+        elif solo_xy:
             leyenda.set_markup(
                 "<small><b>Modo punto</b>\n"
                 "• Clic para colocar marcador\n"
@@ -128,21 +198,23 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         vbox_r.pack_start(leyenda, False, False, 0)
         hpaned.pack2(vbox_r, resize=False, shrink=False)
 
-        # precargar coords
-        self._ex.set_text(s(x)); self._ey.set_text(s(y))
-        if solo_xy:
-            try:
-                self._puntos = [(int(float(x)), int(float(y)))]
-            except (ValueError, TypeError):
-                pass
-        else:
-            self._eancho.set_text(s(ancho)); self._ealto.set_text(s(alto))
-            try:
-                x1, y1 = int(float(x)), int(float(y))
-                self._rect_ini = (x1, y1)
-                self._rect_fin = (x1 + int(float(ancho)), y1 + int(float(alto)))
-            except (ValueError, TypeError):
-                pass
+        # precargar coords (el polígono ya se precargó en self.vertices,
+        # arriba, no usa estos campos de texto)
+        if not modo_poligono:
+            self._ex.set_text(s(x)); self._ey.set_text(s(y))
+            if solo_xy:
+                try:
+                    self._puntos = [(int(float(x)), int(float(y)))]
+                except (ValueError, TypeError):
+                    pass
+            else:
+                self._eancho.set_text(s(ancho)); self._ealto.set_text(s(alto))
+                try:
+                    x1, y1 = int(float(x)), int(float(y))
+                    self._rect_ini = (x1, y1)
+                    self._rect_fin = (x1 + int(float(ancho)), y1 + int(float(alto)))
+                except (ValueError, TypeError):
+                    pass
 
         # cargar imagen
         if id_imagen:
@@ -166,6 +238,10 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         z  = self._viz.zoom
         M  = self.MARCADOR * z
         HM = M / 2
+
+        if self.modo_poligono:
+            self._dibujar_overlay_poligono(cr, z)
+            return
 
         if self.solo_xy:
             for ix, iy in self._puntos:
@@ -212,10 +288,114 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
                     cr.move_to(px, py - s4); cr.line_to(px, py + s4)
                 cr.stroke()
 
+    def _dibujar_overlay_poligono(self, cr, z):
+        R  = self.RADIO_VERTICE * z
+        pts = [self._viz.i2w(ix, iy) for ix, iy in self.vertices]
+
+        # borde del polígono: sólido entre vértices consecutivos, y el
+        # segmento de cierre (último → primero) en punteado mientras no
+        # esté cerrado, para distinguir "casi listo" de "ya guardado"
+        if len(pts) >= 2:
+            cr.set_source_rgba(0, 0.55, 0.95, 0.92)
+            cr.set_line_width(max(2, 4 * z))
+            cr.move_to(*pts[0])
+            for wx, wy in pts[1:]:
+                cr.line_to(wx, wy)
+            if self.cerrado:
+                cr.close_path()
+            cr.stroke()
+            if not self.cerrado and len(pts) >= 3:
+                cr.set_dash([8 * z, 6 * z])
+                cr.move_to(*pts[-1]); cr.line_to(*pts[0])
+                cr.stroke()
+                cr.set_dash([])
+
+        # relleno tenue una vez cerrado, para visualizar el contorno de sala
+        if self.cerrado and len(pts) >= 3:
+            cr.set_source_rgba(0, 0.55, 0.95, 0.12)
+            cr.move_to(*pts[0])
+            for wx, wy in pts[1:]:
+                cr.line_to(wx, wy)
+            cr.close_path(); cr.fill()
+
+        # vértices numerados; el primero resaltado en otro color porque
+        # es el que hay que tocar para cerrar el polígono
+        FS = max(10, 13 * z)
+        for i, (wx, wy) in enumerate(pts):
+            es_primero = (i == 0)
+            arrastrado = (i == self._vertice_arrastrado)
+            if es_primero and not self.cerrado:
+                r, g, b = 0.95, 0.55, 0
+            else:
+                r, g, b = 0, 0.55, 0.95
+            radio = R * (1.25 if arrastrado else 1.0)
+            cr.set_source_rgba(r, g, b, 0.90)
+            cr.arc(wx, wy, radio, 0, 2 * math.pi); cr.fill()
+            cr.set_source_rgb(1, 1, 1); cr.set_line_width(max(1.5, 2 * z))
+            cr.arc(wx, wy, radio, 0, 2 * math.pi); cr.stroke()
+
+            ns = str(i + 1)
+            cr.select_font_face("Sans", 0, 1)
+            cr.set_font_size(FS)
+            ext = cr.text_extents(ns)
+            cr.move_to(wx - ext.width/2 - ext.x_bearing,
+                       wy - ext.height/2 - ext.y_bearing)
+            cr.set_source_rgb(1, 1, 1); cr.show_text(ns)
+
+    # ── vértices del polígono ────────────────────────────────────────────
+    def _vertice_en(self, ix, iy):
+        """Índice del vértice bajo (ix, iy) en coordenadas de imagen, o
+        None. Mismo radio de acierto que el usado para dibujarlo."""
+        for i, (vx, vy) in enumerate(self.vertices):
+            if abs(ix - vx) <= self.RADIO_VERTICE and \
+               abs(iy - vy) <= self.RADIO_VERTICE:
+                return i
+        return None
+
+    def _actualizar_label_poligono(self):
+        n = len(self.vertices)
+        if self.cerrado:
+            estado = _("cerrado ✔")
+        elif n >= 3:
+            estado = _("abierto — clic en el vértice 1 para cerrar")
+        else:
+            estado = _("abierto — mínimo 3 vértices")
+        self._lbl_vertices.set_markup(
+            f"<b>{_('Vértices')}:</b> {n} ({estado})")
+
+    def _deshacer_ultimo_vertice(self, btn=None):
+        if self.vertices:
+            self.vertices.pop()
+            self.cerrado = False
+            self._actualizar_label_poligono()
+            self._viz.da.queue_draw()
+
+    def _reabrir_poligono(self, btn=None):
+        self.cerrado = False
+        self._actualizar_label_poligono()
+        self._viz.da.queue_draw()
+
+    def _reiniciar_poligono(self, btn=None):
+        self.vertices = []
+        self.cerrado  = False
+        self._vertice_arrastrado = None
+        self._actualizar_label_poligono()
+        self._viz.da.queue_draw()
+
     # ── eventos de ratón ─────────────────────────────────────────────────
     def _on_press(self, da, event):
         ix, iy = self._viz.w2i(event.x, event.y)
-        if self.solo_xy:
+        if self.modo_poligono:
+            idx = self._vertice_en(ix, iy)
+            if idx is not None:
+                if idx == 0 and not self.cerrado and len(self.vertices) >= 3:
+                    self.cerrado = True
+                else:
+                    self._vertice_arrastrado = idx
+            elif not self.cerrado:
+                self.vertices.append((ix, iy))
+            self._actualizar_label_poligono()
+        elif self.solo_xy:
             self._puntos = [(ix, iy)]
             self._ex.set_text(str(ix)); self._ey.set_text(str(iy))
         else:
@@ -226,13 +406,19 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         da.queue_draw()
 
     def _on_motion(self, da, event):
-        if self._drag and not self.solo_xy:
+        if self.modo_poligono and self._vertice_arrastrado is not None:
+            ix, iy = self._viz.w2i(event.x, event.y)
+            self.vertices[self._vertice_arrastrado] = (ix, iy)
+            da.queue_draw()
+        elif self._drag and not self.solo_xy:
             ix, iy = self._viz.w2i(event.x, event.y)
             self._rect_fin = (ix, iy)
             da.queue_draw()
 
     def _on_release(self, da, event):
-        if self._drag and not self.solo_xy:
+        if self.modo_poligono:
+            self._vertice_arrastrado = None
+        elif self._drag and not self.solo_xy:
             self._drag = False
             ix, iy     = self._viz.w2i(event.x, event.y)
             x1 = min(self._rect_ini[0], ix); y1 = min(self._rect_ini[1], iy)
@@ -261,7 +447,10 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
             pass
 
     def do_response(self, response_id):
-        if response_id == Gtk.ResponseType.OK:
+        # en modo polígono no hay campos de texto que leer: self.vertices
+        # y self.cerrado ya quedaron al día con cada clic/arrastre sobre
+        # la imagen (ver _on_press/_on_motion)
+        if response_id == Gtk.ResponseType.OK and not self.modo_poligono:
             self.x = self._ex.get_text().strip()
             self.y = self._ey.get_text().strip()
             if not self.solo_xy:
@@ -550,16 +739,24 @@ class ImagenConectoresYCables(Gtk.Dialog):
 # ImagenConectoresYCables — ambas siguen definidas en este archivo)
 
 def abrir_coords_imagen(id_imagen, solo_xy=True, x="", y="",
-                        ancho="", alto="", parent=None):
-    """Abre el selector y devuelve dict con x/y[/ancho/alto], o None si canceló."""
+                        ancho="", alto="", parent=None,
+                        modo_poligono=False, vertices=None):
+    """Abre el selector y devuelve dict con x/y[/ancho/alto], o None si
+    canceló. En modo_poligono=True devuelve en cambio dict con
+    vertices/cerrado (ver CoordenadasImagenSeleccion), independiente de
+    solo_xy."""
     dlg = CoordenadasImagenSeleccion(
         id_imagen=id_imagen, solo_xy=solo_xy,
-        x=x, y=y, ancho=ancho, alto=alto, parent=parent)
+        x=x, y=y, ancho=ancho, alto=alto, parent=parent,
+        modo_poligono=modo_poligono, vertices=vertices)
     resp = dlg.run()
     resultado = None
     if resp == Gtk.ResponseType.OK:
-        resultado = {"x": dlg.x, "y": dlg.y,
-                     "ancho": dlg.ancho, "alto": dlg.alto}
+        if modo_poligono:
+            resultado = {"vertices": dlg.vertices, "cerrado": dlg.cerrado}
+        else:
+            resultado = {"x": dlg.x, "y": dlg.y,
+                         "ancho": dlg.ancho, "alto": dlg.alto}
     dlg.destroy()
     return resultado
 
