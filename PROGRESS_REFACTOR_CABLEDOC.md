@@ -9,7 +9,16 @@ para no mezclar tres historiales con ritmos distintos.
 
 ## Current Focus
 
-**Entrega 8 completada en esta sesión** (`catalogos_basicos_ui.py`) — ver
+**Entrega 9 completada en esta sesión** (`panel_arbol_ui.py`) — ver
+sección propia abajo. Al arrancar esta sesión se clonó el repo real de
+GitHub (`fschpp/CabledocDesktop`) en vez de asumir el estado a partir de
+los archivos adjuntos: confirmó que `main` ya tenía la Entrega 8 mergeada
+(PR #9) y que este documento coincidía byte a byte con el del checkout —
+sin discrepancia de documentación esta vez (a diferencia de lo que pasó
+en la Entrega 6). Sólo queda la Entrega 10 (cierre) para completar todo
+el plan.
+
+Entrega 8 completada (sesión anterior): `catalogos_basicos_ui.py` — ver
 sección propia abajo. Acotación de Fede incorporada: el plan (§4) dejaba
 sin destino asignado 4 bloques (`ConexionesDeEquipoVentana`,
 `DiagramasGuardadosListado`, `GeneradorDiagrama`, `EquipoInfoExtra` — este
@@ -171,6 +180,60 @@ problemas. Rama: `refactor/etapa8-catalogos-basicos-ui` (creada localmente
 desde `main` de GitHub, sin commitear — diff entregado para que Fede haga
 el commit en su terminal).
 
+Entrega 9 completada: `panel_arbol_ui.py` (877 líneas de código movido) —
+`PanelArbol`, el orquestador visual del panel de navegación en árbol
+(Sala → Rack → Frame → Equipo → Conectores). A diferencia de todas las
+entregas anteriores, `PanelArbol` no tiene ningún consumidor externo
+fuera de `cabledoc.py` (confirmado por grep en todo el repo) — se
+reexporta igual desde `cabledoc.py` por consistencia con el resto de la
+fachada, aunque estrictamente no haría falta para ningún `from cabledoc
+import X` externo. Referencias cruzadas a `_DialogoEquipo`, `_DialogoRack`,
+`_DialogoFrame`, `_DialogoConector`, `_DialogoCable`, `_DialogoConexion`
+(dispatcher `_on_row_activated`) y `_DialogoPosicionRack`
+(`_on_drag_data_received`) resueltas con import diferido dentro de cada
+método, ruteando vía `from cabledoc import X` — mismo patrón que
+`racks_salas_ui.py`/`catalogos_basicos_ui.py`. El import diferido
+preexistente de `_DialogoEquipoNoRackSala` (ya vivía dentro de
+`PanelArbol` antes de esta entrega) se preservó sin cambios, sólo
+combinado en la misma línea con `_DialogoPosicionRack`. `cabledoc.py`:
+1.949 → 1.080 líneas. `APP_VERSION` → `1.20260904230000`. Validado con
+ast.parse + py_compile sobre ambos archivos, diff byte a byte del bloque
+movido contra el checkout de `main` en GitHub (idéntico salvo los dos
+imports diferidos agregados/combinados), pyflakes comparado contra
+baseline de `main` (cero F821 nuevos, únicas advertencias nuevas son
+"imported but unused" del patrón de reexport esperado), import real bajo
+Xvfb con identidad de objeto confirmada para `PanelArbol` y para el
+import diferido combinado (`_DialogoEquipoNoRackSala`/
+`_DialogoPosicionRack`), y smoke test funcional bajo Xvfb contra una
+copia descartable de `database/db.db` (esta sesión no traía
+`database/db.db` versionado, generada desde `schema_db.sql`) con fixture
+de sala+rack+equipo en rack+equipo suelto+2 conectores+cable+conexión:
+árbol completo construido sin excepciones (11 filas, todos los tipos de
+nodo esperados presentes) y `_on_row_activated` ejercitado con mocks para
+los 5 tipos de nodo con diálogo asociado, confirmando en cada caso que el
+import diferido resuelve al símbolo correcto. Único hallazgo: la rama de
+drag&drop (`_on_drag_data_received`) no se pudo ejercitar con un evento
+GTK real (requiere simular un drag interactivo, no factible headless) —
+cubierta por diff byte a byte más verificación directa de identidad de
+objeto del import diferido combinado. Esta sesión sí tuvo acceso de red:
+se instalaron `gir1.2-gtk-3.0`, `python3-gi-cairo`, `xvfb`, `pip
+graphqlite` y `pip pyflakes` sin problemas. Rama:
+`refactor/etapa9-panel-arbol-ui` (creada localmente desde `main` de
+GitHub, sin commitear — diff entregado para que Fede haga el commit en su
+terminal).
+
+Con la Entrega 9 cerrada, sólo queda la Entrega 10 (cierre): verificar que
+`cabledoc.py` quede como fachada delgada (`VentanaPrincipal` +
+reexportaciones + `APP_VERSION` + entry point) y que baje de las 9.405
+líneas originales a ~700. Estado actual: 1.080 líneas — ya por debajo de
+la meta, así que la Entrega 10 es más una entrega de **verificación y
+limpieza final** que de movimiento de código: confirmar que no queda
+ningún bloque de dominio suelto (sólo queda pendiente
+`_DialogoRenombrarConectoresCatalogo`, sin destino asignado desde la
+Entrega 8 — candidato natural: `conectores_ui.py` o `catalogo_equipos_ui.py`,
+junto a quien lo consume) y dejar `cabledoc.py` documentado como fachada
+final.
+
 
 
 ## Todo List
@@ -188,11 +251,15 @@ el commit en su terminal).
       `GeneradorDiagrama`, `EquipoInfoExtra` — ver desviación documentada
       arriba; `_DialogoRenombrarConectoresCatalogo` queda pendiente de
       asignar destino, no forma parte de esta entrega)
-- [ ] Entrega 9 — `panel_arbol_ui.py` (penúltimo a propósito: orquestador
-      que referencia diálogos de todos los dominios anteriores)
+- [x] Entrega 9 — `panel_arbol_ui.py` (penúltimo a propósito: orquestador
+      que referencia diálogos de todos los dominios anteriores; sin
+      consumidores externos, a diferencia del resto de las entregas)
 - [ ] Entrega 10 — Cierre: `cabledoc.py` queda como fachada delgada
       (`VentanaPrincipal` + reexportaciones + entry point), verificar que
-      baje de 9.405 a ~700 líneas
+      baje de 9.405 a ~700 líneas (estado actual: 1.080 líneas, ya por
+      debajo de la meta; pendiente asignar destino a
+      `_DialogoRenombrarConectoresCatalogo`, único bloque sin mover desde
+      la Entrega 8)
 
 ## Latest Blockers/Discoveries
 
@@ -318,3 +385,34 @@ el commit en su terminal).
   `ConexionesDeEquipoVentana`. Se resolvió igual que en la Entrega 3:
   concatenando los dos rangos no adyacentes en un único archivo, sin tocar
   el orden relativo interno de cada uno.
+- **Entrega 9 — sin discrepancia de documentación al arrancar la sesión**
+  (a diferencia de la Entrega 6): se clonó el repo real de GitHub antes de
+  asumir en qué estado seguir, y tanto `main` (PR #9 mergeado) como este
+  documento coincidían exactamente con el estado post-Entrega 8 esperado.
+  Sirve como confirmación de que la lección de la Entrega 6 ("siempre
+  confirmar el estado real del checkout antes de asumir en qué entrega
+  hay que seguir") sigue vigente y funcionando como práctica.
+- **Entrega 9 — `PanelArbol` es el primer bloque de todo el refactor sin
+  ningún consumidor externo:** todas las entregas anteriores (1-8) tenían
+  al menos un nombre reexportado consumido desde fuera de `cabledoc.py`
+  (`RacksListado`/`_DialogoFrame` desde `rack_ui.py`, `MarcasListado`/
+  `ImagenesListado` desde `catalogo_equipos_ui.py`, etc.). `PanelArbol` se
+  reexporta igual por consistencia con el resto de la fachada, pero es un
+  dato a tener en cuenta para la Entrega 10: si en el cierre se decide que
+  `cabledoc.py` ya no necesita mantener compatibilidad hacia atrás para
+  nombres sin consumidores externos, `PanelArbol` sería el primer
+  candidato a dejar de reexportarse (fuera del alcance de esta entrega,
+  que es un *move* puro sin ese tipo de decisiones).
+- **Entrega 9 — rama de drag&drop no ejercitada con evento GTK real:** a
+  diferencia del resto de la validación funcional de esta entrega (y de
+  las anteriores, cuando había acceso de red), `_on_drag_data_received`
+  no se pudo probar con una interacción de arrastre real desde un script
+  headless bajo Xvfb — simular un evento de drag-and-drop de GTK
+  (`Gtk.drag_*`) requiere una secuencia de eventos de bajo nivel que no es
+  practicable sin un compositor gráfico interactivo real. Se cubrió con
+  diff byte a byte del método (sin cambios de lógica, sólo el import
+  diferido combinado) más verificación directa de identidad de objeto del
+  import. Pendiente no bloqueante: si Fede quiere una cobertura más
+  fuerte de este método específico antes de mergear, la única forma
+  práctica es una prueba manual interactiva (arrastrar un equipo suelto a
+  un rack o sala en la app real).
