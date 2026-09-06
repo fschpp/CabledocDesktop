@@ -17,8 +17,10 @@ simple con el editor gráfico.
 
 Fase 5 ("Overlay de racks (puntos)"): a diferencia del contorno de sala
 (polígono libre, dibujado a mano vértice por vértice con
-CoordenadasImagenSeleccion(modo_poligono=True)), el rack es un punto
-simple — se reutiliza el modo solo_xy=True ya existente de
+CoordenadasImagenSeleccion(modo_poligono=True)), el rack se ubica con un
+único punto (x_pct/y_pct) — dibujado en el overlay como un cuadrado, no
+como un círculo, para diferenciarlo a simple vista de futuros elementos
+redondos (equipos sueltos, Fase 7) — se reutiliza el modo solo_xy=True ya existente de
 CoordenadasImagenSeleccion (mismo mecanismo histórico usado para ubicar
 conectores/slots sobre la imagen de un equipo) vía abrir_coords_imagen.
 El punto de un rack sólo puede editarse si ese rack YA figura en
@@ -43,7 +45,7 @@ lectura vía overlay Cairo — y ofrece un selector de sala + botón para
 dibujar/rehacer su contorno, reutilizando en modo_poligono el mismo
 CoordenadasImagenSeleccion de la Fase 3 (imagen_conectores_ui.py).
 
-Fase 5 ("Overlay de racks") suma, sobre el mismo overlay, un punto por
+Fase 5 ("Overlay de racks") suma, sobre el mismo overlay, un cuadrado por
 cada rack de rack_por_sala que ya tiene x_pct/y_pct cargado (dibujado
 aunque la sala dueña todavía no tenga contorno propio — ver el ajuste
 correspondiente en Modelo.devolver_contenido_plano) + un selector de
@@ -60,7 +62,6 @@ from gi.repository import Gtk
 
 import os
 import json
-import math
 import shutil
 
 from modelo import Modelo, IMG_DIR, DimensionesImagenError
@@ -246,7 +247,7 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     """
 
     COLOR_SALA = (0.10, 0.45, 0.90)  # azul — contorno sólido + relleno tenue
-    COLOR_RACK = (0.85, 0.45, 0.05)  # naranja — punto de rack
+    COLOR_RACK = (0.85, 0.45, 0.05)  # naranja — cuadrado de rack
 
     def __init__(self, id_plano, parent=None, id_sala_foco=None,
                  id_rack_x_sala_foco=None):
@@ -406,7 +407,10 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                     cr.move_to(cx - ext.width / 2, cy)
                     cr.show_text(texto)
 
-            # ── Fase 5: puntos de rack de esta sala ──
+            # ── Fase 5: puntos de rack de esta sala — representados como
+            # cuadrados (no círculos) para distinguirlos a simple vista
+            # de otros elementos del overlay que sí sean redondos
+            # (equipos sueltos, Fase 7) ──
             r2, g2, b2 = self.COLOR_RACK
             for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
                 try:
@@ -415,9 +419,10 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 except (TypeError, ValueError):
                     continue
                 wx_r, wy_r = self._viz.i2w(x_img_r, y_img_r)
-                radio = max(6, 9 * self._viz.zoom)
+                lado = max(12, 18 * self._viz.zoom)  # lado del cuadrado
+                mitad = lado / 2.0
                 cr.set_source_rgba(r2, g2, b2, 0.92)
-                cr.arc(wx_r, wy_r, radio, 0, 2 * math.pi)
+                cr.rectangle(wx_r - mitad, wy_r - mitad, lado, lado)
                 cr.fill_preserve()
                 cr.set_source_rgb(0, 0, 0)
                 cr.set_line_width(1.5)
@@ -426,7 +431,7 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 cr.select_font_face("Sans", 0, 0)
                 cr.set_font_size(12)
                 texto_r = "🗄 " + s(nombre_rack)
-                cr.move_to(wx_r + radio + 3, wy_r + 4)
+                cr.move_to(wx_r + mitad + 3, wy_r + 4)
                 cr.show_text(texto_r)
 
     # ── modo editar: dibujar/rehacer el contorno de una sala ─────────────
