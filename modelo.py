@@ -4720,10 +4720,43 @@ class Modelo:
         )
 
     @staticmethod
-    def devolver_mueble(id_mueble):
+    def devolver_todos_los_muebles():
+        """Para MueblesListado (Fase 6, planos_ui.py) — todos los
+        muebles de todas las salas, con el nombre de sala resuelto,
+        mismo criterio de listado plano que devolver_todos_los_planos."""
         return Modelo._query(
-            "SELECT id_mueble, id_sala, nombre, tipo, x_pct, y_pct, "
-            "ancho_pct, alto_pct FROM mueble WHERE id_mueble=?", (id_mueble,)
+            "SELECT m.id_mueble, m.id_sala, s.nombre, m.nombre, m.tipo, "
+            "m.x_pct "
+            "FROM mueble m JOIN sala s ON s.id_sala = m.id_sala "
+            "ORDER BY s.nombre, m.nombre"
+        )
+
+    @staticmethod
+    def devolver_mueble(id_mueble):
+        """Fase 6 de plan_desarrollo_ubicacion_fisica_planos.md: se agrega
+        s.id_plano al final (columna 8), mismo criterio que
+        devolver_rack_por_sala en la Fase 5 — para que _DialogoMueble
+        sepa si la sala de este mueble ya tiene un plano asignado, sin
+        tocar las columnas 0-7 que ya consumía ese mismo diálogo."""
+        return Modelo._query(
+            "SELECT m.id_mueble, m.id_sala, m.nombre, m.tipo, m.x_pct, "
+            "m.y_pct, m.ancho_pct, m.alto_pct, s.id_plano "
+            "FROM mueble m JOIN sala s ON s.id_sala = m.id_sala "
+            "WHERE m.id_mueble=?", (id_mueble,)
+        )
+
+    @staticmethod
+    def devolver_muebles_de_plano(id_plano):
+        """Fase 6: todos los muebles cuya sala pertenece a este plano,
+        tengan o no rectángulo (x_pct/y_pct/ancho_pct/alto_pct) ya
+        cargado — para poblar el selector "Mueble:" de
+        VistaPlanoInteractivo en modo editar. Mismo criterio que
+        devolver_racks_por_sala_de_plano (Fase 5)."""
+        return Modelo._query(
+            "SELECT m.id_mueble, s.nombre, m.nombre, m.x_pct, m.y_pct, "
+            "m.ancho_pct, m.alto_pct "
+            "FROM mueble m JOIN sala s ON s.id_sala = m.id_sala "
+            "WHERE s.id_plano=? ORDER BY s.nombre, m.nombre", (id_plano,)
         )
 
     @staticmethod
@@ -4949,7 +4982,15 @@ class Modelo:
         dibujar según haya o no `poligono` en cada fila (ver
         VistaPlanoInteractivo._dibujar_overlay). Antes de la Fase 5 esta
         función sólo tenía consumidor para el polígono (Fase 4), por eso
-        el filtro no se había notado."""
+        el filtro no se había notado.
+
+        Cada mueble viene con su lista de equipos ya resuelta (Fase 6):
+        tupla (id_mueble, nombre, x_pct, y_pct, ancho_pct, alto_pct,
+        equipos), donde equipos es una lista de (id_equipo, nombre,
+        x_pct_relativo, y_pct_relativo) — la posición absoluta de cada
+        equipo dentro del mueble es responsabilidad del llamador (ver
+        VistaPlanoInteractivo._dibujar_overlay), igual criterio que
+        devolver_ubicacion_fisica_de_equipo."""
         salas = Modelo._query(
             "SELECT id_sala, nombre, poligono FROM sala "
             "WHERE id_plano=?", (id_plano,)
@@ -4963,10 +5004,28 @@ class Modelo:
                 "JOIN rack r ON r.id_rack = rps.id_rack "
                 "WHERE rps.id_sala=? AND rps.x_pct IS NOT NULL", (id_sala,)
             )
-            muebles = Modelo._query(
+            muebles_filas = Modelo._query(
                 "SELECT id_mueble, nombre, x_pct, y_pct, ancho_pct, alto_pct "
                 "FROM mueble WHERE id_sala=?", (id_sala,)
             )
+            # Un query por mueble para sus equipos (Fase 6) — no se
+            # batchea a nivel de plano como se hace con racks/sueltos
+            # porque la cardinalidad de "muebles por sala" es de un
+            # puñado (mesas/escritorios reales), a diferencia de
+            # equipos por rack que sí puede ser grande; ver el learning
+            # "Batch queries over per-node calls" — acá el nodo es el
+            # mueble, no el equipo, y son pocos.
+            muebles = []
+            for id_mueble, nombre_m, x_pct_m, y_pct_m, ancho_pct_m, alto_pct_m in muebles_filas:
+                equipos_m = Modelo._query(
+                    "SELECT esm.id_equipo, e.nombre, esm.x_pct_relativo, "
+                    "esm.y_pct_relativo "
+                    "FROM equipo_sobre_mueble esm "
+                    "JOIN equipo e ON e.id_equipo = esm.id_equipo "
+                    "WHERE esm.id_mueble=? ORDER BY e.nombre", (id_mueble,)
+                )
+                muebles.append((id_mueble, nombre_m, x_pct_m, y_pct_m,
+                                 ancho_pct_m, alto_pct_m, equipos_m))
             sueltos = Modelo._query(
                 "SELECT en.id_equiponoraqueable_por_sala, e.id_equipo, "
                 "e.nombre, en.x_pct, en.y_pct, en.tipo_montaje "

@@ -41,7 +41,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260905230500"
+APP_VERSION = "1.20260906003000"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -247,6 +247,7 @@ from racks_salas_ui import (
 # desde cabledoc.py.
 from planos_ui import (
     PlanosListado,
+    MueblesListado,
     _DialogoPlano,
 )
 
@@ -397,6 +398,7 @@ class VentanaPrincipal(Gtk.Window):
             (_("🖼 Vista gráfica de rack…"), self._abrir_vista_rack),
             ("---", None),
             (_("🗺 Planos"), self._abrir_planos),
+            (_("🪑 Muebles"), self._abrir_muebles),
         ])
         menu(_("Catálogos"), [
             (_("Marcas"), self._abrir_marcas),
@@ -913,6 +915,13 @@ class VentanaPrincipal(Gtk.Window):
         Fase 2). Todavía sin overlay: solo alta/baja/edición de nombre +
         imagen de cada plano."""
         PlanosListado(parent=self).run_and_destroy()
+
+    def _abrir_muebles(self, *a):
+        """Catálogo de muebles (Fase 6): alta/edición del mueble en sí
+        (nombre, sala, tipo), su rectángulo sobre el plano y los equipos
+        que tiene asignados. Ver MueblesListado/_DialogoMueble en
+        planos_ui.py."""
+        MueblesListado(parent=self).run_and_destroy()
 
     def _abrir_diagrama(self, *a):
         abrir_diagrama_conexiones(parent=self)

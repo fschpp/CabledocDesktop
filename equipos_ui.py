@@ -76,9 +76,17 @@ from pantallas_avanzadas import (
 
 class EquiposListado(VentanaListado):
     # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_img_conectores'
-    def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None):
+    def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None,
+                 excluir_modulos_de_frame=False):
         self._ocultar_patcheras = True   # debe existir antes de super().__init__
         self._filtro_pendiente = filtro_pendiente
+        # Fase 6 de plan_desarrollo_ubicacion_fisica_planos.md ("Muebles"):
+        # un equipo marcado equipo.es_modulo_de_frame=1 no puede asignarse
+        # a un mueble (ni a equipo_no_rack_sala, mismo criterio en la
+        # Fase 7) — requiere estar instalado en un frame para tener
+        # ubicación física. Por defecto False para no cambiar el
+        # comportamiento de los demás llamadores existentes.
+        self._excluir_modulos_de_frame = excluir_modulos_de_frame
         self._ids_resaltar = set()
         titulo = _("Equipos")
         if filtro_pendiente == "sin_conectores":
@@ -189,6 +197,12 @@ class EquiposListado(VentanaListado):
             self._ids_resaltar = {str(r[0]) for r in rows}
             color = "#c8a800"
         todos = Modelo.devolver_todos_los_equipos()
+        if self._excluir_modulos_de_frame:
+            ids_modulo = {
+                str(r[0]) for r in Modelo._query(
+                    "SELECT id_equipo FROM equipo WHERE es_modulo_de_frame=1")
+            }
+            todos = [f for f in todos if s(f[0]) not in ids_modulo]
         todos, color_por_id = self._agregar_columna_riesgo(todos)
         # Fase 4 de plan_desarrollo_hardcodes_idioma.md: ya no se filtra
         # comparando texto ("PATCHERA" in tipo) sino por rol_senal real.

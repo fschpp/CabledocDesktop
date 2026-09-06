@@ -6,12 +6,15 @@ Dominio Planos, plan_desarrollo_ubicacion_fisica_planos.md.
 
 Contiene:
   - PlanosListado, _DialogoPlano (Fase 2: catálogo simple de planos)
+  - MueblesListado, _DialogoMueble (Fase 6: catálogo de muebles +
+    asignación de equipos sobre cada uno)
   - VistaPlanoInteractivo (Fase 4: overlay de salas en el plano;
-    Fase 5: + overlay de racks — puntos)
+    Fase 5: + overlay de racks — cuadrados; Fase 6: + overlay de
+    muebles — rectángulos, con los equipos que contienen)
 
-El overlay interactivo (puntos de equipo suelto, muebles) sigue creciendo
-en las Fases 6 y 7 del plan — este archivo crece en esas fases, mismo
-criterio de separación por dominio que ya usan `racks_salas_ui.py` /
+El overlay interactivo (puntos de equipo suelto) sigue creciendo en la
+Fase 7 del plan — este archivo crece en esa fase, mismo criterio de
+separación por dominio que ya usan `racks_salas_ui.py` /
 `frames_slots_ui.py`, para no mezclar desde el arranque el catálogo
 simple con el editor gráfico.
 
@@ -50,10 +53,26 @@ cada rack de rack_por_sala que ya tiene x_pct/y_pct cargado (dibujado
 aunque la sala dueña todavía no tenga contorno propio — ver el ajuste
 correspondiente en Modelo.devolver_contenido_plano) + un selector de
 rack + botón para ubicarlo/moverlo, reutilizando en solo_xy=True el
-mismo CoordenadasImagenSeleccion. Todavía no dibuja muebles ni equipos
-sueltos (eso llega en las Fases 6-7): Modelo.devolver_contenido_plano ya
-devuelve esa información lista para cuando corresponda, pero se ignora
-a propósito acá para no salirse del criterio de cierre de esta fase.
+mismo CoordenadasImagenSeleccion.
+
+Fase 6 ("Muebles") suma un rectángulo por cada mueble con geometría
+cargada (x_pct/y_pct/ancho_pct/alto_pct), con los equipos que tiene
+asignados dibujados dentro (posición relativa al rectángulo, resuelta a
+absoluta acá igual que hace Modelo.devolver_ubicacion_fisica_de_equipo)
++ un selector de mueble + botón para ubicar/redimensionar su rectángulo,
+reutilizando esta vez el modo rectángulo ya existente de
+CoordenadasImagenSeleccion (solo_xy=False, el mismo mecanismo histórico
+de selección de área sobre la imagen de un equipo — sin cambios en
+imagen_conectores_ui.py, el plan ya lo anticipaba así en la sección 3.2).
+MueblesListado/_DialogoMueble (nuevas en esta fase) manejan el
+alta/edición del mueble en sí (nombre, sala, tipo) y la asignación de
+equipos que contiene — con el mismo botón "▭ Definir rectángulo en el
+plano" que abre este visor enfocado en el mueble, patrón idéntico al
+"📍 Ubicar en el plano" de _DialogoRackPorSala en la Fase 5. Todavía no
+dibuja equipos sueltos directos (eso llega en la Fase 7):
+Modelo.devolver_contenido_plano ya devuelve esa información lista para
+cuando corresponda, pero se ignora a propósito acá para no salirse del
+criterio de cierre de esta fase.
 """
 
 import gi
@@ -62,6 +81,7 @@ from gi.repository import Gtk
 
 import os
 import json
+import math
 import shutil
 
 from modelo import Modelo, IMG_DIR, DimensionesImagenError
@@ -204,6 +224,344 @@ class _DialogoPlano(Gtk.Dialog):
         self.destroy()
 
 
+# ─── Muebles (Fase 6) ───────────────────────────────────────────────────────
+
+class MueblesListado(VentanaListado):
+    """Catálogo simple de muebles (mesas/escritorios) — el rectángulo
+    sobre el plano y la asignación de equipos se editan desde
+    _DialogoMueble, no desde acá (mismo criterio que _DialogoRackPorSala
+    con su botón "📍 Ubicar en el plano")."""
+
+    def __init__(self, parent=None, modo_seleccion=False):
+        super().__init__(
+            _("Muebles"),
+            [_("ID"), _("Sala"), _("Nombre"), _("Tipo"), _("Ubicación")],
+            parent=parent, modo_seleccion=modo_seleccion)
+        self.cargar_datos()
+
+    def cargar_datos(self):
+        filas = []
+        for id_mueble, id_sala, nombre_sala, nombre, tipo, x_pct in \
+                Modelo.devolver_todos_los_muebles():
+            ubicacion = _("Sin ubicar") if x_pct is None else _("Ubicado")
+            filas.append((id_mueble, nombre_sala, nombre, tipo, ubicacion))
+        self._poblar(filas)
+
+    def nuevo(self):
+        dlg = _DialogoMueble(parent=self)
+        dlg.run_and_destroy()
+        self.cargar_datos()
+
+    def editar(self, id_):
+        dlg = _DialogoMueble(id_mueble=id_, parent=self)
+        dlg.run_and_destroy()
+        self.cargar_datos()
+
+    def eliminar(self, id_):
+        Modelo.eliminar_mueble(id_)
+
+
+class _DialogoMueble(Gtk.Dialog):
+    """Alta/edición de un mueble: nombre, sala, tipo — más dos secciones
+    que sólo se habilitan una vez guardado (self.id_mueble, igual
+    criterio que _DialogoRackPorSala en la Fase 5, porque tanto el
+    rectángulo como los equipos que contiene son filas que dependen de
+    que el mueble ya exista):
+
+      - "▭ Definir rectángulo en el plano": abre VistaPlanoInteractivo
+        enfocado en este mueble (id_mueble_foco), reutilizando el modo
+        rectángulo ya existente de CoordenadasImagenSeleccion
+        (solo_xy=False) — mismo patrón que el punto de un rack en la
+        Fase 5, sólo que acá el resultado son 4 valores (x, y, ancho,
+        alto) en vez de 2. Habilitado sólo si la sala ya tiene un plano
+        asignado.
+
+      - Lista de equipos asignados + "➕ Agregar equipo" (selector
+        EquiposListado filtrado con excluir_modulos_de_frame=True,
+        posición relativa inicial 50/50 — centrado, después ajustable)
+        + "➖ Quitar equipo" + "📍 Ubicar dentro del mueble" (reutiliza
+        abrir_coords_imagen en modo punto sobre la imagen COMPLETA del
+        plano, no una vista recortada del mueble — se precarga con la
+        posición absoluta actual del equipo, resuelta desde su offset
+        relativo, y al aceptar se vuelve a expresar como % relativo al
+        rectángulo del mueble, recortado a 0-100 si el clic cae afuera).
+        Habilitada sólo si además el mueble ya tiene su propio
+        rectángulo definido (si no, no hay `mueble.ancho_pct`/`alto_pct`
+        con qué calcular el relativo)."""
+
+    def __init__(self, id_mueble=None, parent=None):
+        titulo = _("Editar Mueble") if id_mueble else _("Nuevo Mueble")
+        super().__init__(title=titulo, transient_for=parent,
+                         modal=True, destroy_with_parent=True)
+        self.set_default_size(460, 460)
+        self.id_mueble = id_mueble
+        self._id_plano_de_sala = None
+
+        ca = self.get_content_area()
+        g = _grid()
+        ca.pack_start(g, False, False, 0)
+
+        _lbl_entry(g, _("Sala:"), 0)
+        self.e_sala = _entry_btn(g, 0, "…", self._sel_sala)
+        self._id_sala = None
+
+        _lbl_entry(g, _("Nombre:"), 1)
+        self.e_nombre = _entry(g, 1)
+
+        _lbl_entry(g, _("Tipo:"), 2)
+        self.e_tipo = _entry(g, 2)
+
+        self.lbl_rectangulo = Gtk.Label(xalign=0)
+        self.lbl_rectangulo.set_margin_start(8)
+        self.lbl_rectangulo.set_margin_top(4)
+        ca.pack_start(self.lbl_rectangulo, False, False, 0)
+
+        self.btn_rectangulo = Gtk.Button(
+            label="▭ " + _("Definir rectángulo en el plano"))
+        self.btn_rectangulo.set_margin_start(8)
+        self.btn_rectangulo.set_margin_bottom(4)
+        self.btn_rectangulo.connect("clicked", self._definir_rectangulo)
+        ca.pack_start(self.btn_rectangulo, False, False, 0)
+
+        ca.pack_start(Gtk.Separator(), False, False, 4)
+
+        lbl_equipos = Gtk.Label(xalign=0)
+        lbl_equipos.set_markup("<b>" + _("Equipos en este mueble") + "</b>")
+        lbl_equipos.set_margin_start(8)
+        ca.pack_start(lbl_equipos, False, False, 0)
+
+        self._store_equipos = Gtk.ListStore(str, str, str, str)  # id, nombre, x%, y%
+        tv = Gtk.TreeView(model=self._store_equipos)
+        for i, titulo_col in enumerate(
+                [_("ID"), _("Equipo"), _("X %"), _("Y %")]):
+            tv.append_column(Gtk.TreeViewColumn(
+                titulo_col, Gtk.CellRendererText(), text=i))
+        self._tv_equipos = tv
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(140)
+        scroll.set_margin_start(8); scroll.set_margin_end(8)
+        scroll.add(tv)
+        ca.pack_start(scroll, True, True, 0)
+
+        hb_eq = Gtk.Box(spacing=6)
+        hb_eq.set_margin_start(8); hb_eq.set_margin_end(8)
+        hb_eq.set_margin_bottom(6)
+        btn_agregar = Gtk.Button(label="➕ " + _("Agregar equipo"))
+        btn_agregar.connect("clicked", self._agregar_equipo)
+        hb_eq.pack_start(btn_agregar, False, False, 0)
+        btn_quitar = Gtk.Button(label="➖ " + _("Quitar equipo"))
+        btn_quitar.connect("clicked", self._quitar_equipo)
+        hb_eq.pack_start(btn_quitar, False, False, 0)
+        self.btn_ubicar_equipo = Gtk.Button(
+            label="📍 " + _("Ubicar dentro del mueble"))
+        self.btn_ubicar_equipo.connect("clicked", self._ubicar_equipo)
+        hb_eq.pack_start(self.btn_ubicar_equipo, False, False, 0)
+        ca.pack_start(hb_eq, False, False, 0)
+
+        self.add_button(_("Cancelar"), Gtk.ResponseType.CANCEL)
+        btn_ok = self.add_button(_("Guardar"), Gtk.ResponseType.OK)
+        btn_ok.get_style_context().add_class("suggested-action")
+        self.set_default_response(Gtk.ResponseType.OK)
+        self.connect("response", self._on_response)
+
+        self._geometria = (None, None, None, None)  # x_pct,y_pct,ancho_pct,alto_pct
+        if id_mueble:
+            rows = Modelo.devolver_mueble(id_mueble)
+            if rows:
+                r = rows[0]
+                self._id_sala = str(r[1])
+                self.e_nombre.set_text(s(r[2]))
+                self.e_tipo.set_text(s(r[3]) or "MESA")
+                self._geometria = (r[4], r[5], r[6], r[7])
+                self._id_plano_de_sala = r[8]
+                rows_sala = Modelo.devolver_sala(self._id_sala)
+                if rows_sala:
+                    self.e_sala.set_text(s(rows_sala[0][1]))
+            self._cargar_equipos()
+        else:
+            self.e_tipo.set_text("MESA")
+
+        self._actualizar_estado_rectangulo()
+        self.show_all()
+
+    def _sel_sala(self, btn):
+        from racks_salas_ui import SalasListado
+        dlg = SalasListado(parent=self, modo_seleccion=True)
+        if dlg.run() == Gtk.ResponseType.OK:
+            fila = dlg._fila()
+            if fila:
+                self._id_sala = str(fila[0])
+                self.e_sala.set_text(s(fila[1]))
+                rows_sala = Modelo.devolver_sala(self._id_sala)
+                self._id_plano_de_sala = rows_sala[0][2] if rows_sala else None
+        dlg.destroy()
+        self._actualizar_estado_rectangulo()
+
+    def _actualizar_estado_rectangulo(self):
+        x_pct, y_pct, ancho_pct, alto_pct = self._geometria
+        tiene_rect = None not in (x_pct, y_pct, ancho_pct, alto_pct)
+        habilitar = bool(self.id_mueble and self._id_plano_de_sala)
+        self.btn_rectangulo.set_sensitive(habilitar)
+        self.btn_ubicar_equipo.set_sensitive(habilitar and tiene_rect)
+        if not self.id_mueble:
+            texto = _("Guardá el mueble primero; el rectángulo se define "
+                      "al volver a editarlo.")
+        elif not self._id_plano_de_sala:
+            texto = _("La sala de este mueble todavía no tiene un plano "
+                      "asignado — asignaselo desde la ficha de Sala.")
+        elif not tiene_rect:
+            texto = _("Sin rectángulo todavía — definilo con el botón "
+                      "de abajo antes de ubicar equipos dentro.")
+        else:
+            texto = _("Rectángulo definido ({0:.0f}% × {1:.0f}%). Podés "
+                      "redefinirlo con el botón de abajo.").format(
+                          ancho_pct, alto_pct)
+        self.lbl_rectangulo.set_markup("<small><i>" + texto + "</i></small>")
+
+    def _definir_rectangulo(self, btn):
+        from planos_ui import VistaPlanoInteractivo
+        VistaPlanoInteractivo(
+            self._id_plano_de_sala, parent=self,
+            id_mueble_foco=self.id_mueble).run_and_destroy()
+        rows = Modelo.devolver_mueble(self.id_mueble)
+        if rows:
+            r = rows[0]
+            self._geometria = (r[4], r[5], r[6], r[7])
+        self._actualizar_estado_rectangulo()
+
+    def _cargar_equipos(self):
+        self._store_equipos.clear()
+        if not self.id_mueble:
+            return
+        for id_equipo, nombre_eq, x_rel, y_rel in \
+                Modelo.devolver_equipos_de_mueble(self.id_mueble):
+            self._store_equipos.append([
+                str(id_equipo), s(nombre_eq),
+                "{0:.0f}".format(x_rel) if x_rel is not None else "—",
+                "{0:.0f}".format(y_rel) if y_rel is not None else "—",
+            ])
+
+    def _agregar_equipo(self, btn):
+        if not self.id_mueble:
+            mostrar_error(
+                self, _("Guardá el mueble primero — un equipo no puede "
+                        "asignarse a un mueble que todavía no existe."))
+            return
+        from cabledoc import EquiposListado
+        dlg = EquiposListado(parent=self, modo_seleccion=True,
+                             excluir_modulos_de_frame=True)
+        if dlg.run() == Gtk.ResponseType.OK:
+            fila = dlg._fila()
+            if fila:
+                try:
+                    Modelo.asignar_equipo_a_mueble(
+                        fila[0], self.id_mueble, 50, 50)
+                except ValueError as e:
+                    mostrar_error(self, str(e))
+                else:
+                    self._cargar_equipos()
+        dlg.destroy()
+
+    def _quitar_equipo(self, btn):
+        sel = self._tv_equipos.get_selection()
+        modelo, it = sel.get_selected()
+        if not it:
+            mostrar_error(self, _("Seleccioná un equipo de la lista primero."))
+            return
+        id_equipo = modelo.get_value(it, 0)
+        Modelo.quitar_equipo_de_mueble(id_equipo)
+        self._cargar_equipos()
+
+    def _ubicar_equipo(self, btn):
+        sel = self._tv_equipos.get_selection()
+        modelo, it = sel.get_selected()
+        if not it:
+            mostrar_error(self, _("Seleccioná un equipo de la lista primero."))
+            return
+        id_equipo = modelo.get_value(it, 0)
+        x_pct_m, y_pct_m, ancho_pct_m, alto_pct_m = self._geometria
+        if None in (x_pct_m, y_pct_m, ancho_pct_m, alto_pct_m):
+            mostrar_error(
+                self, _("Este mueble todavía no tiene rectángulo — "
+                        "definilo primero."))
+            return
+
+        filas_plano = Modelo.devolver_plano(self._id_plano_de_sala)
+        if not filas_plano:
+            mostrar_error(self, _("No se encontró el plano de la sala."))
+            return
+        id_imagen_plano = filas_plano[0][2]
+        path_imagen_plano = filas_plano[0][3]
+
+        x_rel_actual = y_rel_actual = 50
+        for id_e, _nombre_e, xr, yr in Modelo.devolver_equipos_de_mueble(self.id_mueble):
+            if str(id_e) == str(id_equipo):
+                x_rel_actual = xr if xr is not None else 50
+                y_rel_actual = yr if yr is not None else 50
+                break
+        x_pct_abs_actual = x_pct_m + (x_rel_actual / 100.0) * ancho_pct_m
+        y_pct_abs_actual = y_pct_m + (y_rel_actual / 100.0) * alto_pct_m
+        x_px_actual, y_px_actual = Modelo._px_punto_o_crudo(
+            path_imagen_plano, x_pct_abs_actual, y_pct_abs_actual)
+
+        resultado = abrir_coords_imagen(
+            id_imagen_plano, solo_xy=True,
+            x=s(x_px_actual) if x_px_actual is not None else "",
+            y=s(y_px_actual) if y_px_actual is not None else "",
+            parent=self)
+        if not resultado:
+            return
+        try:
+            x_px_nuevo = int(float(resultado["x"]))
+            y_px_nuevo = int(float(resultado["y"]))
+        except (ValueError, TypeError):
+            mostrar_error(
+                self, _("No se marcó ningún punto sobre la imagen — no "
+                        "se guardó la ubicación del equipo."))
+            return
+        try:
+            x_pct_abs, y_pct_abs = Modelo._punto_px_a_pct(
+                path_imagen_plano, x_px_nuevo, y_px_nuevo)
+        except DimensionesImagenError:
+            mostrar_error(
+                self, _("No se pudo determinar el tamaño de la imagen "
+                        "del plano — no se guardó la ubicación."))
+            return
+
+        # de absoluto (% del plano) a relativo (% del rectángulo del
+        # mueble), recortado a 0-100 si el clic cayó afuera del mueble
+        x_rel = (x_pct_abs - x_pct_m) / ancho_pct_m * 100.0 if ancho_pct_m else 50
+        y_rel = (y_pct_abs - y_pct_m) / alto_pct_m * 100.0 if alto_pct_m else 50
+        x_rel = max(0.0, min(100.0, x_rel))
+        y_rel = max(0.0, min(100.0, y_rel))
+
+        Modelo.asignar_equipo_a_mueble(id_equipo, self.id_mueble, x_rel, y_rel)
+        self._cargar_equipos()
+
+    def _on_response(self, dlg, resp):
+        if resp != Gtk.ResponseType.OK:
+            return
+        nombre = self.e_nombre.get_text().strip()
+        tipo = self.e_tipo.get_text().strip() or "MESA"
+        if not self._id_sala or not nombre:
+            mostrar_error(self, _("Elegí una sala y escribí un nombre "
+                                  "antes de guardar."))
+            return
+        x_pct, y_pct, ancho_pct, alto_pct = self._geometria
+        if self.id_mueble:
+            Modelo.modificacion_mueble(
+                self.id_mueble, nombre, x_pct, y_pct, ancho_pct, alto_pct,
+                tipo)
+        else:
+            self.id_mueble = Modelo.alta_mueble_retorna_id(
+                self._id_sala, nombre, x_pct, y_pct, ancho_pct, alto_pct,
+                tipo)
+
+    def run_and_destroy(self):
+        self.run()
+        self.destroy()
+
+
 # ─── Vista interactiva del plano (Fase 4) ──────────────────────────────────────
 
 class VistaPlanoInteractivo(Gtk.Dialog):
@@ -235,6 +593,15 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     pertenece a este plano (Modelo.devolver_racks_por_sala_de_plano),
     tengan o no punto todavía — igual criterio que el combo de salas.
 
+    Modo editar mueble (Fase 6, botón "▭ Ubicar/redimensionar este
+    mueble en el plano"): a diferencia del rack (un punto), el mueble es
+    un rectángulo — se reutiliza CoordenadasImagenSeleccion en su modo
+    solo_xy=False (histórico, el mismo que ya usa la selección de área
+    sobre la imagen de un equipo), que devuelve (x, y, ancho, alto) en
+    píxeles en vez de sólo (x, y). El combo "Mueble:" incluye TODOS los
+    muebles cuyas salas pertenecen a este plano
+    (Modelo.devolver_muebles_de_plano), tengan o no rectángulo todavía.
+
     Uso:
         VistaPlanoInteractivo(id_plano, parent=p,
                               id_sala_foco=id_sala).run_and_destroy()
@@ -244,13 +611,17 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     id_rack_x_sala_foco (opcional, Fase 5): preselecciona ese
     rack_por_sala en el combo "Rack:" al abrir — usado por
     _DialogoRackPorSala."📍 Ubicar en el plano" (racks_salas_ui.py).
+    id_mueble_foco (opcional, Fase 6): preselecciona ese mueble en el
+    combo "Mueble:" al abrir — usado por _DialogoMueble."▭ Definir
+    rectángulo en el plano" (este mismo archivo).
     """
 
-    COLOR_SALA = (0.10, 0.45, 0.90)  # azul — contorno sólido + relleno tenue
-    COLOR_RACK = (0.85, 0.45, 0.05)  # naranja — cuadrado de rack
+    COLOR_SALA = (0.10, 0.45, 0.90)   # azul — contorno sólido + relleno tenue
+    COLOR_RACK = (0.85, 0.45, 0.05)   # naranja — cuadrado de rack
+    COLOR_MUEBLE = (0.15, 0.60, 0.35)  # verde — rectángulo de mueble
 
     def __init__(self, id_plano, parent=None, id_sala_foco=None,
-                 id_rack_x_sala_foco=None):
+                 id_rack_x_sala_foco=None, id_mueble_foco=None):
         self.id_plano = id_plano
         filas_plano = Modelo.devolver_plano(id_plano)
         nombre_plano = s(filas_plano[0][1]) if filas_plano else "?"
@@ -314,6 +685,23 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         hb2.pack_start(btn_ubicar_rack, False, False, 0)
         ca.pack_start(hb2, False, False, 0)
 
+        # ── barra inferior 3: selector de mueble + ubicar/redimensionar (Fase 6) ──
+        hb3 = Gtk.Box(spacing=6)
+        hb3.set_margin_start(8); hb3.set_margin_end(8)
+        hb3.set_margin_top(0);  hb3.set_margin_bottom(8)
+        hb3.pack_start(Gtk.Label(label=_("Mueble:")), False, False, 0)
+
+        self._combo_muebles = Gtk.ComboBoxText()
+        hb3.pack_start(self._combo_muebles, True, True, 0)
+        self._mueble_geoms = {}
+        self._cargar_combo_muebles(id_mueble_foco)
+
+        btn_ubicar_mueble = Gtk.Button(
+            label="▭ " + _("Ubicar/redimensionar este mueble en el plano"))
+        btn_ubicar_mueble.connect("clicked", self._ubicar_mueble)
+        hb3.pack_start(btn_ubicar_mueble, False, False, 0)
+        ca.pack_start(hb3, False, False, 0)
+
         self.show_all()
 
     def _on_viz_realize(self, widget):
@@ -353,6 +741,28 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 indice_foco = i
         if racks:
             self._combo_racks.set_active(indice_foco)
+
+    def _cargar_combo_muebles(self, id_mueble_foco=None):
+        """Fase 6: pobla el combo "Mueble:" con TODOS los muebles de
+        salas de este plano (tengan o no rectángulo todavía) — mismo
+        criterio que _cargar_combo_racks. self._mueble_geoms guarda
+        (x_pct, y_pct, ancho_pct, alto_pct) actuales por id_mueble para
+        precargar el selector de rectángulo en _ubicar_mueble."""
+        self._combo_muebles.remove_all()
+        self._mueble_geoms = {}
+        muebles = Modelo.devolver_muebles_de_plano(self.id_plano)
+        indice_foco = 0
+        for i, (id_mueble, nombre_sala, nombre_mueble, x_pct, y_pct,
+                ancho_pct, alto_pct) in enumerate(muebles):
+            self._mueble_geoms[id_mueble] = (x_pct, y_pct, ancho_pct, alto_pct)
+            etiqueta = "{0} — {1}".format(s(nombre_sala), s(nombre_mueble))
+            if x_pct is None:
+                etiqueta += " " + _("(sin ubicar)")
+            self._combo_muebles.append(str(id_mueble), etiqueta)
+            if id_mueble_foco and str(id_mueble) == str(id_mueble_foco):
+                indice_foco = i
+        if muebles:
+            self._combo_muebles.set_active(indice_foco)
 
     # ── overlay Cairo (modo navegar) ─────────────────────────────────────
     def _dibujar_overlay(self, cr):
@@ -433,6 +843,54 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 texto_r = "🗄 " + s(nombre_rack)
                 cr.move_to(wx_r + mitad + 3, wy_r + 4)
                 cr.show_text(texto_r)
+
+            # ── Fase 6: rectángulo de cada mueble de esta sala, con los
+            # equipos que contiene dibujados adentro (posición relativa
+            # al rectángulo del mueble, resuelta acá a absoluta — mismo
+            # criterio que Modelo.devolver_ubicacion_fisica_de_equipo) ──
+            r3, g3, b3 = self.COLOR_MUEBLE
+            for (id_mueble, nombre_mueble, x_pct_m, y_pct_m, ancho_pct_m,
+                 alto_pct_m, equipos_m) in sala.get("muebles", []):
+                try:
+                    x_img_m = (float(x_pct_m) / 100.0) * ancho_img
+                    y_img_m = (float(y_pct_m) / 100.0) * alto_img
+                    ancho_img_m = (float(ancho_pct_m) / 100.0) * ancho_img
+                    alto_img_m = (float(alto_pct_m) / 100.0) * alto_img
+                except (TypeError, ValueError):
+                    continue
+                wx_m, wy_m = self._viz.i2w(x_img_m, y_img_m)
+                wx_m2, wy_m2 = self._viz.i2w(
+                    x_img_m + ancho_img_m, y_img_m + alto_img_m)
+                cr.set_source_rgba(r3, g3, b3, 0.15)
+                cr.rectangle(wx_m, wy_m, wx_m2 - wx_m, wy_m2 - wy_m)
+                cr.fill_preserve()
+                cr.set_source_rgba(r3, g3, b3, 0.95)
+                cr.set_line_width(max(2, 2.5 * self._viz.zoom))
+                cr.stroke()
+                cr.set_source_rgb(0.05, 0.05, 0.05)
+                cr.select_font_face("Sans", 0, 1)  # bold
+                cr.set_font_size(12)
+                cr.move_to(wx_m + 4, wy_m + 14)
+                cr.show_text("🪑 " + s(nombre_mueble))
+
+                for id_eq, nombre_eq, x_rel, y_rel in equipos_m:
+                    try:
+                        x_rel_f = max(0.0, min(100.0, float(x_rel)))
+                        y_rel_f = max(0.0, min(100.0, float(y_rel)))
+                    except (TypeError, ValueError):
+                        continue
+                    x_img_e = x_img_m + (x_rel_f / 100.0) * ancho_img_m
+                    y_img_e = y_img_m + (y_rel_f / 100.0) * alto_img_m
+                    wx_e, wy_e = self._viz.i2w(x_img_e, y_img_e)
+                    radio_e = max(4, 6 * self._viz.zoom)
+                    cr.set_source_rgba(r3, g3, b3, 0.95)
+                    cr.arc(wx_e, wy_e, radio_e, 0, 2 * math.pi)
+                    cr.fill()
+                    cr.set_source_rgb(0.05, 0.05, 0.05)
+                    cr.select_font_face("Sans", 0, 0)
+                    cr.set_font_size(10)
+                    cr.move_to(wx_e + radio_e + 2, wy_e + 3)
+                    cr.show_text(s(nombre_eq))
 
     # ── modo editar: dibujar/rehacer el contorno de una sala ─────────────
     def _editar_contorno_sala(self, btn):
@@ -541,6 +999,70 @@ class VistaPlanoInteractivo(Gtk.Dialog):
 
         Modelo.actualizar_posicion_rack_por_sala(id_rxs, x_pct, y_pct)
         self._cargar_combo_racks(id_rack_x_sala_foco=id_rxs)
+        self._viz.da.queue_draw()
+
+    # ── modo editar: ubicar/redimensionar el rectángulo de un mueble
+    #    (Fase 6) — mismo flujo que _ubicar_rack pero con 4 valores en
+    #    vez de 2 (x, y, ancho, alto) y el modo rectángulo
+    #    (solo_xy=False) de CoordenadasImagenSeleccion. ─────────────────
+    def _ubicar_mueble(self, btn):
+        id_str = self._combo_muebles.get_active_id()
+        if not id_str:
+            mostrar_error(
+                self, _("Este plano todavía no tiene ningún mueble "
+                        "asignado — creá uno primero desde \"Muebles\"."))
+            return
+        if not self.id_imagen:
+            mostrar_error(
+                self, _("Este plano todavía no tiene una imagen cargada."))
+            return
+        id_mueble = int(id_str)
+
+        x_pct_m, y_pct_m, ancho_pct_m, alto_pct_m = self._mueble_geoms.get(
+            id_mueble, (None, None, None, None))
+        # _px_rect_o_crudo nunca levanta — mismo criterio que
+        # _px_punto_o_crudo en _ubicar_rack.
+        x_px_m, y_px_m, ancho_px_m, alto_px_m = Modelo._px_rect_o_crudo(
+            self.path_imagen, x_pct_m, y_pct_m, ancho_pct_m, alto_pct_m)
+
+        resultado = abrir_coords_imagen(
+            self.id_imagen, solo_xy=False,
+            x=s(x_px_m) if x_px_m is not None else "",
+            y=s(y_px_m) if y_px_m is not None else "",
+            ancho=s(ancho_px_m) if ancho_px_m is not None else "",
+            alto=s(alto_px_m) if alto_px_m is not None else "",
+            parent=self)
+        if not resultado:
+            return
+        try:
+            x_px_n = int(float(resultado["x"]))
+            y_px_n = int(float(resultado["y"]))
+            ancho_px_n = int(float(resultado["ancho"]))
+            alto_px_n = int(float(resultado["alto"]))
+        except (ValueError, TypeError, KeyError):
+            mostrar_error(
+                self, _("No se marcó ningún rectángulo sobre la imagen "
+                        "— no se guardó la ubicación del mueble."))
+            return
+        try:
+            x_pct, y_pct, ancho_pct, alto_pct = Modelo._rect_px_a_pct(
+                self.path_imagen, x_px_n, y_px_n, ancho_px_n, alto_px_n)
+        except DimensionesImagenError:
+            mostrar_error(
+                self, _("No se pudo determinar el tamaño de la imagen "
+                        "del plano — no se guardó la ubicación del "
+                        "mueble."))
+            return
+
+        filas = Modelo.devolver_mueble(id_mueble)
+        if not filas:
+            mostrar_error(self, _("No se encontró el mueble."))
+            return
+        r = filas[0]
+        nombre_m, tipo_m = r[2], r[3]
+        Modelo.modificacion_mueble(
+            id_mueble, nombre_m, x_pct, y_pct, ancho_pct, alto_pct, tipo_m)
+        self._cargar_combo_muebles(id_mueble_foco=id_mueble)
         self._viz.da.queue_draw()
 
     def run_and_destroy(self):
