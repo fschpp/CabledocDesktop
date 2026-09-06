@@ -4435,12 +4435,34 @@ class Modelo:
 
     @staticmethod
     def devolver_rack_por_sala(id_):
+        """Fase 5 de plan_desarrollo_ubicacion_fisica_planos.md: se agrega
+        s.id_plano al final (columna 5) para que _DialogoRackPorSala sepa
+        si la sala de esta asignación ya tiene un plano asociado, sin
+        tocar las columnas 0-4 que ya consumía ese mismo diálogo."""
         return Modelo._query(
-            "SELECT rps.id_rack_x_sala, rps.id_sala, rps.id_rack, s.nombre, r.nombre "
+            "SELECT rps.id_rack_x_sala, rps.id_sala, rps.id_rack, s.nombre, "
+            "r.nombre, s.id_plano "
             "FROM rack_por_sala rps "
             "JOIN sala s ON s.id_sala=rps.id_sala "
             "JOIN rack r ON r.id_rack=rps.id_rack "
             "WHERE rps.id_rack_x_sala=?", (id_,)
+        )
+
+    @staticmethod
+    def devolver_racks_por_sala_de_plano(id_plano):
+        """Fase 5: todos los rack_por_sala cuya sala pertenece a este
+        plano, tengan o no un punto (x_pct/y_pct) ya cargado — para poblar
+        el selector "Rack:" de VistaPlanoInteractivo en modo editar.
+        A diferencia de devolver_contenido_plano (que sólo trae, dentro de
+        cada sala, los racks con x_pct ya cargado, pensado para el overlay
+        de sólo lectura)."""
+        return Modelo._query(
+            "SELECT rps.id_rack_x_sala, s.nombre, r.nombre, "
+            "rps.x_pct, rps.y_pct "
+            "FROM rack_por_sala rps "
+            "JOIN sala s ON s.id_sala = rps.id_sala "
+            "JOIN rack r ON r.id_rack = rps.id_rack "
+            "WHERE s.id_plano=? ORDER BY s.nombre, r.nombre", (id_plano,)
         )
 
     @staticmethod
@@ -4919,10 +4941,18 @@ class Modelo:
         """Todo lo que hay que dibujar en el overlay de un plano: por cada
         sala que le pertenece, su polígono, sus racks (con posición), sus
         muebles y los equipos sueltos directos. Pensado para alimentar
-        VistaPlanoInteractivo de una sola vez, sin N+1 queries desde la UI."""
+        VistaPlanoInteractivo de una sola vez, sin N+1 queries desde la UI.
+
+        No filtra por `poligono IS NOT NULL`: una sala sin contorno
+        todavía dibujado puede tener racks/muebles/equipos sueltos ya
+        ubicados (Fase 5 en adelante) — el llamador es quien decide qué
+        dibujar según haya o no `poligono` en cada fila (ver
+        VistaPlanoInteractivo._dibujar_overlay). Antes de la Fase 5 esta
+        función sólo tenía consumidor para el polígono (Fase 4), por eso
+        el filtro no se había notado."""
         salas = Modelo._query(
             "SELECT id_sala, nombre, poligono FROM sala "
-            "WHERE id_plano=? AND poligono IS NOT NULL", (id_plano,)
+            "WHERE id_plano=?", (id_plano,)
         )
         resultado = []
         for id_sala, nombre_sala, poligono in salas:

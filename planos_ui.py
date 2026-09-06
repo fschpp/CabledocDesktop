@@ -6,13 +6,28 @@ Dominio Planos, plan_desarrollo_ubicacion_fisica_planos.md.
 
 Contiene:
   - PlanosListado, _DialogoPlano (Fase 2: catálogo simple de planos)
-  - VistaPlanoInteractivo (Fase 4: overlay de salas en el plano)
+  - VistaPlanoInteractivo (Fase 4: overlay de salas en el plano;
+    Fase 5: + overlay de racks — puntos)
 
-El overlay interactivo (puntos de rack/equipo suelto, muebles) sigue
-creciendo en las Fases 5 a 7 del plan — este archivo crece en esas fases,
-mismo criterio de separación por dominio que ya usan
-`racks_salas_ui.py` / `frames_slots_ui.py`, para no mezclar desde el
-arranque el catálogo simple con el editor gráfico.
+El overlay interactivo (puntos de equipo suelto, muebles) sigue creciendo
+en las Fases 6 y 7 del plan — este archivo crece en esas fases, mismo
+criterio de separación por dominio que ya usan `racks_salas_ui.py` /
+`frames_slots_ui.py`, para no mezclar desde el arranque el catálogo
+simple con el editor gráfico.
+
+Fase 5 ("Overlay de racks (puntos)"): a diferencia del contorno de sala
+(polígono libre, dibujado a mano vértice por vértice con
+CoordenadasImagenSeleccion(modo_poligono=True)), el rack se ubica con un
+único punto (x_pct/y_pct) — dibujado en el overlay como un cuadrado, no
+como un círculo, para diferenciarlo a simple vista de futuros elementos
+redondos (equipos sueltos, Fase 7) — se reutiliza el modo solo_xy=True ya existente de
+CoordenadasImagenSeleccion (mismo mecanismo histórico usado para ubicar
+conectores/slots sobre la imagen de un equipo) vía abrir_coords_imagen.
+El punto de un rack sólo puede editarse si ese rack YA figura en
+rack_por_sala para una sala que a su vez ya tiene un plano asignado — el
+botón "📍 Ubicar en el plano" en _DialogoRackPorSala (racks_salas_ui.py)
+está deshabilitado hasta que se cumplen ambas condiciones (ver el
+docstring de esa clase).
 
 Sigue el mismo patrón que `_DialogoImagen` (catalogos_basicos_ui.py) para
 la selección de imagen: un botón "Explorar" copia el archivo elegido a
@@ -28,11 +43,17 @@ sobre la imagen del plano, el contorno (sala.poligono) de todas las
 salas que ya tienen uno cargado para ese plano — modo navegar, sólo
 lectura vía overlay Cairo — y ofrece un selector de sala + botón para
 dibujar/rehacer su contorno, reutilizando en modo_poligono el mismo
-CoordenadasImagenSeleccion de la Fase 3 (imagen_conectores_ui.py). No
-dibuja todavía racks/muebles/equipos sueltos (eso llega en las Fases
-5-7): Modelo.devolver_contenido_plano ya devuelve esa información lista
-para cuando corresponda, pero se ignora a propósito acá para no salirse
-del criterio de cierre de esta fase.
+CoordenadasImagenSeleccion de la Fase 3 (imagen_conectores_ui.py).
+
+Fase 5 ("Overlay de racks") suma, sobre el mismo overlay, un cuadrado por
+cada rack de rack_por_sala que ya tiene x_pct/y_pct cargado (dibujado
+aunque la sala dueña todavía no tenga contorno propio — ver el ajuste
+correspondiente en Modelo.devolver_contenido_plano) + un selector de
+rack + botón para ubicarlo/moverlo, reutilizando en solo_xy=True el
+mismo CoordenadasImagenSeleccion. Todavía no dibuja muebles ni equipos
+sueltos (eso llega en las Fases 6-7): Modelo.devolver_contenido_plano ya
+devuelve esa información lista para cuando corresponda, pero se ignora
+a propósito acá para no salirse del criterio de cierre de esta fase.
 """
 
 import gi
@@ -205,17 +226,31 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     todavía — a diferencia del overlay de sólo lectura, que sólo dibuja
     las que ya lo tienen (Modelo.devolver_contenido_plano).
 
+    Modo editar rack (Fase 5, botón "📍 Ubicar/mover este rack en el
+    plano"): a diferencia del contorno de sala, el punto de un rack es
+    simple — se reutiliza CoordenadasImagenSeleccion en su modo
+    solo_xy=True (histórico, el mismo que ya usan conectores/slots) vía
+    abrir_coords_imagen, precargado con la posición actual si ya tiene
+    una. El combo "Rack:" incluye TODOS los rack_por_sala cuya sala
+    pertenece a este plano (Modelo.devolver_racks_por_sala_de_plano),
+    tengan o no punto todavía — igual criterio que el combo de salas.
+
     Uso:
         VistaPlanoInteractivo(id_plano, parent=p,
                               id_sala_foco=id_sala).run_and_destroy()
     id_sala_foco (opcional): preselecciona esa sala en el combo al abrir
     — usado por _DialogoSala."Editar contorno en el plano"
     (racks_salas_ui.py) para no obligar a volver a buscarla.
+    id_rack_x_sala_foco (opcional, Fase 5): preselecciona ese
+    rack_por_sala en el combo "Rack:" al abrir — usado por
+    _DialogoRackPorSala."📍 Ubicar en el plano" (racks_salas_ui.py).
     """
 
     COLOR_SALA = (0.10, 0.45, 0.90)  # azul — contorno sólido + relleno tenue
+    COLOR_RACK = (0.85, 0.45, 0.05)  # naranja — cuadrado de rack
 
-    def __init__(self, id_plano, parent=None, id_sala_foco=None):
+    def __init__(self, id_plano, parent=None, id_sala_foco=None,
+                 id_rack_x_sala_foco=None):
         self.id_plano = id_plano
         filas_plano = Modelo.devolver_plano(id_plano)
         nombre_plano = s(filas_plano[0][1]) if filas_plano else "?"
@@ -262,6 +297,23 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         hb.pack_start(btn_editar, False, False, 0)
         ca.pack_start(hb, False, False, 0)
 
+        # ── barra inferior 2: selector de rack + ubicar en el plano (Fase 5) ──
+        hb2 = Gtk.Box(spacing=6)
+        hb2.set_margin_start(8); hb2.set_margin_end(8)
+        hb2.set_margin_top(0);  hb2.set_margin_bottom(8)
+        hb2.pack_start(Gtk.Label(label=_("Rack:")), False, False, 0)
+
+        self._combo_racks = Gtk.ComboBoxText()
+        hb2.pack_start(self._combo_racks, True, True, 0)
+        self._rack_pcts = {}
+        self._cargar_combo_racks(id_rack_x_sala_foco)
+
+        btn_ubicar_rack = Gtk.Button(
+            label="📍 " + _("Ubicar/mover este rack en el plano"))
+        btn_ubicar_rack.connect("clicked", self._ubicar_rack)
+        hb2.pack_start(btn_ubicar_rack, False, False, 0)
+        ca.pack_start(hb2, False, False, 0)
+
         self.show_all()
 
     def _on_viz_realize(self, widget):
@@ -281,6 +333,27 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         if salas:
             self._combo_salas.set_active(indice_foco)
 
+    def _cargar_combo_racks(self, id_rack_x_sala_foco=None):
+        """Fase 5: pobla el combo "Rack:" con TODOS los rack_por_sala de
+        salas de este plano (tengan o no punto todavía) — mismo criterio
+        que _cargar_combo_salas. self._rack_pcts guarda (x_pct, y_pct)
+        actuales por id_rack_x_sala para precargar el selector de
+        coordenadas en _ubicar_rack sin tener que volver a consultar."""
+        self._combo_racks.remove_all()
+        self._rack_pcts = {}
+        racks = Modelo.devolver_racks_por_sala_de_plano(self.id_plano)
+        indice_foco = 0
+        for i, (id_rxs, nombre_sala, nombre_rack, x_pct, y_pct) in enumerate(racks):
+            self._rack_pcts[id_rxs] = (x_pct, y_pct)
+            etiqueta = "{0} — {1}".format(s(nombre_sala), s(nombre_rack))
+            if x_pct is None or y_pct is None:
+                etiqueta += " " + _("(sin ubicar)")
+            self._combo_racks.append(str(id_rxs), etiqueta)
+            if id_rack_x_sala_foco and str(id_rxs) == str(id_rack_x_sala_foco):
+                indice_foco = i
+        if racks:
+            self._combo_racks.set_active(indice_foco)
+
     # ── overlay Cairo (modo navegar) ─────────────────────────────────────
     def _dibujar_overlay(self, cr):
         if not self._viz.pixbuf:
@@ -293,46 +366,73 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         contenido = Modelo.devolver_contenido_plano(self.id_plano)
         r, g, b = self.COLOR_SALA
         for sala in contenido:
+            # ── contorno de la sala (Fase 4) — sólo si ya está dibujado.
+            # Una sala sin contorno todavía puede tener racks ya ubicados
+            # (Fase 5), así que la ausencia de polígono ya NO corta el
+            # resto del dibujo de esta sala (ver Modelo.devolver_contenido_plano).
             poligono = sala.get("poligono")
-            if not poligono:
-                continue
-            try:
-                vertices_pct = json.loads(poligono)
-            except (ValueError, TypeError):
-                continue
-            if len(vertices_pct) < 3:
-                continue
-
-            puntos_w = []
-            for v in vertices_pct:
+            vertices_pct = None
+            if poligono:
                 try:
-                    x_img = (float(v.get("x_pct", 0)) / 100.0) * ancho_img
-                    y_img = (float(v.get("y_pct", 0)) / 100.0) * alto_img
+                    vertices_pct = json.loads(poligono)
+                except (ValueError, TypeError):
+                    vertices_pct = None
+            if vertices_pct and len(vertices_pct) >= 3:
+                puntos_w = []
+                for v in vertices_pct:
+                    try:
+                        x_img = (float(v.get("x_pct", 0)) / 100.0) * ancho_img
+                        y_img = (float(v.get("y_pct", 0)) / 100.0) * alto_img
+                    except (TypeError, ValueError):
+                        continue
+                    puntos_w.append(self._viz.i2w(x_img, y_img))
+                if len(puntos_w) >= 3:
+                    cr.set_source_rgba(r, g, b, 0.18)
+                    cr.move_to(*puntos_w[0])
+                    for wx, wy in puntos_w[1:]:
+                        cr.line_to(wx, wy)
+                    cr.close_path()
+                    cr.fill_preserve()
+                    cr.set_source_rgba(r, g, b, 0.95)
+                    cr.set_line_width(max(2, 3 * self._viz.zoom))
+                    cr.stroke()
+
+                    cx = sum(p[0] for p in puntos_w) / len(puntos_w)
+                    cy = sum(p[1] for p in puntos_w) / len(puntos_w)
+                    cr.set_source_rgb(0.05, 0.05, 0.05)
+                    cr.select_font_face("Sans", 0, 1)  # 1 = Cairo.FONT_WEIGHT_BOLD
+                    cr.set_font_size(14)
+                    texto = s(sala.get("nombre", ""))
+                    ext = cr.text_extents(texto)
+                    cr.move_to(cx - ext.width / 2, cy)
+                    cr.show_text(texto)
+
+            # ── Fase 5: puntos de rack de esta sala — representados como
+            # cuadrados (no círculos) para distinguirlos a simple vista
+            # de otros elementos del overlay que sí sean redondos
+            # (equipos sueltos, Fase 7) ──
+            r2, g2, b2 = self.COLOR_RACK
+            for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
+                try:
+                    x_img_r = (float(x_pct_r) / 100.0) * ancho_img
+                    y_img_r = (float(y_pct_r) / 100.0) * alto_img
                 except (TypeError, ValueError):
                     continue
-                puntos_w.append(self._viz.i2w(x_img, y_img))
-            if len(puntos_w) < 3:
-                continue
-
-            cr.set_source_rgba(r, g, b, 0.18)
-            cr.move_to(*puntos_w[0])
-            for wx, wy in puntos_w[1:]:
-                cr.line_to(wx, wy)
-            cr.close_path()
-            cr.fill_preserve()
-            cr.set_source_rgba(r, g, b, 0.95)
-            cr.set_line_width(max(2, 3 * self._viz.zoom))
-            cr.stroke()
-
-            cx = sum(p[0] for p in puntos_w) / len(puntos_w)
-            cy = sum(p[1] for p in puntos_w) / len(puntos_w)
-            cr.set_source_rgb(0.05, 0.05, 0.05)
-            cr.select_font_face("Sans", 0, 1)  # 1 = Cairo.FONT_WEIGHT_BOLD
-            cr.set_font_size(14)
-            texto = s(sala.get("nombre", ""))
-            ext = cr.text_extents(texto)
-            cr.move_to(cx - ext.width / 2, cy)
-            cr.show_text(texto)
+                wx_r, wy_r = self._viz.i2w(x_img_r, y_img_r)
+                lado = max(12, 18 * self._viz.zoom)  # lado del cuadrado
+                mitad = lado / 2.0
+                cr.set_source_rgba(r2, g2, b2, 0.92)
+                cr.rectangle(wx_r - mitad, wy_r - mitad, lado, lado)
+                cr.fill_preserve()
+                cr.set_source_rgb(0, 0, 0)
+                cr.set_line_width(1.5)
+                cr.stroke()
+                cr.set_source_rgb(0.05, 0.05, 0.05)
+                cr.select_font_face("Sans", 0, 0)
+                cr.set_font_size(12)
+                texto_r = "🗄 " + s(nombre_rack)
+                cr.move_to(wx_r + mitad + 3, wy_r + 4)
+                cr.show_text(texto_r)
 
     # ── modo editar: dibujar/rehacer el contorno de una sala ─────────────
     def _editar_contorno_sala(self, btn):
@@ -390,6 +490,57 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         Modelo.actualizar_ubicacion_sala(
             id_sala, self.id_plano, json.dumps(vertices_pct_nuevos))
         self._cargar_combo_salas(id_sala_foco=id_sala)
+        self._viz.da.queue_draw()
+
+    # ── modo editar: ubicar/mover el punto de un rack (Fase 5) ───────────
+    def _ubicar_rack(self, btn):
+        id_str = self._combo_racks.get_active_id()
+        if not id_str:
+            mostrar_error(
+                self, _("Este plano todavía no tiene ningún rack "
+                        "asignado — asignalo primero desde \"Rack por "
+                        "Sala\"."))
+            return
+        if not self.id_imagen:
+            mostrar_error(
+                self, _("Este plano todavía no tiene una imagen cargada."))
+            return
+        id_rxs = int(id_str)
+
+        x_pct_actual, y_pct_actual = self._rack_pcts.get(id_rxs, (None, None))
+        # _px_punto_o_crudo nunca levanta: si no se puede determinar el
+        # tamaño de la imagen en este momento, precarga sin más (mismo
+        # criterio que el resto de la app al mostrar un punto existente).
+        x_px_actual, y_px_actual = Modelo._px_punto_o_crudo(
+            self.path_imagen, x_pct_actual, y_pct_actual)
+
+        resultado = abrir_coords_imagen(
+            self.id_imagen, solo_xy=True,
+            x=s(x_px_actual) if x_px_actual is not None else "",
+            y=s(y_px_actual) if y_px_actual is not None else "",
+            parent=self)
+        if not resultado:
+            return
+        try:
+            x_px_nuevo = int(float(resultado["x"]))
+            y_px_nuevo = int(float(resultado["y"]))
+        except (ValueError, TypeError):
+            mostrar_error(
+                self, _("No se marcó ningún punto sobre la imagen — no "
+                        "se guardó la ubicación del rack."))
+            return
+        try:
+            x_pct, y_pct = Modelo._punto_px_a_pct(
+                self.path_imagen, x_px_nuevo, y_px_nuevo)
+        except DimensionesImagenError:
+            mostrar_error(
+                self, _("No se pudo determinar el tamaño de la imagen "
+                        "del plano — no se guardó la ubicación del "
+                        "rack."))
+            return
+
+        Modelo.actualizar_posicion_rack_por_sala(id_rxs, x_pct, y_pct)
+        self._cargar_combo_racks(id_rack_x_sala_foco=id_rxs)
         self._viz.da.queue_draw()
 
     def run_and_destroy(self):

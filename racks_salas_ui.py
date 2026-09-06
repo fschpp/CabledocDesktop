@@ -18,6 +18,14 @@ para editar Sala, agregando el selector de Plano (sala.id_plano) y el
 acceso a VistaPlanoInteractivo (planos_ui.py) para dibujar el contorno
 (sala.poligono). Ver el docstring de la clase para el detalle.
 
+_DialogoRackPorSala gana en esta misma línea de trabajo (Fase 5,
+"Overlay de racks (puntos)") un botón "📍 Ubicar en el plano" que abre
+VistaPlanoInteractivo enfocado en el rack de esta asignación — ver el
+docstring de la clase. De paso se corrigió un bug preexistente en esa
+misma clase (le faltaba `run_and_destroy`, no relacionado con la Fase 5
+salvo que se notó al ejercitar el diálogo bajo GTK real para validar el
+botón nuevo).
+
 Es un *move* 1:1 desde cabledoc.py: no cambia comportamiento ni lógica de
 negocio. `cabledoc.py` reexporta estos nueve nombres sin cambios.
 
@@ -471,7 +479,21 @@ class _DialogoSala(Gtk.Dialog):
 # ─── Rack por Sala ────────────────────────────────────────────────────────────
 
 class _DialogoRackPorSala(Gtk.Dialog):
-    """Diálogo para asignar un rack a una sala."""
+    """Diálogo para asignar un rack a una sala.
+
+    Botón "📍 Ubicar en el plano" (Fase 5 de
+    plan_desarrollo_ubicacion_fisica_planos.md, "Overlay de racks
+    (puntos)"): abre VistaPlanoInteractivo (planos_ui.py) enfocado en
+    este rack para marcar/mover su punto sobre el plano de la sala.
+    Sólo tiene sentido — y sólo se habilita — cuando:
+      1. esta asignación YA está guardada (self.id_, no una asignación
+         nueva sin guardar todavía: el punto vive en la fila de
+         rack_por_sala, no puede haber punto sin fila); y
+      2. la sala de esta asignación ya tiene un plano asignado
+         (sala.id_plano, ver _DialogoSala en este mismo archivo).
+    Referencia cruzada a VistaPlanoInteractivo resuelta con import
+    diferido dentro del método que la usa, mismo patrón ya establecido
+    por _DialogoSala._editar_contorno en esta clase hermana."""
 
     def __init__(self, id_=None, parent=None):
         titulo = _("Editar asignación Rack-Sala") if id_ else _("Nueva asignación Rack-Sala")
@@ -479,6 +501,7 @@ class _DialogoRackPorSala(Gtk.Dialog):
                          modal=True, destroy_with_parent=True)
         self.set_default_size(360, -1)
         self.id_ = id_
+        self._id_plano_de_sala = None
 
         ca = self.get_content_area()
         g = _grid()
@@ -491,6 +514,19 @@ class _DialogoRackPorSala(Gtk.Dialog):
         _lbl_entry(g, _("Rack:"), 1)
         self.e_rack = _entry_btn(g, 1, "…", self._sel_rack)
         self._id_rack = None
+
+        self.lbl_ubicacion = Gtk.Label(xalign=0)
+        self.lbl_ubicacion.set_margin_start(8)
+        self.lbl_ubicacion.set_margin_top(4)
+        ca.pack_start(self.lbl_ubicacion, False, False, 0)
+
+        self.btn_ubicar = Gtk.Button(
+            label="📍 " + _("Ubicar en el plano"))
+        self.btn_ubicar.set_margin_start(8)
+        self.btn_ubicar.set_margin_top(4)
+        self.btn_ubicar.set_margin_bottom(4)
+        self.btn_ubicar.connect("clicked", self._ubicar_en_plano)
+        ca.pack_start(self.btn_ubicar, False, False, 0)
 
         self.add_button(_("Cancelar"), Gtk.ResponseType.CANCEL)
         btn_ok = self.add_button(_("Guardar"), Gtk.ResponseType.OK)
@@ -505,8 +541,10 @@ class _DialogoRackPorSala(Gtk.Dialog):
                 self._id_rack = str(rows[0][2])
                 self.e_sala.set_text(s(rows[0][3]))
                 self.e_rack.set_text(s(rows[0][4]))
+                self._id_plano_de_sala = rows[0][5]
 
         _pack_ultima_edicion(self, "rack_por_sala", "id_rack_x_sala", id_)
+        self._actualizar_estado_ubicacion()
         self.show_all()
 
     def _sel_sala(self, btn):
@@ -527,6 +565,27 @@ class _DialogoRackPorSala(Gtk.Dialog):
                 self.e_rack.set_text(s(fila[2]))
         dlg.destroy()
 
+    def _actualizar_estado_ubicacion(self):
+        habilitar = bool(self.id_ and self._id_plano_de_sala)
+        self.btn_ubicar.set_sensitive(habilitar)
+        if not self.id_:
+            texto = _("Guardá la asignación primero; la ubicación en el "
+                      "plano se marca al volver a editarla.")
+        elif not self._id_plano_de_sala:
+            texto = _("La sala de esta asignación todavía no tiene un "
+                      "plano asignado — asignaselo desde la ficha de "
+                      "Sala.")
+        else:
+            texto = _("Marcá o mové el punto de este rack en el plano "
+                      "de su sala con el botón de abajo.")
+        self.lbl_ubicacion.set_markup("<small><i>" + texto + "</i></small>")
+
+    def _ubicar_en_plano(self, btn):
+        from planos_ui import VistaPlanoInteractivo
+        VistaPlanoInteractivo(
+            self._id_plano_de_sala, parent=self,
+            id_rack_x_sala_foco=self.id_).run_and_destroy()
+
     def _on_response(self, dlg, resp):
         if resp != Gtk.ResponseType.OK:
             return
@@ -536,6 +595,19 @@ class _DialogoRackPorSala(Gtk.Dialog):
             Modelo.modificacion_rack_por_sala(self.id_, self._id_sala, self._id_rack)
         else:
             Modelo.alta_rack_por_sala(self._id_sala, self._id_rack)
+
+    def run_and_destroy(self):
+        # Faltaba en esta clase (bug preexistente, no introducido por la
+        # Fase 5: RackPorSalaListado.nuevo()/editar() ya llamaban
+        # dlg.run_and_destroy() desde antes de esta entrega, lo que
+        # levantaba AttributeError al abrir "Nueva"/"Editar" asignación
+        # Rack-Sala desde el menú — nunca se había notado porque no
+        # tenía smoke test bajo GTK real hasta ahora). Mismo patrón que
+        # el resto de los diálogos con guardado vía señal "response"
+        # (self.run() bloquea y dispara _on_response en el clic; después
+        # se cierra explícitamente).
+        self.run()
+        self.destroy()
 
 
 class RackPorSalaListado(VentanaListado):

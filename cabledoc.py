@@ -41,7 +41,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260905200000"
+APP_VERSION = "1.20260905230500"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
