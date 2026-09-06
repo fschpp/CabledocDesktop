@@ -35,9 +35,12 @@ entrega (necesario para evitar ciclo cuando `PanelArbol` todavía vivía en
 el mismo archivo); se preserva sin cambios, sólo combinado en la misma
 línea con `_DialogoPosicionRack` porque ambos se usan en el mismo método.
 
-`s()` y `DialogoNombre` (genéricos de `pantallas_comunes.py`, no un
-dominio específico) sí se importan directo a nivel de módulo, igual que
-en `racks_salas_ui.py`.
+`s()` (genérico de `pantallas_comunes.py`, no un dominio específico) sí
+se importa directo a nivel de módulo, igual que en `racks_salas_ui.py`.
+`DialogoNombre` se importaba acá para el dispatcher de "sala" (ver más
+abajo), que en la Fase 4 de plan_desarrollo_ubicacion_fisica_planos.md
+pasó a usar `_DialogoSala` (import diferido, mismo patrón que el resto
+del dispatcher) — se quitó el import directo por quedar sin uso.
 """
 
 import gi
@@ -54,7 +57,7 @@ try:
 except ImportError:
     def _(t): return t
 
-from pantallas_comunes import s, DialogoNombre
+from pantallas_comunes import s
 
 
 class PanelArbol(Gtk.Box):
@@ -906,6 +909,7 @@ class PanelArbol(Gtk.Box):
             _DialogoConector,
             _DialogoCable,
             _DialogoConexion,
+            _DialogoSala,
         )
         it = self._store.get_iter(path)
         if it is None:
@@ -920,14 +924,13 @@ class PanelArbol(Gtk.Box):
             dlg = _DialogoEquipo(id_equipo=oid, parent=vp)
             dlg.run_and_destroy()
         elif tipo == "sala":
-            rows = Modelo.devolver_sala(oid)
-            if rows:
-                nombre_actual = s(rows[0][1])
-                dlg = DialogoNombre(_("Editar Sala"), valor=nombre_actual, parent=vp)
-                if dlg.run() == Gtk.ResponseType.OK:
-                    Modelo.modificacion_sala(oid, dlg.valor)
-                dlg.destroy()
-                self.recargar(forzar_bd=True)
+            # Fase 4 de plan_desarrollo_ubicacion_fisica_planos.md: antes
+            # abría el genérico DialogoNombre (sólo nombre); ahora usa
+            # _DialogoSala (racks_salas_ui.py), que además ofrece el
+            # selector de Plano y el acceso al contorno.
+            dlg = _DialogoSala(id_sala=oid, parent=vp)
+            dlg.run_and_destroy()
+            self.recargar(forzar_bd=True)
         elif tipo == "rack":
             dlg = _DialogoRack(id_rack=oid, parent=vp)
             dlg.run_and_destroy()

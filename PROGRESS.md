@@ -207,6 +207,66 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+**Sesión 2026-09-05T20:00 — Fase 4 de `plan_desarrollo_ubicacion_fisica_planos.md` ("Overlay de salas en el plano") completada. Próximo paso: Fase 5 ("Botón 📍 Ubicar en el plano en el diálogo de Rack por Sala"). Pendiente arrastrado: correr el smoke test contra `database/db.db` real de Fede, dibujando el contorno de 2-3 salas reales y confirmando que persiste al reabrir el visor (criterio de cierre original de la fase, nunca ejercitado contra datos reales).**
+
+Repo clonado y verificado contra `main` (commit `114f64e`, merge de PR #14
+"fase3-poligono-planos") antes de tocar nada — Fases 1 a 3 del plan ya
+estaban mergeadas. Nota importante para la próxima sesión: los archivos
+nuevos del plan (`planos_ui.py`) NO están listados todavía en el bloque
+de "Project files" que ve Claude por defecto en este proyecto — hubo que
+clonar el repo real para encontrarlos; si eso persiste, agregarlos a mano
+al proyecto para que las próximas sesiones no necesiten re-clonar.
+
+Cambios de esta entrega (detalle completo en `changelog.txt`,
+2026-09-05T20:00):
+
+1. **`modelo.py`**: `devolver_sala` extendida con `id_plano`/`poligono`
+   (columnas 2 y 3, sin tocar las 0/1 que ya consumían
+   `racks_salas_ui.py`/`panel_arbol_ui.py`). Nuevas
+   `devolver_salas_de_plano(id_plano)` y `alta_sala_retorna_id(nombre)`.
+2. **`racks_salas_ui.py`**: nueva `_DialogoSala`, reemplaza el genérico
+   `DialogoNombre` en `SalasListado` — agrega selector de Plano y acceso
+   a `VistaPlanoInteractivo` para dibujar el contorno. Al cambiar de
+   plano una sala que ya tenía contorno, el contorno se descarta (estaba
+   dibujado sobre la imagen del plano anterior).
+3. **`planos_ui.py`**: nueva `VistaPlanoInteractivo` — overlay Cairo de
+   sólo lectura con los contornos de sala del plano
+   (`Modelo.devolver_contenido_plano`, que ya traía todo desde la Fase 1
+   sin consumidor hasta ahora) + selector de sala y botón que reutiliza
+   `CoordenadasImagenSeleccion(modo_poligono=True)` de la Fase 3 para
+   dibujar/rehacer el contorno de una sala puntual.
+4. **`cabledoc.py`**: reexporta `_DialogoSala`; `APP_VERSION` →
+   `1.20260905200000`.
+5. **`panel_arbol_ui.py`**: el dispatcher de doble clic sobre "sala"
+   ahora abre `_DialogoSala` en vez del `DialogoNombre` genérico, por
+   consistencia con `SalasListado`.
+
+**Validado en sandbox** (detalle completo en `changelog.txt`): `ast.parse`
++ `py_compile` en los 5 archivos; `pyflakes` contra el HEAD previo
+(`git stash`) sin advertencias nuevas atribuibles a este cambio; smoke
+test funcional bajo Xvfb con GTK real contra una base de fixture
+(`schema_db.sql` + `Modelo.asegurar_tablas_plano()`, corrida dos veces
+para confirmar idempotencia) — plano SVG sintético + 3 salas (2 asignadas,
+1 sin plano a propósito): identidad de objeto
+`cabledoc._DialogoSala is racks_salas_ui._DialogoSala`, habilitación
+correcta del botón de contorno en los 3 casos (sala con plano, sala sin
+plano, sala nueva sin guardar), combo de `VistaPlanoInteractivo` filtrando
+bien por plano, `id_sala_foco` preseleccionando, y overlay Cairo corriendo
+sin excepciones. Flujo interactivo end-to-end con clics simulados
+(`FakeEvent`, mismo patrón que la validación de la Fase 3): dibujado y
+cerrado un polígono de 4 vértices, persistencia confirmada en
+`sala.poligono`, y confirmado que un polígono sin cerrar NO sobreescribe
+el contorno existente. Smoke test adicional de arranque:
+`VentanaPrincipal` completa instanciada bajo Xvfb sin excepciones.
+
+**NO se corrió** todavía el smoke test contra el `database/db.db` real de
+Fede (sigue siendo la brecha de validación arrastrada de fases
+anteriores, ver "Latest Blockers/Discoveries" más abajo) — recomendado
+como primer paso antes de dar la Fase 4 por cerrada del todo en
+producción.
+
+## Current Focus (sesión anterior)
+
 **Sesión 2026-09-01 — Coordenadas de imagen en porcentaje (0-100) en vez de píxel libre, para conector/conector_catalogo/equipo/slot/slot_catalogo, SIN agregar columnas a la base. Entregado modelo.py + los 4 archivos UI que bypaseaban Modelo con SQL propio. Pendiente: correr `Modelo.migrar_coordenadas_a_porcentaje()` contra la base real de Papi (validado contra una copia con su db.db + imagen.zip reales, no contra la base de producción) y hacer backup antes.**
 
 Pedido original: guardar x/y (y ancho/alto de rectángulos de slot) como
