@@ -4377,11 +4377,42 @@ class Modelo:
 
     @staticmethod
     def devolver_sala(id_sala):
-        return Modelo._query("SELECT id_sala, nombre FROM sala WHERE id_sala=?", (id_sala,))
+        """Fase 4 de plan_desarrollo_ubicacion_fisica_planos.md: se agregan
+        id_plano/poligono al final (columnas 2 y 3) para alimentar el
+        selector de plano y el estado del contorno en _DialogoSala — no se
+        tocan las columnas 0/1 (id_sala, nombre) que ya consumía
+        panel_arbol_ui.py."""
+        return Modelo._query(
+            "SELECT id_sala, nombre, id_plano, poligono "
+            "FROM sala WHERE id_sala=?", (id_sala,))
+
+    @staticmethod
+    def devolver_salas_de_plano(id_plano):
+        """A diferencia de devolver_contenido_plano (que sólo trae salas
+        con poligono ya cargado, pensado para el overlay de sólo lectura),
+        esta trae TODAS las salas de un plano, incluidas las que todavía
+        no tienen contorno dibujado — para poblar el selector "Sala:" de
+        VistaPlanoInteractivo en modo editar."""
+        return Modelo._query(
+            "SELECT id_sala, nombre, poligono FROM sala "
+            "WHERE id_plano=? ORDER BY nombre", (id_plano,)
+        )
 
     @staticmethod
     def alta_sala(nombre):
         Modelo._exec("INSERT INTO sala (nombre) VALUES (?)", (_n(nombre),))
+
+    @staticmethod
+    def alta_sala_retorna_id(nombre):
+        """Igual a alta_sala, pero devuelve el id creado — necesario desde
+        Fase 4 para poder asignarle un plano en el mismo alta sin ir a
+        buscarla de nuevo (mismo patrón que alta_plano_retorna_id /
+        alta_mueble_retorna_id)."""
+        with Modelo._conn_ctx() as conn:
+            cur = conn.execute(
+                "INSERT INTO sala (nombre) VALUES (?)", (_n(nombre),))
+            conn.commit()
+            return cur.lastrowid
 
     @staticmethod
     def modificacion_sala(id_sala, nombre):

@@ -8,9 +8,15 @@ Dominio Racks / Salas, extraído de `cabledoc.py`
 Contiene:
   - RacksListado, _DialogoRack
   - PosicionEnRackListado, _DialogoPosicionRack
-  - SalasListado
+  - SalasListado, _DialogoSala
   - _DialogoRackPorSala, RackPorSalaListado
   - _DialogoEquipoNoRackSala, EquiposNoRackSalaListado
+
+_DialogoSala es nuevo (Fase 4 de plan_desarrollo_ubicacion_fisica_planos.md,
+"Overlay de salas en el plano"): reemplaza el uso del genérico DialogoNombre
+para editar Sala, agregando el selector de Plano (sala.id_plano) y el
+acceso a VistaPlanoInteractivo (planos_ui.py) para dibujar el contorno
+(sala.poligono). Ver el docstring de la clase para el detalle.
 
 Es un *move* 1:1 desde cabledoc.py: no cambia comportamiento ni lógica de
 negocio. `cabledoc.py` reexporta estos nueve nombres sin cambios.
@@ -33,6 +39,8 @@ directo del módulo de dominio hermano), como ya hace
 `cables_conexiones_ui.py` con `EquiposListado`.
 """
 
+import json
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -48,7 +56,6 @@ from pantallas_comunes import (
     s,
     mostrar_error,
     VentanaListado,
-    DialogoNombre,
     _grid,
     _lbl_entry,
     _entry,
@@ -321,21 +328,144 @@ class SalasListado(VentanaListado):
         self._poblar(Modelo.devolver_todas_las_salas())
 
     def nuevo(self):
-        dlg = DialogoNombre(_("Nueva Sala"), parent=self)
-        if dlg.run() == Gtk.ResponseType.OK and dlg.valor:
-            Modelo.alta_sala(dlg.valor)
-        dlg.destroy()
+        dlg = _DialogoSala(parent=self)
+        dlg.run_and_destroy()
 
     def editar(self, id_):
-        rows = Modelo.devolver_sala(id_)
-        if not rows: return
-        dlg = DialogoNombre(_("Editar Sala"), valor=s(rows[0][1]), parent=self)
-        if dlg.run() == Gtk.ResponseType.OK:
-            Modelo.modificacion_sala(id_, dlg.valor)
-        dlg.destroy()
+        dlg = _DialogoSala(id_sala=id_, parent=self)
+        dlg.run_and_destroy()
 
     def eliminar(self, id_):
         Modelo.eliminar_sala(id_)
+
+
+class _DialogoSala(Gtk.Dialog):
+    """plan_desarrollo_ubicacion_fisica_planos.md, Fase 4: hasta esta fase
+    Sala sólo tenía "nombre" y se editaba con el genérico DialogoNombre
+    (pantallas_comunes.py). Se reemplaza acá por un diálogo propio que
+    agrega el selector de Plano (sala.id_plano) y acceso al contorno
+    (sala.poligono).
+
+    El contorno en sí NO se edita con texto en este diálogo: se dibuja a
+    mano sobre la imagen del plano en VistaPlanoInteractivo
+    (planos_ui.py), reutilizando el modo_poligono de
+    CoordenadasImagenSeleccion agregado en la Fase 3
+    (imagen_conectores_ui.py). Acá sólo se ofrece el botón de acceso y se
+    muestra el estado actual ("sin definir" / "N vértices").
+
+    Referencia cruzada a PlanosListado (planos_ui.py) y VistaPlanoInteractivo
+    resuelta con import diferido dentro de los métodos que las usan,
+    ruteando a través de `from cabledoc import X` para PlanosListado (mismo
+    patrón ya establecido por el resto del archivo) — VistaPlanoInteractivo
+    se importa directo de planos_ui porque cabledoc.py no la reexporta
+    todavía (no hace falta: sólo se usa acá y desde planos_ui.py mismo)."""
+
+    def __init__(self, id_sala=None, parent=None):
+        titulo = _("Editar Sala") if id_sala else _("Nueva Sala")
+        super().__init__(title=titulo, transient_for=parent,
+                         modal=True, destroy_with_parent=True)
+        self.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
+                         _("Aceptar"), Gtk.ResponseType.OK)
+        self.set_default_size(460, 260)
+        self.id_sala = id_sala
+        self._id_plano = None    # str o None
+        self._poligono = None    # JSON string (tal cual en sala.poligono) o None
+
+        g = _grid()
+        _lbl_entry(g, _("Nombre:"), 0)
+        self.e_nombre = _entry(g, 0)
+        _lbl_entry(g, _("Plano:"), 1)
+        self.e_plano = _entry_btn(g, 1, "…", self._sel_plano)
+        self.get_content_area().add(g)
+
+        self.lbl_contorno = Gtk.Label(xalign=0)
+        self.lbl_contorno.set_margin_start(8)
+        self.lbl_contorno.set_margin_top(4)
+        self.get_content_area().pack_start(self.lbl_contorno, False, False, 0)
+
+        self.btn_contorno = Gtk.Button(
+            label="🗺 " + _("Editar contorno en el plano"))
+        self.btn_contorno.set_margin_start(8)
+        self.btn_contorno.set_margin_top(4)
+        self.btn_contorno.connect("clicked", self._editar_contorno)
+        self.get_content_area().pack_start(self.btn_contorno, False, False, 0)
+
+        if id_sala:
+            rows = Modelo.devolver_sala(id_sala)
+            if rows:
+                r = rows[0]
+                self.e_nombre.set_text(s(r[1]))
+                self._id_plano = s(r[2]) or None
+                self._poligono = r[3]
+                if self._id_plano:
+                    filas_plano = Modelo.devolver_plano(int(self._id_plano))
+                    if filas_plano:
+                        self.e_plano.set_text(s(filas_plano[0][1]))
+
+        _pack_ultima_edicion(self, "sala", "id_sala", id_sala)
+        self._actualizar_estado_contorno()
+        self.show_all()
+
+    def _sel_plano(self, btn):
+        from cabledoc import PlanosListado
+        dlg = PlanosListado(parent=self, modo_seleccion=True)
+        if dlg.run() == Gtk.ResponseType.OK:
+            nuevo_id_plano = str(dlg.resultado_id)
+            if nuevo_id_plano != self._id_plano:
+                # el contorno está dibujado sobre la imagen del plano
+                # anterior — no tiene sentido conservarlo al cambiar de
+                # plano, mismo criterio que plan_desarrollo_ubicacion_
+                # fisica_planos.md §3.2 aplica al reemplazar la imagen.
+                self._poligono = None
+            self._id_plano = nuevo_id_plano
+            self.e_plano.set_text(dlg.resultado_nombre)
+            self._actualizar_estado_contorno()
+        dlg.destroy()
+
+    def _actualizar_estado_contorno(self):
+        habilitar = bool(self.id_sala and self._id_plano)
+        self.btn_contorno.set_sensitive(habilitar)
+        if not self._id_plano:
+            texto = _("Asigná un plano para poder dibujar el contorno de "
+                      "esta sala.")
+        elif not self.id_sala:
+            texto = _("Guardá la sala primero; el contorno se dibuja al "
+                      "volver a editarla.")
+        else:
+            try:
+                n = len(json.loads(self._poligono)) if self._poligono else 0
+            except (ValueError, TypeError):
+                n = 0
+            texto = (_("Contorno: {0} vértices").format(n) if n >= 3
+                     else _("Contorno: sin definir"))
+        self.lbl_contorno.set_markup("<small><i>" + texto + "</i></small>")
+
+    def _editar_contorno(self, btn):
+        from planos_ui import VistaPlanoInteractivo
+        VistaPlanoInteractivo(int(self._id_plano), parent=self,
+                             id_sala_foco=self.id_sala).run_and_destroy()
+        # releer el contorno recién guardado (o no) para refrescar la
+        # etiqueta sin esperar a reabrir todo el diálogo de Sala
+        rows = Modelo.devolver_sala(self.id_sala)
+        if rows:
+            self._poligono = rows[0][3]
+        self._actualizar_estado_contorno()
+
+    def run_and_destroy(self):
+        if self.run() == Gtk.ResponseType.OK:
+            nombre = self.e_nombre.get_text()
+            if self.id_sala:
+                Modelo.modificacion_sala(self.id_sala, nombre)
+                Modelo.actualizar_ubicacion_sala(
+                    self.id_sala,
+                    int(self._id_plano) if self._id_plano else None,
+                    self._poligono)
+            else:
+                nuevo_id = Modelo.alta_sala_retorna_id(nombre)
+                if self._id_plano:
+                    Modelo.actualizar_ubicacion_sala(
+                        nuevo_id, int(self._id_plano), None)
+        self.destroy()
 
 
 # ─── Rack por Sala ────────────────────────────────────────────────────────────

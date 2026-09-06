@@ -41,7 +41,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260905160000"
+APP_VERSION = "1.20260905200000"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -220,12 +220,18 @@ from senal_catalogo_ui import (
 # cambios para que todo el código de este archivo (y los
 # `from cabledoc import ...` externos, ej. pantallas_avanzadas.py con
 # RacksListado) siga funcionando idéntico.
+# _DialogoSala se agregó en racks_salas_ui.py recién en la Fase 4 de
+# plan_desarrollo_ubicacion_fisica_planos.md; se reexporta acá igual que el
+# resto de los diálogos "_Dialogo*" del archivo porque panel_arbol_ui.py lo
+# consume vía `from cabledoc import _DialogoSala` (mismo patrón que ya usa
+# con _DialogoEquipo/_DialogoRack/etc. en su dispatcher de doble clic).
 from racks_salas_ui import (
     RacksListado,
     _DialogoRack,
     PosicionEnRackListado,
     _DialogoPosicionRack,
     SalasListado,
+    _DialogoSala,
     _DialogoRackPorSala,
     RackPorSalaListado,
     _DialogoEquipoNoRackSala,
