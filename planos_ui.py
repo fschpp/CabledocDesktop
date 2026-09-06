@@ -393,7 +393,7 @@ class _DialogoMueble(Gtk.Dialog):
                 self._id_sala = str(fila[0])
                 self.e_sala.set_text(s(fila[1]))
                 rows_sala = Modelo.devolver_sala(self._id_sala)
-                self._id_plano_de_sala = rows_sala[0][4] if rows_sala else None
+                self._id_plano_de_sala = rows_sala[0][2] if rows_sala else None
         dlg.destroy()
         self._actualizar_estado_rectangulo()
 
