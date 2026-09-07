@@ -207,6 +207,24 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+**Sesión 2026-09-07T19:00 — Fase 9 ("Pulido") de `plan_desarrollo_ubicacion_fisica_planos.md` completada. Con esta entrega el plan queda cerrado: las 9 fases (schema, catálogo de planos, selector de polígono, overlay de salas, overlay de racks, muebles, equipos sueltos/módulos de frame, integración a la ficha de Equipo, pulido) están todas mergeadas a `main`.**
+
+### Current Focus
+- [x] Revisar el repo clonado contra `main` (commit `865ddb7`, merge de PR #19 "fase8-integracion-ficha-equipo") — confirmado que las Fases 1 a 8 ya estaban completas y mergeadas, faltaba sólo la Fase 9.
+- [x] `planos_ui.py`: color distinto para equipo suelto de Pared (`COLOR_SUELTO_PARED`, cian) además del ya existente de Piso (violeta) — antes ambos compartían color y sólo se distinguían por borde sólido/punteado + ícono. Las 5 categorías del overlay (sala/rack/mueble/suelto-piso/suelto-pared) tienen ahora color propio.
+- [x] `planos_ui.py`: tooltip al pasar el mouse sobre cualquier elemento del overlay, vía `has-tooltip`/`query-tooltip` — `_hit_test_overlay()` nuevo generaliza a los 4 tipos (sala/rack/mueble/equipo suelto) el hit-testing puntual que ya usaba el clic sobre un rack (Fase 7); `_punto_en_poligono()` nuevo (ray casting) para el hit-test del contorno de sala.
+- [x] `planos_ui.py`: `self._contenido_cache` — poblado en cada `_dibujar_overlay`, reusado tanto por el tooltip nuevo como por `_on_click_overlay` (que antes repetía `Modelo.devolver_contenido_plano()` en cada clic) — awareness de N+1 del proyecto, evita repetir esa consulta agregada en cada movimiento del mouse.
+- [x] Zoom-to-fit al abrir: ya estaba resuelto desde las Fases 4/5 (`_on_viz_realize` → `self._viz._zoom_fit()`) — verificado, sin cambios necesarios.
+- [x] `cabledoc.py`: `APP_VERSION` → `1.20260907190000`.
+- [x] Validado en sandbox (detalle completo en `changelog.txt`, 2026-09-07T19:00): `ast.parse` + `py_compile` + `pyflakes` (contra `git stash`, cero advertencias antes y después) en `planos_ui.py`/`cabledoc.py`; smoke test funcional bajo Xvfb con GTK/Cairo reales contra una base de fixture (`schema_db.sql` + `Modelo.asegurar_tablas_plano()`, idempotente) con 1 plano/1 sala con contorno/1 rack/1 mueble/2 equipos sueltos (Piso y Pared): `_hit_test_overlay` correcto contra los 4 tipos + interior de polígono de sala + `None` fuera de todo; `_on_query_tooltip` ejercitado con un `Gtk.Tooltip` real (texto "Rack: Rack Audio" sobre el punto del rack); regresión de `_on_click_overlay` (Fase 7) confirmada usando el cache nuevo; `VentanaPrincipal` completa instanciada sin excepciones.
+- [ ] **Pendiente, no bloqueante (arrastrado desde fases anteriores del plan):** correr el smoke test visual completo contra el `database/db.db` real de Fede/Papi — en particular confirmar que los tooltips y los 2 colores nuevos de equipo suelto (Piso/Pared) se ven bien sobre la imagen real de un plano con datos reales, nunca ejercitado contra producción.
+
+### Latest Blockers/Discoveries
+- Ninguno nuevo. Mismo blocker recurrente de este sandbox: el proceso `Xvfb` lanzado en background no sobrevive entre invocaciones separadas de herramienta — hubo que relanzarlo (`nohup Xvfb :99 ... &`) dentro del mismo comando que corre cada smoke test, no en una llamada previa aparte (mismo hallazgo ya documentado en sesiones anteriores del historial de este archivo).
+- Se entrega el diff para que Fede/Papi lo aplique con `git apply` y confirme el `commit` en su terminal — no se hizo commit en este sandbox (mismo protocolo del proyecto: "diff first, entrega separada del commit real").
+
+## Current Focus (sesión anterior)
+
 **Sesión 2026-09-06T04:00 — Fase 7 de `plan_desarrollo_ubicacion_fisica_planos.md` ("Equipos sueltos, módulos de frame y herencia de ubicación") completada. Con esta entrega quedan cerradas las 7 fases centrales del plan; sólo faltan la Fase 8 (limpieza de hardcodes: sacar imagen/coordenada_x/coordenada_y de `equipo`) y la Fase 9 (Pulido). Pendiente arrastrado: correr el smoke test contra `database/db.db` real de Fede/Papi con equipos sueltos y módulos de frame reales.**
 
 Nota de brecha: este log no tiene registradas en detalle las sesiones de

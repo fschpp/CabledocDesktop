@@ -680,7 +680,12 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     COLOR_SALA = (0.10, 0.45, 0.90)   # azul — contorno sólido + relleno tenue
     COLOR_RACK = (0.85, 0.45, 0.05)   # naranja — cuadrado de rack
     COLOR_MUEBLE = (0.15, 0.60, 0.35)  # verde — rectángulo de mueble
-    COLOR_SUELTO = (0.55, 0.15, 0.65)  # violeta — círculo de equipo suelto
+    COLOR_SUELTO = (0.55, 0.15, 0.65)  # violeta — círculo de equipo suelto de Piso
+    COLOR_SUELTO_PARED = (0.10, 0.55, 0.55)  # cian — círculo de equipo suelto de Pared
+    # (Fase 9 "Pulido": antes Piso/Pared sólo se distinguían por
+    # borde sólido/punteado + ícono 🖴/🧱, mismo color violeta para
+    # ambos — ahora tienen color propio, sin sacar el borde/ícono
+    # existente, que sigue siendo la distinción principal a bajo zoom)
     COLOR_RESALTADO = (1.0, 0.85, 0.0)  # amarillo — halo del rack clickeado
     COLOR_FOCO = (0.85, 0.10, 0.10)    # rojo — cruz del equipo_foco (Fase 8)
 
@@ -706,10 +711,23 @@ class VistaPlanoInteractivo(Gtk.Dialog):
 
         ca = self.get_content_area()
 
+        self._contenido_cache = None  # poblado en cada _dibujar_overlay,
+        # reusado por _on_click_overlay/_on_query_tooltip para no repetir
+        # la consulta agregada de Modelo.devolver_contenido_plano en cada
+        # movimiento del mouse (Fase 9 "Pulido" — tooltips al pasar el
+        # mouse dispararían un query-tooltip por cada frame de motion sin
+        # este cache).
+
         self._viz = _ImagenZoom()
         self._viz.overlay_fn = self._dibujar_overlay
         self._viz.da.connect("realize", self._on_viz_realize)
         self._viz.da.connect("button-press-event", self._on_click_overlay)
+        # Fase 9 "Pulido": tooltip con el nombre del elemento (sala/rack/
+        # mueble/equipo suelto) al pasar el mouse por encima, mismo
+        # hit-testing que ya usaba el clic sobre un rack (Fase 7),
+        # generalizado a los 4 tipos de elemento del overlay.
+        self._viz.da.set_property("has-tooltip", True)
+        self._viz.da.connect("query-tooltip", self._on_query_tooltip)
         ca.pack_start(self._viz, True, True, 0)
 
         if self.id_imagen:
@@ -920,6 +938,7 @@ class VistaPlanoInteractivo(Gtk.Dialog):
             return
 
         contenido = Modelo.devolver_contenido_plano(self.id_plano)
+        self._contenido_cache = contenido  # Fase 9: ver nota en __init__
         r, g, b = self.COLOR_SALA
         for sala in contenido:
             # ── contorno de la sala (Fase 4) — sólo si ya está dibujado.
@@ -1051,7 +1070,6 @@ class VistaPlanoInteractivo(Gtk.Dialog):
             # rectángulo de mueble), con borde punteado si el tipo de
             # montaje es PARED (sólido para PISO) para distinguirlos a
             # simple vista sin depender sólo del ícono ──
-            r4, g4, b4 = self.COLOR_SUELTO
             for (id_en, id_eq, nombre_eq, x_pct_s, y_pct_s,
                  tipo_montaje_s) in sala.get("equipos_sueltos", []):
                 try:
@@ -1062,6 +1080,7 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 wx_s, wy_s = self._viz.i2w(x_img_s, y_img_s)
                 radio_s = max(6, 8 * self._viz.zoom)
                 es_pared = (tipo_montaje_s or "PISO") == "PARED"
+                r4, g4, b4 = self.COLOR_SUELTO_PARED if es_pared else self.COLOR_SUELTO
                 cr.set_source_rgba(r4, g4, b4, 0.92)
                 cr.arc(wx_s, wy_s, radio_s, 0, 2 * math.pi)
                 cr.fill_preserve()
@@ -1131,7 +1150,12 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         ix, iy = self._viz.w2i(event.x, event.y)
         tolerancia_img = 20.0 / max(self._viz.zoom, 0.01)
 
-        contenido = Modelo.devolver_contenido_plano(self.id_plano)
+        # Fase 9: reusa el cache poblado por el último _dibujar_overlay
+        # en vez de repetir la consulta agregada — mismos datos, ya que
+        # el overlay se redibuja antes de que un clic sea posible.
+        contenido = self._contenido_cache
+        if contenido is None:
+            contenido = Modelo.devolver_contenido_plano(self.id_plano)
         mejor_id_rack = None
         mejor_nombre_rack = None
         mejor_dist = None
@@ -1169,6 +1193,109 @@ class VistaPlanoInteractivo(Gtk.Dialog):
             texto = _("Equipos en «{0}»:").format(s(mejor_nombre_rack)) + "\n" + "\n".join(lineas)
         self.lbl_rack_resaltado.set_markup(
             "<small>" + texto.replace("&", "&amp;").replace("<", "&lt;") + "</small>")
+
+    # ── Fase 9 "Pulido": tooltip con nombre al pasar el mouse ────────────
+    @staticmethod
+    def _punto_en_poligono(px, py, puntos):
+        """Ray casting estándar — puntos es una lista de (x, y) en
+        píxeles de imagen, mismo sistema de coordenadas que px/py."""
+        dentro = False
+        n = len(puntos)
+        j = n - 1
+        for i in range(n):
+            xi, yi = puntos[i]
+            xj, yj = puntos[j]
+            if ((yi > py) != (yj > py)) and (
+                    px < (xj - xi) * (py - yi) / ((yj - yi) or 1e-9) + xi):
+                dentro = not dentro
+            j = i
+        return dentro
+
+    def _hit_test_overlay(self, ix, iy, ancho_img, alto_img):
+        """Devuelve (tipo, nombre) del elemento del overlay bajo el punto
+        de imagen (ix, iy), o None. tipo en {'sala','rack','mueble',
+        'suelto'}. Se prueban primero los elementos puntuales/rectangulares
+        (rack, mueble, equipo suelto) y al final el contorno de sala (el
+        de mayor área, para no taparle el hit-test a lo que tiene adentro).
+        Usa self._contenido_cache si ya está poblado (ver __init__)."""
+        contenido = self._contenido_cache
+        if contenido is None:
+            contenido = Modelo.devolver_contenido_plano(self.id_plano)
+        tolerancia_img = 20.0 / max(self._viz.zoom, 0.01)
+
+        for sala in contenido:
+            for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
+                try:
+                    x_img_r = (float(x_pct_r) / 100.0) * ancho_img
+                    y_img_r = (float(y_pct_r) / 100.0) * alto_img
+                except (TypeError, ValueError):
+                    continue
+                if math.hypot(ix - x_img_r, iy - y_img_r) <= tolerancia_img:
+                    return ("rack", nombre_rack)
+
+            for (id_mueble, nombre_mueble, x_pct_m, y_pct_m, ancho_pct_m,
+                 alto_pct_m, equipos_m) in sala.get("muebles", []):
+                try:
+                    x0 = (float(x_pct_m) / 100.0) * ancho_img
+                    y0 = (float(y_pct_m) / 100.0) * alto_img
+                    x1 = x0 + (float(ancho_pct_m) / 100.0) * ancho_img
+                    y1 = y0 + (float(alto_pct_m) / 100.0) * alto_img
+                except (TypeError, ValueError):
+                    continue
+                if min(x0, x1) <= ix <= max(x0, x1) and min(y0, y1) <= iy <= max(y0, y1):
+                    return ("mueble", nombre_mueble)
+
+            for (id_en, id_eq, nombre_eq, x_pct_s, y_pct_s,
+                 tipo_montaje_s) in sala.get("equipos_sueltos", []):
+                try:
+                    x_img_s = (float(x_pct_s) / 100.0) * ancho_img
+                    y_img_s = (float(y_pct_s) / 100.0) * alto_img
+                except (TypeError, ValueError):
+                    continue
+                if math.hypot(ix - x_img_s, iy - y_img_s) <= tolerancia_img:
+                    return ("suelto", nombre_eq)
+
+        for sala in contenido:
+            poligono = sala.get("poligono")
+            if not poligono:
+                continue
+            try:
+                vertices_pct = json.loads(poligono)
+            except (ValueError, TypeError):
+                continue
+            puntos = []
+            for v in vertices_pct:
+                try:
+                    puntos.append((
+                        (float(v.get("x_pct", 0)) / 100.0) * ancho_img,
+                        (float(v.get("y_pct", 0)) / 100.0) * alto_img))
+                except (TypeError, ValueError):
+                    continue
+            if len(puntos) >= 3 and self._punto_en_poligono(ix, iy, puntos):
+                return ("sala", sala.get("nombre", ""))
+        return None
+
+    def _on_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):
+        if not self._viz.pixbuf:
+            return False
+        ancho_img = self._viz.pixbuf.get_width()
+        alto_img = self._viz.pixbuf.get_height()
+        if not ancho_img or not alto_img:
+            return False
+        ix, iy = self._viz.w2i(x, y)
+        hit = self._hit_test_overlay(ix, iy, ancho_img, alto_img)
+        if not hit:
+            return False
+        tipo, nombre = hit
+        etiquetas = {
+            "sala": _("Sala"),
+            "rack": _("Rack"),
+            "mueble": _("Mueble"),
+            "suelto": _("Equipo suelto"),
+        }
+        tooltip.set_text(
+            "{0}: {1}".format(etiquetas.get(tipo, tipo), s(nombre)))
+        return True
 
     # ── modo editar: dibujar/rehacer el contorno de una sala ─────────────
     def _editar_contorno_sala(self, btn):
