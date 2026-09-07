@@ -49,7 +49,8 @@ from modelo import Modelo
 
 from pantallas_comunes import (
     _, s, _pixbuf_from_name, _pixbuf_from_name_con_motivo,
-    _ImagenZoom, PALETA,
+    _ImagenZoom, _ImagenSVG, PALETA,
+    _crear_handle_simbolo, _dibujar_simbolo_conector,
 )
 
 
@@ -482,6 +483,14 @@ class ImagenConectoresYCables(Gtk.Dialog):
         self.id_equipo   = str(id_equipo)
         self._marcadores = []
         self._resaltado  = -1
+        # Fase 1 de plan_paneles_vectoriales_v3.md: símbolos con forma real
+        # de conector, activos sólo cuando el fondo es un SVG y hay símbolo
+        # cargado para ese tipo — se precalculan una sola vez en _cargar()
+        # (no en _dibujar_overlay, que se llama en cada redibujo).
+        self._simbolos_activos = False
+        self._handles_por_tipo = {}
+        self._mm_por_pixel     = None
+        self._id_imagen_actual = None
 
         # ── layout ──────────────────────────────────────────────────────
         hpaned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
@@ -555,13 +564,14 @@ class ImagenConectoresYCables(Gtk.Dialog):
         cons = Modelo._query(
             "SELECT c.id_conector, c.nombre, "
             "       c.coordenada_x_en_imagen, c.coordenada_y_en_imagen, "
-            "       i.path_archivo "
+            "       i.path_archivo, c.id_tipo_conector, i.id_imagen "
             "FROM conector c "
             "LEFT JOIN imagen i ON i.id_imagen = c.id_imagen "
             "WHERE c.id_equipo = ? ORDER BY c.nombre",
             (self.id_equipo,))
         cons = [
-            (r[0], r[1], *Modelo._px_punto_o_crudo(r[4] or None, r[2], r[3]), r[4])
+            (r[0], r[1], *Modelo._px_punto_o_crudo(r[4] or None, r[2], r[3]),
+             r[4], r[5], r[6])
             for r in cons
         ]
 
@@ -600,9 +610,12 @@ class ImagenConectoresYCables(Gtk.Dialog):
             x_str     = s(r[2]).strip() if r[2] is not None else ""
             y_str     = s(r[3]).strip() if r[3] is not None else ""
             path      = s(r[4]).strip() if r[4] else ""
+            id_tipo_conector    = r[5] if len(r) > 5 else None
+            id_imagen_conector  = r[6] if len(r) > 6 else None
 
             if path and path_img is None:
                 path_img = path
+                self._id_imagen_actual = id_imagen_conector
 
             color = PALETA[idx_color % len(PALETA)]
             hex_c = "#{:02X}{:02X}{:02X}".format(
@@ -628,6 +641,7 @@ class ImagenConectoresYCables(Gtk.Dialog):
                         "cable": cable_str, "con_local": con_local,
                         "eq_b": eq_b, "tipo_b": tipo_b,
                         "con_b": con_b, "id_eq_b": id_eq_b,
+                        "id_tipo_conector": id_tipo_conector,
                     })
                     self._store.append([
                         str(num), hex_c, con_local, cable_str,
@@ -653,8 +667,46 @@ class ImagenConectoresYCables(Gtk.Dialog):
             if pb:
                 self._viz.set_pixbuf(pb)
                 GLib.idle_add(self._viz._zoom_fit)
+                self._preparar_simbolos_conector(pb)
             else:
                 self._viz.set_motivo_sin_imagen(motivo)
+
+    def _preparar_simbolos_conector(self, pb):
+        """Precalcula (una sola vez por carga) los símbolos con forma real
+        y la calibración de escala necesarios para dibujarlos — Fase 1 de
+        plan_paneles_vectoriales_v3.md. Regla de activación (§4 del plan):
+        sólo si el fondo es SVG. Si algo falla acá, se deja todo
+        desactivado y _dibujar_overlay cae al marcador genérico de
+        siempre, sin excepciones visibles para el usuario."""
+        self._simbolos_activos = False
+        self._handles_por_tipo = {}
+        self._mm_por_pixel     = None
+        if not isinstance(pb, _ImagenSVG):
+            return
+        try:
+            ancho_px = pb.get_width()
+        except Exception:
+            ancho_px = 0
+        if not ancho_px:
+            return
+        try:
+            self._mm_por_pixel = Modelo.resolver_mm_por_pixel(
+                "equipo", self.id_equipo, self._id_imagen_actual, ancho_px)
+        except Exception:
+            self._mm_por_pixel = None
+        tipos = {m["id_tipo_conector"] for m in self._marcadores
+                 if m.get("id_tipo_conector")}
+        if not tipos:
+            return
+        try:
+            simbolos = Modelo.obtener_simbolos_conector(list(tipos))
+        except Exception:
+            simbolos = {}
+        for id_tipo, (frag, viewbox, tamano_rel, color) in simbolos.items():
+            handle = _crear_handle_simbolo(frag, viewbox, color)
+            if handle is not None:
+                self._handles_por_tipo[id_tipo] = (handle, tamano_rel or 1.0)
+        self._simbolos_activos = bool(self._handles_por_tipo)
 
     # ── overlay ───────────────────────────────────────────────────────────
     def _dibujar_overlay(self, cr):
@@ -665,8 +717,41 @@ class ImagenConectoresYCables(Gtk.Dialog):
 
         for i, m in enumerate(self._marcadores):
             wx, wy  = self._viz.i2w(m["x"], m["y"])
-            r, g, b = m["r"], m["g"], m["b"]
             resalt  = (i == self._resaltado)
+
+            # Fase 1 de plan_paneles_vectoriales_v3.md: si hay un símbolo
+            # con forma real para el tipo de este conector (y el fondo es
+            # SVG — ver _preparar_simbolos_conector), dibujarlo en vez del
+            # marcador genérico. Si falla por lo que sea, se cae al
+            # marcador genérico de siempre (fallback nunca-rompe, §4).
+            if self._simbolos_activos:
+                info = self._handles_por_tipo.get(m.get("id_tipo_conector"))
+                if info is not None:
+                    handle, tamano_rel = info
+                    radio_img_px = Modelo.calcular_radio_simbolo_px(
+                        tamano_rel, self._mm_por_pixel,
+                        radio_default_px=self.MARCADOR / 2)
+                    radio_px = radio_img_px * z
+                    if _dibujar_simbolo_conector(cr, handle, wx, wy, radio_px):
+                        if resalt:
+                            cr.set_source_rgba(1, 0.85, 0, 0.9)
+                            cr.set_line_width(max(2, 3 * z))
+                            cr.arc(wx, wy, radio_px + 3 * z, 0, 2 * math.pi)
+                            cr.stroke()
+                        ns = str(m["num"])
+                        cr.select_font_face("Sans", 0, 1)
+                        cr.set_font_size(FS)
+                        ext = cr.text_extents(ns)
+                        tx = wx - ext.width / 2 - ext.x_bearing
+                        ty = wy + radio_px + FS * 0.9
+                        for dx, dy, col in [(-1, -1, (1, 1, 1)), (1, 1, (0, 0, 0)),
+                                            (0, 0, (m["r"], m["g"], m["b"]))]:
+                            cr.set_source_rgb(*col)
+                            cr.move_to(tx + dx, ty + dy)
+                            cr.show_text(ns)
+                        continue  # símbolo dibujado OK, no caer al genérico
+
+            r, g, b = m["r"], m["g"], m["b"]
             lw      = max(5, (14 if resalt else 9) * z)
 
             # relleno semitransparente

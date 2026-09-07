@@ -476,6 +476,60 @@ class _ImagenZoom(Gtk.Box):
             self.set_zoom(self.zoom / 1.15)
 
 
+# ── Símbolos de conector con forma real (plan_paneles_vectoriales_v3.md) ───────
+#
+#  Fase 1: dibujar un símbolo real (XLR, BNC, etc.) en vez del marcador
+#  genérico cuando el fondo de la imagen es un SVG y hay un símbolo cargado
+#  para ese tipo_conector en catalogo_simbolo_conector (Fase 0). Compartido
+#  entre imagen_conectores_ui.py y editor_masivo_conectores_ui.py para no
+#  duplicar la lógica de render entre las dos pantallas que dibujan
+#  marcadores de conector sobre una imagen.
+
+def _crear_handle_simbolo(svg_fragmento, viewbox="0 0 24 24", color=None):
+    """Envuelve un fragmento de símbolo (sólo el contenido interno, sin el
+    tag <svg> exterior — así se guarda en catalogo_simbolo_conector) en un
+    <svg> válido y devuelve el Rsvg.Handle listo para render_document.
+    Nunca levanta excepción: si el fragmento no es XML válido o Rsvg no
+    puede parsearlo, devuelve None — el llamador debe caer al marcador
+    genérico en ese caso, nunca romper el render de todo el panel por un
+    símbolo puntual corrupto."""
+    if not svg_fragmento:
+        return None
+    try:
+        import xml.etree.ElementTree as ET
+        trazo = color or "currentColor"
+        svg_completo = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{viewbox}" '
+            f'stroke="{trazo}" fill="none" stroke-width="1.5" '
+            f'stroke-linecap="round" stroke-linejoin="round">'
+            f'{svg_fragmento}</svg>'
+        )
+        ET.fromstring(svg_completo)
+        return Rsvg.Handle.new_from_data(svg_completo.encode("utf-8"))
+    except Exception:
+        return None
+
+
+def _dibujar_simbolo_conector(cr, handle, wx, wy, radio_px):
+    """Dibuja `handle` (ya creado con _crear_handle_simbolo) centrado en
+    (wx, wy) — coordenadas ya convertidas a espacio de pantalla/zoom por el
+    llamador — con diámetro 2*radio_px. Devuelve True si pudo dibujar, o
+    False si algo falló (el llamador cae al marcador genérico)."""
+    if handle is None or not radio_px or radio_px <= 0:
+        return False
+    try:
+        diam = radio_px * 2.0
+        viewport = Rsvg.Rectangle()
+        viewport.x, viewport.y = wx - radio_px, wy - radio_px
+        viewport.width, viewport.height = diam, diam
+        cr.save()
+        handle.render_document(cr, viewport)
+        cr.restore()
+        return True
+    except Exception:
+        return False
+
+
 # ── Clase base para ventanas de listado ────────────────────────────────────────
 #
 #  Movido desde cabledoc.py (plan_refactor_cabledoc.md, Entrega 1). Move 1:1,

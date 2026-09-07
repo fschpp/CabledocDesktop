@@ -2015,6 +2015,254 @@ class Modelo:
         return id_cat, len(conectores)
 
     # ── Catálogo de frames (moldes) ──────────────────────────────────────────
+    # ── Paneles vectoriales (plan_paneles_vectoriales_v3.md) ────────────────
+    # Fase 0: catálogo de símbolos de conector + dimensiones físicas de
+    # equipo/frame + calibración mm/px de imagen. Fase 1: cálculo del radio
+    # de símbolo a partir de esa calibración. Todo aditivo — no toca
+    # ninguna tabla ni columna existente salvo por ALTER TABLE ADD COLUMN
+    # idempotente, y no cambia la firma de ninguna función ya usada por la
+    # UI (alta_equipo, modificacion_equipo, alta_catalogo, etc.) para no
+    # arriesgar los muchos call sites existentes — ver PROGRESS.md de la
+    # entrega para el detalle de esta decisión.
+
+    @staticmethod
+    def asegurar_tablas_catalogo_simbolos():
+        """Crea catalogo_simbolo_conector si no existe. Un símbolo (forma
+        real: XLR, BNC, etc.) por tipo_conector, reutilizable entre todos
+        los equipos — no depende de ninguna imagen puntual."""
+        Modelo._exec(
+            "CREATE TABLE IF NOT EXISTS catalogo_simbolo_conector ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  id_tipo_conector INTEGER NOT NULL UNIQUE,"
+            "  svg_fragmento TEXT NOT NULL,"
+            "  viewbox TEXT NOT NULL DEFAULT '0 0 24 24',"
+            "  tamano_relativo REAL NOT NULL DEFAULT 1.0,"
+            "  color_sugerido TEXT,"
+            "  fecha_ultima_edicion TEXT,"
+            "  FOREIGN KEY(id_tipo_conector) REFERENCES tipo_conector(id_tipo_conector) "
+            "    ON DELETE CASCADE"
+            ")"
+        )
+
+    @staticmethod
+    def devolver_simbolos_conector():
+        """Listado para la pantalla de administración: (id, nombre del
+        tipo de conector, tamaño relativo, largo del fragmento SVG en
+        caracteres — para detectar de un vistazo un símbolo vacío/roto)."""
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        return Modelo._query(
+            "SELECT cs.id, COALESCE(tc.nombre,'?'), cs.tamano_relativo, "
+            "       LENGTH(cs.svg_fragmento) "
+            "FROM catalogo_simbolo_conector cs "
+            "LEFT JOIN tipo_conector tc ON tc.id_tipo_conector = cs.id_tipo_conector "
+            "ORDER BY tc.nombre"
+        )
+
+    @staticmethod
+    def devolver_simbolo_conector(id_):
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        return Modelo._query(
+            "SELECT id, id_tipo_conector, svg_fragmento, viewbox, "
+            "       tamano_relativo, color_sugerido "
+            "FROM catalogo_simbolo_conector WHERE id=?", (id_,))
+
+    @staticmethod
+    def devolver_simbolo_de_tipo_conector(id_tipo_conector):
+        """Como devolver_simbolo_conector pero buscando por
+        id_tipo_conector en vez de por id propio — conveniencia para el
+        editor de dimensiones, que ya tiene el tipo a mano y no el id del
+        símbolo."""
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        filas = Modelo._query(
+            "SELECT id, id_tipo_conector, svg_fragmento, viewbox, "
+            "       tamano_relativo, color_sugerido "
+            "FROM catalogo_simbolo_conector WHERE id_tipo_conector=?",
+            (id_tipo_conector,))
+        return filas[0] if filas else None
+
+    @staticmethod
+    def alta_simbolo_conector(id_tipo_conector, svg_fragmento, viewbox="0 0 24 24",
+                              tamano_relativo=1.0, color_sugerido=None):
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        Modelo._exec(
+            "INSERT INTO catalogo_simbolo_conector "
+            "(id_tipo_conector, svg_fragmento, viewbox, tamano_relativo, "
+            " color_sugerido, fecha_ultima_edicion) "
+            "VALUES (?,?,?,?,?, STRFTIME('%Y-%m-%dT%H:%M:%S','now','localtime'))",
+            (_n(id_tipo_conector), svg_fragmento, viewbox or "0 0 24 24",
+             float(tamano_relativo or 1.0), _n(color_sugerido)),
+        )
+
+    @staticmethod
+    def modificacion_simbolo_conector(id_, id_tipo_conector, svg_fragmento,
+                                      viewbox="0 0 24 24", tamano_relativo=1.0,
+                                      color_sugerido=None):
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        Modelo._exec(
+            "UPDATE catalogo_simbolo_conector SET id_tipo_conector=?, "
+            "svg_fragmento=?, viewbox=?, tamano_relativo=?, color_sugerido=?, "
+            "fecha_ultima_edicion=STRFTIME('%Y-%m-%dT%H:%M:%S','now','localtime') "
+            "WHERE id=?",
+            (_n(id_tipo_conector), svg_fragmento, viewbox or "0 0 24 24",
+             float(tamano_relativo or 1.0), _n(color_sugerido), id_),
+        )
+
+    @staticmethod
+    def eliminar_simbolo_conector(id_):
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        Modelo._exec("DELETE FROM catalogo_simbolo_conector WHERE id=?", (id_,))
+
+    @staticmethod
+    def obtener_simbolos_conector(ids_tipo_conector):
+        """Devuelve {id_tipo_conector: (svg_fragmento, viewbox,
+        tamano_relativo, color_sugerido)} para los tipos pedidos — una
+        sola consulta, pensada para llamarse una vez por carga de pantalla
+        (no por cada redibujo) desde el overlay de conectores (Fase 1)."""
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        ids = [i for i in set(ids_tipo_conector or []) if i]
+        if not ids:
+            return {}
+        marcadores = ",".join("?" * len(ids))
+        filas = Modelo._query(
+            "SELECT id_tipo_conector, svg_fragmento, viewbox, "
+            "       tamano_relativo, color_sugerido "
+            f"FROM catalogo_simbolo_conector WHERE id_tipo_conector IN ({marcadores})",
+            tuple(ids),
+        )
+        return {f[0]: (f[1], f[2], f[3], f[4]) for f in filas}
+
+    # ── Dimensiones físicas (equipo/equipo_catalogo/frame/frame_catalogo) ──
+
+    _TABLAS_DIMENSIONES = {
+        "equipo":           "id_equipo",
+        "equipo_catalogo":  "id_equipo_catalogo",
+        "frame":            "id_frame",
+        "frame_catalogo":   "id_frame_catalogo",
+    }
+
+    @staticmethod
+    def asegurar_columnas_dimensiones():
+        """Agrega ancho_mm/alto_mm/profundidad_mm a equipo, equipo_catalogo,
+        frame y frame_catalogo, y mm_por_pixel a imagen — todo nullable,
+        todo idempotente (ALTER TABLE ADD COLUMN sólo si falta), sin tocar
+        ninguna fila existente. Ver plan_paneles_vectoriales_v3.md §2.2-2.3."""
+        with Modelo._conn_ctx() as conn:
+            for tabla in Modelo._TABLAS_DIMENSIONES:
+                cursor = conn.execute(f"PRAGMA table_info({tabla})")
+                columnas = [col[1] for col in cursor.fetchall()]
+                for col, tipo in (("ancho_mm", "REAL"), ("alto_mm", "REAL"),
+                                  ("profundidad_mm", "REAL")):
+                    if col not in columnas:
+                        conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {tipo}")
+            cursor = conn.execute("PRAGMA table_info(imagen)")
+            columnas_img = [col[1] for col in cursor.fetchall()]
+            if "mm_por_pixel" not in columnas_img:
+                conn.execute("ALTER TABLE imagen ADD COLUMN mm_por_pixel REAL")
+            conn.commit()
+
+    @staticmethod
+    def obtener_dimensiones(tabla, id_registro):
+        """Devuelve (ancho_mm, alto_mm, profundidad_mm) para el registro
+        `id_registro` de `tabla` (una de equipo/equipo_catalogo/frame/
+        frame_catalogo), o (None, None, None) si no hay datos/no existe.
+        `tabla` sólo puede ser una de las 4 claves whitelisteadas acá —
+        nunca viaja texto libre del llamador a un f-string de SQL."""
+        Modelo.asegurar_columnas_dimensiones()
+        pk = Modelo._TABLAS_DIMENSIONES.get(tabla)
+        if not pk or not id_registro:
+            return (None, None, None)
+        filas = Modelo._query(
+            f"SELECT ancho_mm, alto_mm, profundidad_mm FROM {tabla} "
+            f"WHERE {pk}=?", (id_registro,))
+        return filas[0] if filas else (None, None, None)
+
+    @staticmethod
+    def actualizar_dimensiones(tabla, id_registro, ancho_mm=None, alto_mm=None,
+                               profundidad_mm=None):
+        """Ídem obtener_dimensiones pero para guardar. `tabla` whitelisteada
+        igual que arriba."""
+        Modelo.asegurar_columnas_dimensiones()
+        pk = Modelo._TABLAS_DIMENSIONES.get(tabla)
+        if not pk or not id_registro:
+            return False
+        Modelo._exec(
+            f"UPDATE {tabla} SET ancho_mm=?, alto_mm=?, profundidad_mm=? "
+            f"WHERE {pk}=?",
+            (_n(ancho_mm), _n(alto_mm), _n(profundidad_mm), id_registro),
+        )
+        return True
+
+    # ── Calibración de imagen (mm por píxel) ────────────────────────────────
+
+    ANCHO_RACK_19_MM = 482.6   # EIA-310, referencia para el atajo "19 estándar"
+
+    @staticmethod
+    def obtener_mm_por_pixel_imagen(id_imagen):
+        Modelo.asegurar_columnas_dimensiones()
+        if not id_imagen:
+            return None
+        filas = Modelo._query(
+            "SELECT mm_por_pixel FROM imagen WHERE id_imagen=?", (id_imagen,))
+        return float(filas[0][0]) if filas and filas[0][0] else None
+
+    @staticmethod
+    def actualizar_mm_por_pixel_imagen(id_imagen, mm_por_pixel):
+        """Guarda la calibración medida a mano (fuente 1 de la cascada,
+        herramienta "Medir en la imagen") o ya resuelta por otra vía.
+        mm_por_pixel=None borra la calibración."""
+        Modelo.asegurar_columnas_dimensiones()
+        if not id_imagen:
+            return False
+        Modelo._exec(
+            "UPDATE imagen SET mm_por_pixel=? WHERE id_imagen=?",
+            (_n(mm_por_pixel), id_imagen),
+        )
+        return True
+
+    @staticmethod
+    def resolver_mm_por_pixel(tabla, id_registro, id_imagen, ancho_imagen_px):
+        """Cascada de calibración de plan_paneles_vectoriales_v3.md §3.3:
+          1) imagen.mm_por_pixel ya medido a mano — gana siempre si está.
+          2) ancho_mm de `tabla`/`id_registro` (datasheet, o atajo 19")
+             dividido el ancho en píxeles nativos de la imagen.
+          3) None — el llamador debe usar el radio/tamaño por defecto.
+        `tabla` es una de las 4 claves whitelisteadas en
+        _TABLAS_DIMENSIONES; cualquier otro valor cae directo a la fuente 1
+        (sin intentar la 2), nunca genera SQL con texto libre."""
+        mm_px = Modelo.obtener_mm_por_pixel_imagen(id_imagen)
+        if mm_px:
+            return mm_px
+        if tabla in Modelo._TABLAS_DIMENSIONES and id_registro and ancho_imagen_px:
+            ancho_mm, _alto, _prof = Modelo.obtener_dimensiones(tabla, id_registro)
+            if ancho_mm:
+                try:
+                    return float(ancho_mm) / float(ancho_imagen_px)
+                except (TypeError, ZeroDivisionError, ValueError):
+                    return None
+        return None
+
+    # ── Escala de símbolo (Fase 1) ──────────────────────────────────────────
+
+    @staticmethod
+    def calcular_radio_simbolo_px(tamano_relativo, mm_por_pixel,
+                                  radio_default_px=10.0, tamano_base_mm=24.0):
+        """Radio (en píxeles NATIVOS de la imagen, sin zoom — el llamador
+        multiplica por su factor de zoom al dibujar) del símbolo de un
+        conector cuyo tipo tiene `tamano_relativo` (1.0 = referencia XLR),
+        sobre una imagen calibrada a `mm_por_pixel` mm reales por píxel.
+        Si no hay calibración (mm_por_pixel None/0), devuelve
+        radio_default_px sin más — equivalente al marcador genérico, nunca
+        bloquea el render por falta de calibración.
+        Ver plan_paneles_vectoriales_v3.md §3.2 para la fórmula y por qué
+        NO se escala por distancia al vecino más cercano."""
+        if not mm_por_pixel:
+            return radio_default_px
+        try:
+            diametro_mm = float(tamano_relativo or 1.0) * float(tamano_base_mm)
+            return (diametro_mm / 2.0) / float(mm_por_pixel)
+        except (TypeError, ZeroDivisionError, ValueError):
+            return radio_default_px
+
     @staticmethod
     def asegurar_tablas_catalogo_frame():
         """Crea frame_catalogo y slot_catalogo si no existen."""
