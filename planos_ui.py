@@ -10,13 +10,15 @@ Contiene:
     asignación de equipos sobre cada uno)
   - VistaPlanoInteractivo (Fase 4: overlay de salas en el plano;
     Fase 5: + overlay de racks — cuadrados; Fase 6: + overlay de
-    muebles — rectángulos, con los equipos que contienen)
+    muebles — rectángulos, con los equipos que contienen; Fase 7: +
+    overlay de equipos sueltos — círculos — y clic sobre un rack para
+    listar/resaltar sus equipos, directos y módulos de frame)
 
-El overlay interactivo (puntos de equipo suelto) sigue creciendo en la
-Fase 7 del plan — este archivo crece en esa fase, mismo criterio de
-separación por dominio que ya usan `racks_salas_ui.py` /
-`frames_slots_ui.py`, para no mezclar desde el arranque el catálogo
-simple con el editor gráfico.
+El editor gráfico de _DialogoEquipoNoRackSala (tipo de montaje, filtro
+de módulos de frame, botón "Ubicar en el plano") vive en
+racks_salas_ui.py, mismo criterio de separación por dominio que
+_DialogoRackPorSala (Fase 5) — este archivo (planos_ui.py) sólo aloja el
+visor interactivo y los catálogos propios de Plano/Mueble.
 
 Fase 5 ("Overlay de racks (puntos)"): a diferencia del contorno de sala
 (polígono libre, dibujado a mano vértice por vértice con
@@ -73,6 +75,25 @@ dibuja equipos sueltos directos (eso llega en la Fase 7):
 Modelo.devolver_contenido_plano ya devuelve esa información lista para
 cuando corresponda, pero se ignora a propósito acá para no salirse del
 criterio de cierre de esta fase.
+
+Fase 7 ("Equipos sueltos, módulos de frame y herencia de ubicación")
+suma, sobre el mismo overlay, un círculo por cada equipo suelto directo
+(equiponoraqueable_por_sala) con punto ya cargado — sólido para
+tipo_montaje=PISO, punteado para PARED, con ícono acorde (🖴/🧱) — más un
+selector de equipo suelto + botón "📍 Ubicar/mover" (mismo mecanismo de
+punto simple del rack en la Fase 5, pero conservando el tipo_montaje ya
+elegido en _DialogoEquipoNoRackSala de racks_salas_ui.py, que esta
+Fase 7 también extiende con ese selector y con el filtro
+`excluir_modulos_de_frame=True` en el buscador de equipo). Suma además
+hit-testing simple (clic + distancia en la imagen) sobre los cuadrados
+de rack: al hacer clic se resalta el rack con un halo amarillo y se
+lista, debajo del visor, tanto los equipos montados directo en él como
+los módulos instalados en los frames que contiene
+(Modelo.devolver_equipos_de_rack_con_modulos) — la resolución completa
+de la cadena (rack directo → módulo de frame rackeado → mueble → suelto)
+ya la hacía Modelo.devolver_ubicacion_fisica_de_equipo desde la Fase 1,
+sin consumidor hasta ahora salvo el propio overlay de sólo lectura.
+equipos_ui.py suma el checkbox "Es módulo de frame" en _DialogoEquipo.
 """
 
 import gi
@@ -614,14 +635,43 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     id_mueble_foco (opcional, Fase 6): preselecciona ese mueble en el
     combo "Mueble:" al abrir — usado por _DialogoMueble."▭ Definir
     rectángulo en el plano" (este mismo archivo).
+
+    Modo editar equipo suelto (Fase 7, botón "📍 Ubicar/mover este
+    equipo suelto en el plano"): mismo mecanismo de punto simple que el
+    rack (Fase 5, CoordenadasImagenSeleccion en solo_xy=True), pero
+    conserva el tipo_montaje ya cargado (Piso/Pared, elegido en
+    _DialogoEquipoNoRackSala de racks_salas_ui.py) — este botón sólo
+    mueve el punto, no cambia el tipo de montaje. El combo "Equipo
+    suelto:" incluye TODOS los equiponoraqueable_por_sala de salas de
+    este plano (Modelo.devolver_equiponoraqueable_de_plano), tengan o
+    no punto todavía — igual criterio que rack/mueble.
+    id_equiponoraqueable_foco (opcional, Fase 7): preselecciona ese
+    equipo suelto en el combo al abrir — usado por
+    _DialogoEquipoNoRackSala."📍 Ubicar en el plano" (racks_salas_ui.py).
+
+    Fase 7 también agrega, sobre el mismo overlay de sólo lectura, el
+    punto de cada equipo suelto directo (círculo, con ícono/borde según
+    tipo_montaje: sólido para Piso, punteado para Pared — a diferencia
+    del cuadrado de rack y el rectángulo de mueble) y un clic sobre el
+    cuadrado de un rack (hit-testing simple por distancia en la imagen,
+    tolerancia de ~20px en pantalla ajustada por zoom) que lista y
+    resalta tanto los equipos montados directo en ese rack como los
+    módulos instalados en los frames que contiene
+    (Modelo.devolver_equipos_de_rack_con_modulos) — el resaltado
+    (self._rack_resaltado) se dibuja con un halo amarillo alrededor del
+    cuadrado hasta el próximo clic en otro rack o el cierre del visor.
     """
 
     COLOR_SALA = (0.10, 0.45, 0.90)   # azul — contorno sólido + relleno tenue
     COLOR_RACK = (0.85, 0.45, 0.05)   # naranja — cuadrado de rack
     COLOR_MUEBLE = (0.15, 0.60, 0.35)  # verde — rectángulo de mueble
+    COLOR_SUELTO = (0.55, 0.15, 0.65)  # violeta — círculo de equipo suelto
+    COLOR_RESALTADO = (1.0, 0.85, 0.0)  # amarillo — halo del rack clickeado
 
     def __init__(self, id_plano, parent=None, id_sala_foco=None,
-                 id_rack_x_sala_foco=None, id_mueble_foco=None):
+                 id_rack_x_sala_foco=None, id_mueble_foco=None,
+                 id_equiponoraqueable_foco=None):
+        self._rack_resaltado = None
         self.id_plano = id_plano
         filas_plano = Modelo.devolver_plano(id_plano)
         nombre_plano = s(filas_plano[0][1]) if filas_plano else "?"
@@ -640,6 +690,7 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         self._viz = _ImagenZoom()
         self._viz.overlay_fn = self._dibujar_overlay
         self._viz.da.connect("realize", self._on_viz_realize)
+        self._viz.da.connect("button-press-event", self._on_click_overlay)
         ca.pack_start(self._viz, True, True, 0)
 
         if self.id_imagen:
@@ -702,6 +753,35 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         hb3.pack_start(btn_ubicar_mueble, False, False, 0)
         ca.pack_start(hb3, False, False, 0)
 
+        # ── barra inferior 4: selector de equipo suelto + ubicar (Fase 7) ──
+        hb4 = Gtk.Box(spacing=6)
+        hb4.set_margin_start(8); hb4.set_margin_end(8)
+        hb4.set_margin_top(0);  hb4.set_margin_bottom(8)
+        hb4.pack_start(Gtk.Label(label=_("Equipo suelto:")), False, False, 0)
+
+        self._combo_equipos_sueltos = Gtk.ComboBoxText()
+        hb4.pack_start(self._combo_equipos_sueltos, True, True, 0)
+        self._equipo_suelto_datos = {}
+        self._cargar_combo_equipos_sueltos(id_equiponoraqueable_foco)
+
+        btn_ubicar_suelto = Gtk.Button(
+            label="📍 " + _("Ubicar/mover este equipo suelto en el plano"))
+        btn_ubicar_suelto.connect("clicked", self._ubicar_equipo_suelto)
+        hb4.pack_start(btn_ubicar_suelto, False, False, 0)
+        ca.pack_start(hb4, False, False, 0)
+
+        # ── barra inferior 5: lo que muestra el clic sobre un rack (Fase 7) ──
+        self.lbl_rack_resaltado = Gtk.Label(xalign=0)
+        self.lbl_rack_resaltado.set_margin_start(8)
+        self.lbl_rack_resaltado.set_margin_bottom(8)
+        self.lbl_rack_resaltado.set_line_wrap(True)
+        self.lbl_rack_resaltado.set_markup(
+            "<small><i>" +
+            _("Hacé clic sobre el cuadrado de un rack para listar los "
+              "equipos que tiene montados (directos y módulos de sus "
+              "frames).") + "</i></small>")
+        ca.pack_start(self.lbl_rack_resaltado, False, False, 0)
+
         self.show_all()
 
     def _on_viz_realize(self, widget):
@@ -763,6 +843,32 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 indice_foco = i
         if muebles:
             self._combo_muebles.set_active(indice_foco)
+
+    def _cargar_combo_equipos_sueltos(self, id_en_foco=None):
+        """Fase 7: pobla el combo "Equipo suelto:" con TODOS los
+        equiponoraqueable_por_sala de salas de este plano (tengan o no
+        punto todavía) — mismo criterio que _cargar_combo_racks/
+        _cargar_combo_muebles. self._equipo_suelto_datos guarda
+        (x_pct, y_pct, tipo_montaje) actuales por
+        id_equiponoraqueable_por_sala, para precargar el selector de
+        coordenadas en _ubicar_equipo_suelto sin volver a consultar y
+        para conservar el tipo_montaje ya elegido (ese botón sólo mueve
+        el punto, no lo cambia)."""
+        self._combo_equipos_sueltos.remove_all()
+        self._equipo_suelto_datos = {}
+        equipos = Modelo.devolver_equiponoraqueable_de_plano(self.id_plano)
+        indice_foco = 0
+        for i, (id_en, nombre_sala, nombre_eq, x_pct, y_pct,
+                tipo_montaje) in enumerate(equipos):
+            self._equipo_suelto_datos[id_en] = (x_pct, y_pct, tipo_montaje)
+            etiqueta = "{0} — {1}".format(s(nombre_sala), s(nombre_eq))
+            if x_pct is None or y_pct is None:
+                etiqueta += " " + _("(sin ubicar)")
+            self._combo_equipos_sueltos.append(str(id_en), etiqueta)
+            if id_en_foco and str(id_en) == str(id_en_foco):
+                indice_foco = i
+        if equipos:
+            self._combo_equipos_sueltos.set_active(indice_foco)
 
     # ── overlay Cairo (modo navegar) ─────────────────────────────────────
     def _dibujar_overlay(self, cr):
@@ -831,6 +937,14 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 wx_r, wy_r = self._viz.i2w(x_img_r, y_img_r)
                 lado = max(12, 18 * self._viz.zoom)  # lado del cuadrado
                 mitad = lado / 2.0
+                # Fase 7: halo amarillo si este es el rack resaltado por
+                # el último clic (ver _on_click_overlay).
+                if self._rack_resaltado is not None and id_rack == self._rack_resaltado:
+                    rh, gh, bh = self.COLOR_RESALTADO
+                    cr.set_source_rgba(rh, gh, bh, 0.55)
+                    cr.rectangle(wx_r - mitad - 5, wy_r - mitad - 5,
+                                 lado + 10, lado + 10)
+                    cr.fill()
                 cr.set_source_rgba(r2, g2, b2, 0.92)
                 cr.rectangle(wx_r - mitad, wy_r - mitad, lado, lado)
                 cr.fill_preserve()
@@ -891,6 +1005,88 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                     cr.set_font_size(10)
                     cr.move_to(wx_e + radio_e + 2, wy_e + 3)
                     cr.show_text(s(nombre_eq))
+
+            # ── Fase 7: puntos de equipo suelto directo de esta sala —
+            # círculos (a diferencia del cuadrado de rack y el
+            # rectángulo de mueble), con borde punteado si el tipo de
+            # montaje es PARED (sólido para PISO) para distinguirlos a
+            # simple vista sin depender sólo del ícono ──
+            r4, g4, b4 = self.COLOR_SUELTO
+            for (id_en, id_eq, nombre_eq, x_pct_s, y_pct_s,
+                 tipo_montaje_s) in sala.get("equipos_sueltos", []):
+                try:
+                    x_img_s = (float(x_pct_s) / 100.0) * ancho_img
+                    y_img_s = (float(y_pct_s) / 100.0) * alto_img
+                except (TypeError, ValueError):
+                    continue
+                wx_s, wy_s = self._viz.i2w(x_img_s, y_img_s)
+                radio_s = max(6, 8 * self._viz.zoom)
+                es_pared = (tipo_montaje_s or "PISO") == "PARED"
+                cr.set_source_rgba(r4, g4, b4, 0.92)
+                cr.arc(wx_s, wy_s, radio_s, 0, 2 * math.pi)
+                cr.fill_preserve()
+                cr.set_source_rgb(0, 0, 0)
+                cr.set_line_width(1.5)
+                if es_pared:
+                    cr.set_dash([3, 2])
+                cr.stroke()
+                cr.set_dash([])
+                cr.set_source_rgb(0.05, 0.05, 0.05)
+                cr.select_font_face("Sans", 0, 0)
+                cr.set_font_size(11)
+                icono = "🧱" if es_pared else "🖴"
+                cr.move_to(wx_s + radio_s + 3, wy_s + 4)
+                cr.show_text(icono + " " + s(nombre_eq))
+
+    # ── modo navegar: clic sobre un rack -> listar/resaltar equipos ──────
+    def _on_click_overlay(self, widget, event):
+        if not self._viz.pixbuf:
+            return
+        ancho_img = self._viz.pixbuf.get_width()
+        alto_img = self._viz.pixbuf.get_height()
+        if not ancho_img or not alto_img:
+            return
+        ix, iy = self._viz.w2i(event.x, event.y)
+        tolerancia_img = 20.0 / max(self._viz.zoom, 0.01)
+
+        contenido = Modelo.devolver_contenido_plano(self.id_plano)
+        mejor_id_rack = None
+        mejor_nombre_rack = None
+        mejor_dist = None
+        for sala in contenido:
+            for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
+                try:
+                    x_img_r = (float(x_pct_r) / 100.0) * ancho_img
+                    y_img_r = (float(y_pct_r) / 100.0) * alto_img
+                except (TypeError, ValueError):
+                    continue
+                dist = math.hypot(ix - x_img_r, iy - y_img_r)
+                if dist <= tolerancia_img and (mejor_dist is None or dist < mejor_dist):
+                    mejor_dist = dist
+                    mejor_id_rack = id_rack
+                    mejor_nombre_rack = nombre_rack
+        if mejor_id_rack is None:
+            return
+
+        self._rack_resaltado = mejor_id_rack
+        self._viz.da.queue_draw()
+
+        equipos = Modelo.devolver_equipos_de_rack_con_modulos(mejor_id_rack)
+        if not equipos:
+            texto = _("«{0}» no tiene equipos montados todavía.").format(
+                s(mejor_nombre_rack))
+        else:
+            lineas = []
+            for id_eq, nombre_eq, origen in equipos:
+                if origen == "directo":
+                    lineas.append("• " + s(nombre_eq) + " — " + _("directo en el rack"))
+                else:
+                    lineas.append(
+                        "• " + s(nombre_eq) + " — " +
+                        _("módulo del frame «{0}»").format(s(origen)))
+            texto = _("Equipos en «{0}»:").format(s(mejor_nombre_rack)) + "\n" + "\n".join(lineas)
+        self.lbl_rack_resaltado.set_markup(
+            "<small>" + texto.replace("&", "&amp;").replace("<", "&lt;") + "</small>")
 
     # ── modo editar: dibujar/rehacer el contorno de una sala ─────────────
     def _editar_contorno_sala(self, btn):
@@ -1063,6 +1259,58 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         Modelo.modificacion_mueble(
             id_mueble, nombre_m, x_pct, y_pct, ancho_pct, alto_pct, tipo_m)
         self._cargar_combo_muebles(id_mueble_foco=id_mueble)
+        self._viz.da.queue_draw()
+
+    # ── modo editar: ubicar/mover el punto de un equipo suelto (Fase 7)
+    #    — mismo flujo que _ubicar_rack, pero conserva el tipo_montaje ya
+    #    cargado (self._equipo_suelto_datos), que este botón no toca. ──
+    def _ubicar_equipo_suelto(self, btn):
+        id_str = self._combo_equipos_sueltos.get_active_id()
+        if not id_str:
+            mostrar_error(
+                self, _("Este plano todavía no tiene ningún equipo "
+                        "suelto asignado — asignalo primero desde "
+                        "\"Equipos sueltos por Sala\"."))
+            return
+        if not self.id_imagen:
+            mostrar_error(
+                self, _("Este plano todavía no tiene una imagen cargada."))
+            return
+        id_en = int(id_str)
+
+        x_pct_actual, y_pct_actual, tipo_montaje_actual = \
+            self._equipo_suelto_datos.get(id_en, (None, None, "PISO"))
+        x_px_actual, y_px_actual = Modelo._px_punto_o_crudo(
+            self.path_imagen, x_pct_actual, y_pct_actual)
+
+        resultado = abrir_coords_imagen(
+            self.id_imagen, solo_xy=True,
+            x=s(x_px_actual) if x_px_actual is not None else "",
+            y=s(y_px_actual) if y_px_actual is not None else "",
+            parent=self)
+        if not resultado:
+            return
+        try:
+            x_px_nuevo = int(float(resultado["x"]))
+            y_px_nuevo = int(float(resultado["y"]))
+        except (ValueError, TypeError):
+            mostrar_error(
+                self, _("No se marcó ningún punto sobre la imagen — no "
+                        "se guardó la ubicación del equipo."))
+            return
+        try:
+            x_pct, y_pct = Modelo._punto_px_a_pct(
+                self.path_imagen, x_px_nuevo, y_px_nuevo)
+        except DimensionesImagenError:
+            mostrar_error(
+                self, _("No se pudo determinar el tamaño de la imagen "
+                        "del plano — no se guardó la ubicación del "
+                        "equipo."))
+            return
+
+        Modelo.actualizar_posicion_equipo_no_rack_sala(
+            id_en, x_pct, y_pct, tipo_montaje_actual or "PISO")
+        self._cargar_combo_equipos_sueltos(id_en_foco=id_en)
         self._viz.da.queue_draw()
 
     def run_and_destroy(self):

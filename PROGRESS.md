@@ -207,6 +207,68 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+**Sesión 2026-09-06T04:00 — Fase 7 de `plan_desarrollo_ubicacion_fisica_planos.md` ("Equipos sueltos, módulos de frame y herencia de ubicación") completada. Con esta entrega quedan cerradas las 7 fases centrales del plan; sólo faltan la Fase 8 (limpieza de hardcodes: sacar imagen/coordenada_x/coordenada_y de `equipo`) y la Fase 9 (Pulido). Pendiente arrastrado: correr el smoke test contra `database/db.db` real de Fede/Papi con equipos sueltos y módulos de frame reales.**
+
+Nota de brecha: este log no tiene registradas en detalle las sesiones de
+la Fase 5 ("Overlay de racks") ni la Fase 6 ("Muebles") — ambas están
+completas y mergeadas a `main` (`changelog.txt` sí las documenta línea
+por línea, 2026-09-05T22:30 y 2026-09-06T00:30 respectivamente; PRs #15
+"fase5-racks-plano" y #17 "fase6-muebles-plano"). Repo clonado y
+verificado contra `main` (commit `2027789`, merge de PR #17) antes de
+tocar nada en esta sesión.
+
+Cambios de esta entrega (detalle completo en `changelog.txt`,
+2026-09-06T04:00):
+
+1. **`modelo.py`**: `devolver_equipo` suma `es_modulo_de_frame` al final
+   (columna 18). `devolver_equipo_no_rack_sala` suma `id_plano` y
+   `tipo_montaje` (columnas 5/6). `alta_equipo_no_rack_sala`/
+   `modificacion_equipo_no_rack_sala` ganan `tipo_montaje='PISO'`. Nuevas
+   `devolver_equiponoraqueable_de_plano(id_plano)` y
+   `devolver_equipos_de_rack_con_modulos(id_rack)`.
+   `devolver_ubicacion_fisica_de_equipo`/`devolver_contenido_plano` (con
+   `equipos_sueltos`) ya resolvían toda la cadena desde la Fase 1, recién
+   ahora tienen consumidor real.
+2. **`equipos_ui.py`**: checkbox "Es módulo de frame" en `_DialogoEquipo`,
+   persistido vía `Modelo.actualizar_es_modulo_de_frame` (no se sumó como
+   parámetro de alta/modificación, mismo criterio que `chk_equipo_critico`).
+3. **`racks_salas_ui.py`**: `_DialogoEquipoNoRackSala` suma selector
+   "Tipo de montaje" (Piso/Pared), filtro
+   `excluir_modulos_de_frame=True` en el buscador de equipo, y botón
+   "📍 Ubicar en el plano" (mismo patrón que `_DialogoRackPorSala`).
+4. **`planos_ui.py`**: `VistaPlanoInteractivo` suma overlay de equipos
+   sueltos (círculos, sólido=Piso/punteado=Pared), cuarta barra inferior
+   (combo + botón ubicar), y clic sobre un rack (hit-testing simple por
+   distancia en la imagen) que resalta el rack con un halo amarillo y
+   lista los equipos que trae puestos (directos + módulos de sus frames).
+5. **`cabledoc.py`**: sólo `APP_VERSION` → `1.20260906040000` (no hubo
+   cambios de reexport — `_DialogoEquipoNoRackSala` ya estaba en la
+   fachada desde antes).
+
+**Validado en sandbox** (detalle completo en `changelog.txt`): `ast.parse`
++ `py_compile` + `pyflakes` (contra `git stash`, cero advertencias
+nuevas) en los 4 archivos tocados; smoke test funcional bajo Xvfb con
+GTK real contra una base de fixture (`schema_db.sql` +
+`Modelo.asegurar_tablas_plano()`, corrida dos veces, idempotente) con 1
+plano/1 sala/1 rack ubicado/1 equipo directo/1 frame rackeado con 1
+módulo/2 equipos sueltos (Piso y Pared): resolución completa de la
+cadena confirmada con `devolver_ubicacion_fisica_de_equipo`,
+`devolver_contenido_plano` y `devolver_equipos_de_rack_con_modulos`;
+`VistaPlanoInteractivo` instanciada con imagen real, overlay dibujado sin
+excepciones contra un `cairo.Context` real; clic simulado
+(`FakeEvent(x,y)`, mismo patrón que fases anteriores) sobre el punto
+exacto del rack resaltó el rack correcto y listó sus 2 equipos con
+origen; `_DialogoEquipoNoRackSala` y `_DialogoEquipo` instanciados en
+modo editar/alta confirmando estado esperado de `c_tipo_montaje`,
+`btn_ubicar` y `chk_es_modulo_frame`.
+
+**NO se corrió** todavía el smoke test contra el `database/db.db` real de
+Fede/Papi con equipos sueltos y módulos de frame reales (misma brecha de
+validación arrastrada desde la Fase 2) — recomendado como primer paso
+antes de dar la Fase 7 por cerrada del todo en producción.
+
+## Current Focus (sesión anterior)
+
 **Sesión 2026-09-05T20:00 — Fase 4 de `plan_desarrollo_ubicacion_fisica_planos.md` ("Overlay de salas en el plano") completada. Próximo paso: Fase 5 ("Botón 📍 Ubicar en el plano en el diálogo de Rack por Sala"). Pendiente arrastrado: correr el smoke test contra `database/db.db` real de Fede, dibujando el contorno de 2-3 salas reales y confirmando que persiste al reabrir el visor (criterio de cierre original de la fase, nunca ejercitado contra datos reales).**
 
 Repo clonado y verificado contra `main` (commit `114f64e`, merge de PR #14

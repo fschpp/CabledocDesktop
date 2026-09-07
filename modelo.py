@@ -804,7 +804,8 @@ class Modelo:
             "COALESCE(im.path_archivo, '') AS imagen_path, eq.id_imagen, "
             "eq.coordenada_x_en_imagen, eq.coordenada_y_en_imagen, "
             "eq.path_manual, eq.configuraciones, eq.picon, "
-            "eq.fecha_fabricacion, eq.es_equipo_usado "
+            "eq.fecha_fabricacion, eq.es_equipo_usado, "
+            "eq.es_modulo_de_frame "
             "FROM equipo eq "
             "LEFT JOIN marca m ON m.id_marca = eq.id_marca "
             "LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = eq.id_tipo_equipo "
@@ -4496,9 +4497,13 @@ class Modelo:
 
     @staticmethod
     def devolver_equipo_no_rack_sala(id_):
+        """Fase 7 de plan_desarrollo_ubicacion_fisica_planos.md: se agregan
+        s.id_plano y en.tipo_montaje al final (columnas 5 y 6), mismo
+        criterio que devolver_rack_por_sala en la Fase 5 — sin tocar las
+        columnas 0-4 que ya consumía _DialogoEquipoNoRackSala."""
         return Modelo._query(
             "SELECT en.id_equiponoraqueable_por_sala, en.id_sala, en.id_equipo, "
-            "s.nombre, e.nombre "
+            "s.nombre, e.nombre, s.id_plano, en.tipo_montaje "
             "FROM equiponoraqueable_por_sala en "
             "JOIN sala s ON s.id_sala = en.id_sala "
             "JOIN equipo e ON e.id_equipo = en.id_equipo "
@@ -4519,19 +4524,23 @@ class Modelo:
         )
 
     @staticmethod
-    def alta_equipo_no_rack_sala(id_sala, id_equipo):
+    def alta_equipo_no_rack_sala(id_sala, id_equipo, tipo_montaje='PISO'):
         # Usar INSERT OR REPLACE para actualizar si ya existe
         Modelo._exec(
-            "INSERT OR REPLACE INTO equiponoraqueable_por_sala (id_sala, id_equipo) VALUES (?,?)",
-            (id_sala, id_equipo),
+            "INSERT OR REPLACE INTO equiponoraqueable_por_sala "
+            "(id_sala, id_equipo, tipo_montaje) VALUES (?,?,?)",
+            (id_sala, id_equipo, _n(tipo_montaje) or 'PISO'),
         )
 
     @staticmethod
-    def modificacion_equipo_no_rack_sala(id_, id_sala, id_equipo):
+    def modificacion_equipo_no_rack_sala(id_, id_sala, id_equipo,
+                                          tipo_montaje='PISO'):
+        # No toca x_pct/y_pct — esos se editan aparte desde
+        # VistaPlanoInteractivo (Modelo.actualizar_posicion_equipo_no_rack_sala).
         Modelo._exec(
-            "UPDATE equiponoraqueable_por_sala SET id_sala=?, id_equipo=? "
-            "WHERE id_equiponoraqueable_por_sala=?",
-            (id_sala, id_equipo, id_),
+            "UPDATE equiponoraqueable_por_sala SET id_sala=?, id_equipo=?, "
+            "tipo_montaje=? WHERE id_equiponoraqueable_por_sala=?",
+            (id_sala, id_equipo, _n(tipo_montaje) or 'PISO', id_),
         )
 
     @staticmethod
@@ -4758,6 +4767,51 @@ class Modelo:
             "FROM mueble m JOIN sala s ON s.id_sala = m.id_sala "
             "WHERE s.id_plano=? ORDER BY s.nombre, m.nombre", (id_plano,)
         )
+
+    @staticmethod
+    def devolver_equiponoraqueable_de_plano(id_plano):
+        """Fase 7: todos los equiponoraqueable_por_sala (equipos sueltos)
+        cuya sala pertenece a este plano, tengan o no un punto (x_pct/
+        y_pct) ya cargado — para poblar el selector "Equipo suelto:" de
+        VistaPlanoInteractivo en modo editar. Mismo criterio que
+        devolver_racks_por_sala_de_plano (Fase 5) / devolver_muebles_de_plano
+        (Fase 6)."""
+        return Modelo._query(
+            "SELECT en.id_equiponoraqueable_por_sala, s.nombre, e.nombre, "
+            "en.x_pct, en.y_pct, en.tipo_montaje "
+            "FROM equiponoraqueable_por_sala en "
+            "JOIN sala s ON s.id_sala = en.id_sala "
+            "JOIN equipo e ON e.id_equipo = en.id_equipo "
+            "WHERE s.id_plano=? ORDER BY s.nombre, e.nombre", (id_plano,)
+        )
+
+    @staticmethod
+    def devolver_equipos_de_rack_con_modulos(id_rack):
+        """Fase 7: para el clic sobre el punto de un rack en
+        VistaPlanoInteractivo, todos los equipos que ese rack "trae
+        puestos" — los montados directo (posicion_en_rack.id_equipo) más
+        los módulos instalados en los slots de cada frame que a su vez
+        está rackeado ahí (posicion_en_rack.id_frame -> slot.id_equipo).
+        Devuelve [(id_equipo, nombre_equipo, origen)] con
+        origen='directo' o el nombre del frame contenedor."""
+        directos = Modelo._query(
+            "SELECT e.id_equipo, e.nombre, 'directo' "
+            "FROM posicion_en_rack pr "
+            "JOIN equipo e ON e.id_equipo = pr.id_equipo "
+            "WHERE pr.id_rack=? AND pr.id_equipo IS NOT NULL "
+            "ORDER BY e.nombre", (id_rack,)
+        )
+        modulos = Modelo._query(
+            "SELECT e.id_equipo, e.nombre, f.nombre "
+            "FROM posicion_en_rack pr "
+            "JOIN frame f ON f.id_frame = pr.id_frame "
+            "JOIN slot sl ON sl.id_frame = f.id_frame "
+            "  AND sl.id_equipo IS NOT NULL "
+            "JOIN equipo e ON e.id_equipo = sl.id_equipo "
+            "WHERE pr.id_rack=? AND pr.id_frame IS NOT NULL "
+            "ORDER BY f.nombre, e.nombre", (id_rack,)
+        )
+        return list(directos) + list(modulos)
 
     @staticmethod
     def alta_mueble_retorna_id(id_sala, nombre, x_pct, y_pct, ancho_pct,

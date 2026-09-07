@@ -632,7 +632,24 @@ class RackPorSalaListado(VentanaListado):
 
 
 class _DialogoEquipoNoRackSala(Gtk.Dialog):
-    """Diálogo para asignar un equipo suelto a una sala."""
+    """Diálogo para asignar un equipo suelto a una sala.
+
+    Fase 7 de plan_desarrollo_ubicacion_fisica_planos.md ("Equipos
+    sueltos, módulos de frame y herencia de ubicación"), mismo criterio
+    que _DialogoRackPorSala en la Fase 5:
+      - selector "Tipo de montaje" (Piso/Pared), que sólo cambia el
+        ícono con el que se dibuja el punto en el overlay del plano
+        (VistaPlanoInteractivo._dibujar_overlay) — no hay geometría de
+        pared propiamente dicha.
+      - el selector de equipo excluye los marcados como
+        `es_modulo_de_frame=1` (EquiposListado(excluir_modulos_de_frame=True)):
+        un módulo de frame requiere estar instalado en un frame para
+        tener ubicación física, no puede marcarse como equipo suelto
+        (mismo criterio de exclusión que ya usa _DialogoMueble en la
+        Fase 6, ver Modelo.devolver_ubicacion_fisica_de_equipo).
+      - botón "📍 Ubicar en el plano", habilitado sólo si esta
+        asignación ya está guardada y la sala ya tiene un plano.
+    """
 
     def __init__(self, id_=None, parent=None):
         titulo = _("Editar equipo suelto en sala") if id_ else _("Nuevo equipo suelto en sala")
@@ -640,6 +657,7 @@ class _DialogoEquipoNoRackSala(Gtk.Dialog):
                          modal=True, destroy_with_parent=True)
         self.set_default_size(380, -1)
         self.id_ = id_
+        self._id_plano_de_sala = None
 
         ca = self.get_content_area()
         g = _grid()
@@ -652,6 +670,26 @@ class _DialogoEquipoNoRackSala(Gtk.Dialog):
         _lbl_entry(g, _("Equipo:"), 1)
         self.e_equipo = _entry_btn(g, 1, "…", self._sel_equipo)
         self._id_equipo = None
+
+        _lbl_entry(g, _("Tipo de montaje:"), 2)
+        self.c_tipo_montaje = Gtk.ComboBoxText()
+        self.c_tipo_montaje.append("PISO", "🖴 " + _("Piso"))
+        self.c_tipo_montaje.append("PARED", "🧱 " + _("Pared"))
+        self.c_tipo_montaje.set_active_id("PISO")
+        g.attach(self.c_tipo_montaje, 1, 2, 2, 1)
+
+        self.lbl_ubicacion = Gtk.Label(xalign=0)
+        self.lbl_ubicacion.set_margin_start(8)
+        self.lbl_ubicacion.set_margin_top(4)
+        ca.pack_start(self.lbl_ubicacion, False, False, 0)
+
+        self.btn_ubicar = Gtk.Button(
+            label="📍 " + _("Ubicar en el plano"))
+        self.btn_ubicar.set_margin_start(8)
+        self.btn_ubicar.set_margin_top(4)
+        self.btn_ubicar.set_margin_bottom(4)
+        self.btn_ubicar.connect("clicked", self._ubicar_en_plano)
+        ca.pack_start(self.btn_ubicar, False, False, 0)
 
         self.add_button(_("Cancelar"), Gtk.ResponseType.CANCEL)
         btn_ok = self.add_button(_("Guardar"), Gtk.ResponseType.OK)
@@ -666,9 +704,13 @@ class _DialogoEquipoNoRackSala(Gtk.Dialog):
                 self._id_equipo = str(rows[0][2])
                 self.e_sala.set_text(s(rows[0][3]))
                 self.e_equipo.set_text(s(rows[0][4]))
+                self._id_plano_de_sala = rows[0][5]
+                self.c_tipo_montaje.set_active_id(
+                    s(rows[0][6]) or "PISO")
 
         _pack_ultima_edicion(self, "equiponoraqueable_por_sala",
                              "id_equiponoraqueable_por_sala", id_)
+        self._actualizar_estado_ubicacion()
         self.show_all()
 
     def _sel_sala(self, btn):
@@ -682,13 +724,35 @@ class _DialogoEquipoNoRackSala(Gtk.Dialog):
 
     def _sel_equipo(self, btn):
         from cabledoc import EquiposListado
-        dlg = EquiposListado(parent=self, modo_seleccion=True)
+        dlg = EquiposListado(parent=self, modo_seleccion=True,
+                             excluir_modulos_de_frame=True)
         if dlg.run() == Gtk.ResponseType.OK:
             fila = dlg._fila()
             if fila:
                 self._id_equipo = str(fila[0])
                 self.e_equipo.set_text(s(fila[1]))
         dlg.destroy()
+
+    def _actualizar_estado_ubicacion(self):
+        habilitar = bool(self.id_ and self._id_plano_de_sala)
+        self.btn_ubicar.set_sensitive(habilitar)
+        if not self.id_:
+            texto = _("Guardá la asignación primero; la ubicación en el "
+                      "plano se marca al volver a editarla.")
+        elif not self._id_plano_de_sala:
+            texto = _("La sala de esta asignación todavía no tiene un "
+                      "plano asignado — asignaselo desde la ficha de "
+                      "Sala.")
+        else:
+            texto = _("Marcá o mové el punto de este equipo en el plano "
+                      "de su sala con el botón de abajo.")
+        self.lbl_ubicacion.set_markup("<small><i>" + texto + "</i></small>")
+
+    def _ubicar_en_plano(self, btn):
+        from planos_ui import VistaPlanoInteractivo
+        VistaPlanoInteractivo(
+            self._id_plano_de_sala, parent=self,
+            id_equiponoraqueable_foco=self.id_).run_and_destroy()
 
     def _on_response(self, dlg, resp):
         if resp != Gtk.ResponseType.OK:
@@ -697,11 +761,13 @@ class _DialogoEquipoNoRackSala(Gtk.Dialog):
         if not self._id_sala or not self._id_equipo:
             mostrar_error(self, "Seleccioná sala y equipo antes de guardar.")
             return
+        tipo_montaje = self.c_tipo_montaje.get_active_id() or "PISO"
         if self.id_:
             Modelo.modificacion_equipo_no_rack_sala(
-                self.id_, self._id_sala, self._id_equipo)
+                self.id_, self._id_sala, self._id_equipo, tipo_montaje)
         else:
-            Modelo.alta_equipo_no_rack_sala(self._id_sala, self._id_equipo)
+            Modelo.alta_equipo_no_rack_sala(
+                self._id_sala, self._id_equipo, tipo_montaje)
         self.destroy()
 
     def run_and_destroy(self):
