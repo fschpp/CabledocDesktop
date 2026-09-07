@@ -423,6 +423,8 @@ class _DialogoEquipo(Gtk.Dialog):
         self.chk_equipo_usado = Gtk.CheckButton(label=_("Equipo usado (no nuevo)"))
         g.attach(self.chk_equipo_usado, 1, 13, 2, 1)
 
+
+
         # ── Sección: Riesgo de falla (IRF) ──
         sep_riesgo = Gtk.Separator()
         g.attach(sep_riesgo, 0, 14, 4, 1)
@@ -468,6 +470,21 @@ class _DialogoEquipo(Gtk.Dialog):
         btn_ver_afectados.connect("clicked", self._ver_equipos_afectados)
         hbox_riesgo.pack_start(btn_ver_afectados, False, False, 0)
         g.attach(hbox_riesgo, 0, 20, 4, 1)
+
+        # ── Ubicación física en planos (Fase 7 de
+        # plan_desarrollo_ubicacion_fisica_planos.md) ──
+        sep_ubicacion = Gtk.Separator()
+        g.attach(sep_ubicacion, 0, 21, 4, 1)
+        self.chk_es_modulo_frame = Gtk.CheckButton(
+            label=_("Es módulo de frame (requiere estar instalado en un "
+                    "frame para tener ubicación física)"))
+        self.chk_es_modulo_frame.set_tooltip_text(
+            _("Marca que este equipo es un módulo que se instala dentro "
+              "de un frame (p. ej. una tarjeta) y por lo tanto no puede "
+              "marcarse como equipo suelto ni ubicarse sobre un mueble: "
+              "su ubicación en el plano se hereda automáticamente del "
+              "rack cuando el frame que lo contiene está rackeado."))
+        g.attach(self.chk_es_modulo_frame, 0, 22, 4, 1)
 
         nb.append_page(g, Gtk.Label(label=_("Datos")))
 
@@ -651,6 +668,8 @@ class _DialogoEquipo(Gtk.Dialog):
                     self.e_fecha_fabricacion.set_text(s(r[16]))
                 if len(r) > 17 and r[17]:
                     self.chk_equipo_usado.set_active(bool(r[17]))
+                if len(r) > 18 and r[18]:
+                    self.chk_es_modulo_frame.set_active(bool(r[18]))
 
         self._actualizar_seccion_riesgo()
         self._actualizar_picon_preview()
@@ -1174,6 +1193,7 @@ class _DialogoEquipo(Gtk.Dialog):
             picon = self.e_picon.get_text().strip()
             fecha_fabricacion = self.e_fecha_fabricacion.get_text().strip()
             es_equipo_usado = self.chk_equipo_usado.get_active()
+            es_modulo_frame = self.chk_es_modulo_frame.get_active()
             # Obtener texto de configuraciones desde el editor
             buf = self.tv_configuraciones_edit.get_buffer()
             start, end = buf.get_bounds()
@@ -1195,8 +1215,10 @@ class _DialogoEquipo(Gtk.Dialog):
                     fecha_fabricacion if fecha_fabricacion else None,
                     es_equipo_usado
                 )
+                Modelo.actualizar_es_modulo_de_frame(
+                    self.id_equipo, es_modulo_frame)
             else:
-                Modelo.alta_equipo(
+                nuevo_id = Modelo.alta_equipo_retorna_id(
                     id_tipo or None, id_marca or None,
                     self.e_inventario.get_text(),
                     self.e_serie.get_text(),
@@ -1210,6 +1232,9 @@ class _DialogoEquipo(Gtk.Dialog):
                     fecha_fabricacion if fecha_fabricacion else None,
                     es_equipo_usado
                 )
+                if es_modulo_frame:
+                    Modelo.actualizar_es_modulo_de_frame(
+                        nuevo_id, es_modulo_frame)
         
         # Limpiar buffers de TextView para liberar memoria antes de destruir
         try:
