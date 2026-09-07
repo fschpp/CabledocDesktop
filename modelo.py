@@ -5024,6 +5024,77 @@ class Modelo:
         return None
 
     @staticmethod
+    def motivo_sin_ubicacion_fisica_equipo(id_equipo):
+        """Cuando devolver_ubicacion_fisica_de_equipo(id_equipo) devuelve
+        None, este método da el motivo puntual (Fase 8 de
+        plan_desarrollo_ubicacion_fisica_planos.md — mensaje contextual
+        en la ficha de Equipo en vez de un genérico "sin ubicación").
+        Devuelve un código corto SIN traducir (modelo.py no depende de
+        i18n.py); la traducción a texto final queda del lado de la UI,
+        ver equipos_ui.py._ver_ubicacion_fisica. Sólo tiene sentido
+        llamarlo después de confirmar que esa otra función dio None —
+        si el equipo en realidad sí tiene ubicación, devuelve None acá
+        también (no debería ocurrir en el flujo normal).
+
+        Códigos posibles: RACK_SIN_UBICAR, SALA_SIN_PLANO,
+        FRAME_NO_RACKEADO, MODULO_SIN_FRAME, MUEBLE_SIN_UBICAR,
+        SUELTO_SIN_UBICAR, SIN_ASIGNACION.
+        """
+        racks = Modelo.devolver_rack_de_equipo(id_equipo)
+        if racks:
+            fila_rps = Modelo._query(
+                "SELECT rps.x_pct, s.id_plano FROM rack_por_sala rps "
+                "JOIN sala s ON s.id_sala = rps.id_sala "
+                "WHERE rps.id_rack=? LIMIT 1", (racks[0][0],))
+            if not fila_rps:
+                return "SIN_ASIGNACION"
+            x_pct, id_plano = fila_rps[0]
+            if x_pct is None:
+                return "RACK_SIN_UBICAR"
+            if id_plano is None:
+                return "SALA_SIN_PLANO"
+            return None
+
+        en_slot = Modelo._query(
+            "SELECT 1 FROM slot WHERE id_equipo=? LIMIT 1", (id_equipo,))
+        if en_slot:
+            return "FRAME_NO_RACKEADO"
+
+        fila_eq = Modelo._query(
+            "SELECT es_modulo_de_frame FROM equipo WHERE id_equipo=?",
+            (id_equipo,))
+        if fila_eq and fila_eq[0][0]:
+            return "MODULO_SIN_FRAME"
+
+        fila_mueble = Modelo._query(
+            "SELECT m.x_pct, s.id_plano FROM equipo_sobre_mueble esm "
+            "JOIN mueble m ON m.id_mueble = esm.id_mueble "
+            "JOIN sala s ON s.id_sala = m.id_sala "
+            "WHERE esm.id_equipo=?", (id_equipo,))
+        if fila_mueble:
+            x_pct_m, id_plano_m = fila_mueble[0]
+            if x_pct_m is None:
+                return "MUEBLE_SIN_UBICAR"
+            if id_plano_m is None:
+                return "SALA_SIN_PLANO"
+            return None
+
+        fila_suelto = Modelo._query(
+            "SELECT en.x_pct, s.id_plano "
+            "FROM equiponoraqueable_por_sala en "
+            "JOIN sala s ON s.id_sala = en.id_sala "
+            "WHERE en.id_equipo=?", (id_equipo,))
+        if fila_suelto:
+            x_pct_s, id_plano_s = fila_suelto[0]
+            if x_pct_s is None:
+                return "SUELTO_SIN_UBICAR"
+            if id_plano_s is None:
+                return "SALA_SIN_PLANO"
+            return None
+
+        return "SIN_ASIGNACION"
+
+    @staticmethod
     def devolver_contenido_plano(id_plano):
         """Todo lo que hay que dibujar en el overlay de un plano: por cada
         sala que le pertenece, su polígono, sus racks (con posición), sus
