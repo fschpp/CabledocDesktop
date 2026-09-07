@@ -41,7 +41,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260907190000"
+APP_VERSION = "1.20260907193000"
 
 from modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -307,6 +307,7 @@ from catalogos_basicos_ui import (
     GeneradorDiagrama,
     EquipoInfoExtra,
 )
+from catalogo_simbolo_conector_ui import CatalogoSimbolosConectorListado
 
 
 # ─── Conectores de catálogo — Renombrado masivo ────────────────────────────────
@@ -404,6 +405,7 @@ class VentanaPrincipal(Gtk.Window):
             (_("Marcas"), self._abrir_marcas),
             (_("Tipos de Equipo"), self._abrir_tipos_equipo),
             (_("Tipos de Conector"), self._abrir_tipos_conector),
+            (_("🔷 Símbolos de Conector (vectorial)"), self._abrir_simbolos_conector),
             (_("Tipos de Cable"), self._abrir_tipos_cable),
             (_("Tipos de Ficha"), self._abrir_tipos_ficha),
             (_("Categorías de Problema"), self._abrir_categorias_problema),
@@ -601,6 +603,11 @@ class VentanaPrincipal(Gtk.Window):
         # plano/mueble/equipo_sobre_mueble + columnas de posición en
         # sala/rack_por_sala/equiponoraqueable_por_sala/equipo.
         Modelo.asegurar_tablas_plano()
+        # plan_paneles_vectoriales_v3.md — Fase 0: catálogo de símbolos de
+        # conector (forma real por tipo) + dimensiones físicas de
+        # equipo/frame + calibración mm/px de imagen.
+        Modelo.asegurar_tablas_catalogo_simbolos()
+        Modelo.asegurar_columnas_dimensiones()
 
         self.show_all()
 
@@ -810,6 +817,9 @@ class VentanaPrincipal(Gtk.Window):
 
     def _abrir_tipos_conector(self, *a):
         self._abrir_ventana(TiposConectorListado)
+
+    def _abrir_simbolos_conector(self, *a):
+        self._abrir_ventana(CatalogoSimbolosConectorListado)
 
     def _abrir_tipos_cable(self, *a):
         self._abrir_ventana(TiposCableListado)

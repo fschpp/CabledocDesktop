@@ -25,7 +25,10 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
 from modelo import Modelo
-from pantallas_comunes import _, s, PALETA, _pixbuf_from_name, _ImagenZoom
+from pantallas_comunes import (
+    _, s, PALETA, _pixbuf_from_name, _ImagenZoom, _ImagenSVG,
+    _crear_handle_simbolo, _dibujar_simbolo_conector,
+)
 
 
 def _hex_to_rgb(h):
@@ -55,15 +58,25 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
       _cargar_datos()      → (nombre_padre, lista de conectores normalizados,
                                path_imagen_fallback)
                               cada conector: (id_con, nombre, tipo, id_img,
-                              path, x, y)
+                              path, x, y[, id_tipo_conector])
+                              El 8vo elemento (id_tipo_conector) es opcional
+                              — si falta, el símbolo con forma real de la
+                              Fase 1 de plan_paneles_vectoriales_v3.md
+                              queda desactivado para ese conector y se
+                              dibuja el círculo genérico de siempre.
       _guardar_uno(id_con, p) → bool (True si se persistió el cambio)
     Y pueden opcionalmente sobrescribir:
       _post_sel_imagen(id_img) → hook tras elegir imagen nueva (no-op default)
       _msg_guardado(n)         → texto del mensaje de confirmación
+      _TABLA_DIMENSIONES       → "equipo" o "equipo_catalogo" (whitelist de
+                                  Modelo._TABLAS_DIMENSIONES) — de dónde sale
+                                  el ancho_mm para la calibración de escala
+                                  cuando no hay medición manual en la imagen
     """
 
     PALETA = PALETA
-    R = 10   # radio del marcador
+    R = 10   # radio del marcador genérico
+    _TABLA_DIMENSIONES = None   # subclases lo sobrescriben
 
     def __init__(self, id_padre, parent=None, fn_sel_imagen=None,
                  titulo_inicial="Edición masiva: conectores en imagen"):
@@ -77,6 +90,11 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
         self._fn_sel_imagen = fn_sel_imagen
         self._pendientes = {}   # id_conector → {x, y, id_imagen, modificado}
         self._sel_id = None     # id_conector seleccionado
+        # Fase 1 de plan_paneles_vectoriales_v3.md — ver
+        # _preparar_simbolos_conector.
+        self._simbolos_activos = False
+        self._handles_por_tipo = {}
+        self._mm_por_pixel     = None
 
         self._build_ui()
         self._cargar()
@@ -223,6 +241,7 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
             path   = s(r[4]).strip()
             x      = str(r[5]) if r[5] is not None else ""
             y      = str(r[6]) if r[6] is not None else ""
+            id_tipo_conector = r[7] if len(r) > 7 else None
             color  = self.PALETA[i % len(self.PALETA)]
             hex_c  = "#{:02X}{:02X}{:02X}".format(
                 int(color[0]*255), int(color[1]*255), int(color[2]*255))
@@ -231,6 +250,7 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
             self._conectores.append({
                 "id": id_con, "nombre": nombre, "tipo": tipo,
                 "color": hex_c, "idx": i,
+                "id_tipo_conector": id_tipo_conector,
             })
             self._pendientes[id_con] = {
                 "x": x, "y": y, "id_imagen": id_img,
@@ -246,6 +266,48 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
             if pb:
                 self._viz.set_pixbuf(pb)
                 GLib.idle_add(self._viz._zoom_fit)
+                id_imagen_pred = next(
+                    (r[3] for r in cons if s(r[4]).strip() == img_pred and r[3]),
+                    None)
+                self._preparar_simbolos_conector(pb, id_imagen_pred)
+
+    def _preparar_simbolos_conector(self, pb, id_imagen):
+        """Precalcula (una sola vez por carga) los símbolos con forma real
+        y la calibración de escala — Fase 1 de plan_paneles_vectoriales_v3.md.
+        Regla de activación (§4): sólo si el fondo es SVG. Compartido entre
+        EditorMasivoConectoresImagen y EditorMasivoConectoresCatalogo vía
+        `_TABLA_DIMENSIONES`, que cada subclase declara. Si algo falla acá,
+        queda todo desactivado y _dibujar_overlay cae al círculo genérico
+        de siempre, sin excepciones visibles."""
+        self._simbolos_activos = False
+        self._handles_por_tipo = {}
+        self._mm_por_pixel     = None
+        if not isinstance(pb, _ImagenSVG):
+            return
+        try:
+            ancho_px = pb.get_width()
+        except Exception:
+            ancho_px = 0
+        if not ancho_px:
+            return
+        try:
+            self._mm_por_pixel = Modelo.resolver_mm_por_pixel(
+                self._TABLA_DIMENSIONES, self._id_padre, id_imagen, ancho_px)
+        except Exception:
+            self._mm_por_pixel = None
+        tipos = {c["id_tipo_conector"] for c in self._conectores
+                 if c.get("id_tipo_conector")}
+        if not tipos:
+            return
+        try:
+            simbolos = Modelo.obtener_simbolos_conector(list(tipos))
+        except Exception:
+            simbolos = {}
+        for id_tipo, (frag, viewbox, tamano_rel, color) in simbolos.items():
+            handle = _crear_handle_simbolo(frag, viewbox, color)
+            if handle is not None:
+                self._handles_por_tipo[id_tipo] = (handle, tamano_rel or 1.0)
+        self._simbolos_activos = bool(self._handles_por_tipo)
 
     def _color_de(self, id_con):
         for c in self._conectores:
@@ -385,6 +447,36 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
             r, g, b = _hex_to_rgb(c["color"])
             es_sel  = (id_con == self._sel_id)
 
+            # Fase 1 de plan_paneles_vectoriales_v3.md: símbolo con forma
+            # real si hay uno cargado para el tipo de este conector y el
+            # fondo es SVG (ver _preparar_simbolos_conector). Fallback
+            # automático al círculo genérico si falta símbolo o falla el
+            # render (§4 del plan — nunca rompe el editor).
+            if self._simbolos_activos:
+                info = self._handles_por_tipo.get(c.get("id_tipo_conector"))
+                if info is not None:
+                    handle, tamano_rel = info
+                    radio_px = Modelo.calcular_radio_simbolo_px(
+                        tamano_rel, self._mm_por_pixel,
+                        radio_default_px=self.R)
+                    if _dibujar_simbolo_conector(cr, handle, wx, wy, radio_px):
+                        if es_sel:
+                            cr.set_source_rgba(1, 0.9, 0, 0.85)
+                            cr.set_line_width(2.5)
+                            cr.arc(wx, wy, radio_px + 3, 0, 2 * math.pi)
+                            cr.stroke()
+                        cr.select_font_face("Sans", 0, 1)
+                        cr.set_font_size(9)
+                        lbl = c["nombre"][:8]
+                        xb, _, tw, th = cr.text_extents(lbl)[:4]
+                        cr.set_source_rgba(0, 0, 0, 0.7)
+                        cr.rectangle(wx - tw/2 - 2, wy + radio_px + 1, tw + 4, th + 2)
+                        cr.fill()
+                        cr.set_source_rgb(1, 1, 1)
+                        cr.move_to(wx - tw/2 - xb, wy + radio_px + th + 2)
+                        cr.show_text(lbl)
+                        continue  # símbolo dibujado OK, no caer al genérico
+
             # Sombra
             cr.set_source_rgba(0, 0, 0, 0.35)
             cr.arc(wx + 2, wy + 2, self.R, 0, 2 * math.pi)
@@ -454,6 +546,8 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
 
 class EditorMasivoConectoresImagen(EditorMasivoConectoresBase):
 
+    _TABLA_DIMENSIONES = "equipo"
+
     def __init__(self, id_equipo, parent=None, fn_sel_imagen=None):
         super().__init__(
             id_padre=id_equipo, parent=parent, fn_sel_imagen=fn_sel_imagen,
@@ -471,7 +565,8 @@ class EditorMasivoConectoresImagen(EditorMasivoConectoresBase):
         cons = Modelo._query(
             "SELECT c.id_conector, c.nombre, COALESCE(tc.nombre,''), "
             "       c.id_imagen, COALESCE(i.path_archivo,''), "
-            "       c.coordenada_x_en_imagen, c.coordenada_y_en_imagen "
+            "       c.coordenada_x_en_imagen, c.coordenada_y_en_imagen, "
+            "       c.id_tipo_conector "
             "FROM conector c "
             "LEFT JOIN tipo_conector tc ON tc.id_tipo_conector=c.id_tipo_conector "
             "LEFT JOIN imagen i ON i.id_imagen=c.id_imagen "
@@ -479,7 +574,7 @@ class EditorMasivoConectoresImagen(EditorMasivoConectoresBase):
             (id_equipo,)
         )
         cons = [
-            (*r[:5], *Modelo._px_punto_o_crudo(r[4] or None, r[5], r[6]))
+            (*r[:5], *Modelo._px_punto_o_crudo(r[4] or None, r[5], r[6]), r[7])
             for r in cons
         ]
         return nombre_eq, cons, None
@@ -517,6 +612,8 @@ class EditorMasivoConectoresCatalogo(EditorMasivoConectoresBase):
       - Al elegir una imagen nueva, además actualiza equipo_catalogo.id_imagen.
     """
 
+    _TABLA_DIMENSIONES = "equipo_catalogo"
+
     def __init__(self, id_equipo_catalogo, parent=None, fn_sel_imagen=None):
         super().__init__(
             id_padre=id_equipo_catalogo, parent=parent,
@@ -532,7 +629,7 @@ class EditorMasivoConectoresCatalogo(EditorMasivoConectoresBase):
         cons_raw = Modelo.devolver_conectores_de_catalogo(id_equipo_catalogo)
         # cons_raw: id_cc, nombre, tipo_nom, id_tipo_conector, id_imagen,
         #           img_path, x, y
-        cons = [(r[0], r[1], r[2], r[4], r[5], r[6], r[7]) for r in cons_raw]
+        cons = [(r[0], r[1], r[2], r[4], r[5], r[6], r[7], r[3]) for r in cons_raw]
 
         # Fallback: si ningún conector tiene imagen, usar la imagen del molde
         img_pred_fallback = None

@@ -83,12 +83,13 @@ CREATE TABLE IF NOT EXISTS "equipo" (
   "coordenada_x_en_imagen" INTEGER,
   "coordenada_y_en_imagen" INTEGER, path_manual TEXT, configuraciones TEXT, ultima_auditoria_fecha TEXT, picon TEXT, fecha_fabricacion TEXT, es_equipo_usado INTEGER DEFAULT 0,
   "senal_requerida_mhz" REAL,
+  ancho_mm REAL, alto_mm REAL, profundidad_mm REAL,
   PRIMARY KEY("id_equipo" AUTOINCREMENT),
   FOREIGN KEY("id_tipo_equipo") REFERENCES "tipo_equipo"("id_tipo_equipo") ON DELETE SET NULL,
   FOREIGN KEY("id_marca")       REFERENCES "marca"("id_marca")             ON DELETE SET NULL,
   FOREIGN KEY("id_imagen")      REFERENCES "imagen"("id_imagen")           ON DELETE SET NULL
 );
-CREATE TABLE IF NOT EXISTS equipo_catalogo (  id_equipo_catalogo INTEGER PRIMARY KEY AUTOINCREMENT,  nombre_molde    TEXT,  id_tipo_equipo  INTEGER,  id_marca        INTEGER,  modelo          TEXT,  id_imagen       INTEGER,  path_manual     TEXT,  configuraciones TEXT,  fecha_ultima_edicion TEXT, picon TEXT,  FOREIGN KEY(id_tipo_equipo) REFERENCES tipo_equipo(id_tipo_equipo) ON DELETE SET NULL,  FOREIGN KEY(id_marca)       REFERENCES marca(id_marca)             ON DELETE SET NULL,  FOREIGN KEY(id_imagen)      REFERENCES imagen(id_imagen)           ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS equipo_catalogo (  id_equipo_catalogo INTEGER PRIMARY KEY AUTOINCREMENT,  nombre_molde    TEXT,  id_tipo_equipo  INTEGER,  id_marca        INTEGER,  modelo          TEXT,  id_imagen       INTEGER,  path_manual     TEXT,  configuraciones TEXT,  fecha_ultima_edicion TEXT, picon TEXT, ancho_mm REAL, alto_mm REAL, profundidad_mm REAL,  FOREIGN KEY(id_tipo_equipo) REFERENCES tipo_equipo(id_tipo_equipo) ON DELETE SET NULL,  FOREIGN KEY(id_marca)       REFERENCES marca(id_marca)             ON DELETE SET NULL,  FOREIGN KEY(id_imagen)      REFERENCES imagen(id_imagen)           ON DELETE SET NULL);
 CREATE TABLE IF NOT EXISTS equiponoraqueable_por_sala (
   id_equiponoraqueable_por_sala INTEGER PRIMARY KEY AUTOINCREMENT,
   id_sala   INTEGER NOT NULL,
@@ -105,17 +106,29 @@ CREATE TABLE IF NOT EXISTS "frame" (
   "id_imagen"      INTEGER,
   "modelo"         TEXT,
   "fecha_ultima_edicion" TEXT, ultima_auditoria_fecha TEXT,
+  ancho_mm REAL, alto_mm REAL, profundidad_mm REAL,
   PRIMARY KEY("id_frame" AUTOINCREMENT),
   FOREIGN KEY("id_marca")  REFERENCES "marca"("id_marca")   ON DELETE SET NULL,
   FOREIGN KEY("id_imagen") REFERENCES "imagen"("id_imagen") ON DELETE SET NULL
 );
-CREATE TABLE IF NOT EXISTS frame_catalogo (  id_frame_catalogo INTEGER PRIMARY KEY AUTOINCREMENT,  nombre_molde TEXT,  id_marca     INTEGER,  modelo       TEXT,  id_imagen    INTEGER,  path_manual  TEXT,  configuraciones TEXT,  fecha_ultima_edicion TEXT, picon TEXT,  FOREIGN KEY(id_marca)  REFERENCES marca(id_marca)   ON DELETE SET NULL,  FOREIGN KEY(id_imagen) REFERENCES imagen(id_imagen) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS frame_catalogo (  id_frame_catalogo INTEGER PRIMARY KEY AUTOINCREMENT,  nombre_molde TEXT,  id_marca     INTEGER,  modelo       TEXT,  id_imagen    INTEGER,  path_manual  TEXT,  configuraciones TEXT,  fecha_ultima_edicion TEXT, picon TEXT, ancho_mm REAL, alto_mm REAL, profundidad_mm REAL,  FOREIGN KEY(id_marca)  REFERENCES marca(id_marca)   ON DELETE SET NULL,  FOREIGN KEY(id_imagen) REFERENCES imagen(id_imagen) ON DELETE SET NULL);
 CREATE TABLE IF NOT EXISTS "imagen" (
 	"id_imagen"	INTEGER,
 	"path_archivo"	INTEGER NOT NULL,
 	"descripcion"	TEXT,
 	"fecha_ultima_Edicion"	TEXT,
+	mm_por_pixel REAL,
 	PRIMARY KEY("id_imagen" AUTOINCREMENT)
+);
+CREATE TABLE IF NOT EXISTS catalogo_simbolo_conector (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_tipo_conector INTEGER NOT NULL UNIQUE,
+  svg_fragmento TEXT NOT NULL,
+  viewbox TEXT NOT NULL DEFAULT '0 0 24 24',
+  tamano_relativo REAL NOT NULL DEFAULT 1.0,
+  color_sugerido TEXT,
+  fecha_ultima_edicion TEXT,
+  FOREIGN KEY(id_tipo_conector) REFERENCES tipo_conector(id_tipo_conector) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS "marca" (
 	"id_marca"	INTEGER,
