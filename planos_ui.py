@@ -660,6 +660,21 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     (Modelo.devolver_equipos_de_rack_con_modulos) — el resaltado
     (self._rack_resaltado) se dibuja con un halo amarillo alrededor del
     cuadrado hasta el próximo clic en otro rack o el cierre del visor.
+
+    Fase 8 ("Integración a la ficha de Equipo"): parámetro nuevo
+    `solo_lectura` — oculta las 4 barras de selector+edición (sala/
+    rack/mueble/equipo suelto), dejando sólo el visor y, si viene
+    `equipo_foco`, la barra de "rack resaltado" (informativa, no
+    editable, se deja visible porque el clic sobre un rack sigue
+    funcionando en este modo). Usado por equipos_ui.py._DialogoEquipo
+    ("📍 Ver ubicación", ahora de sólo lectura) para no exponer los
+    controles de edición de todo el plano cuando lo único que se quiere
+    es mostrar dónde está un equipo puntual.
+    `equipo_foco` (opcional, dict con al menos x_pct/y_pct/nombre —
+    mismo formato que devuelve Modelo.devolver_ubicacion_fisica_de_equipo
+    más una clave "nombre"): dibuja una marca (cruz roja con halo) sobre
+    ese punto y centra el visor ahí al abrir (self._viz.scroll_to_img,
+    después de zoom_fit).
     """
 
     COLOR_SALA = (0.10, 0.45, 0.90)   # azul — contorno sólido + relleno tenue
@@ -667,11 +682,15 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     COLOR_MUEBLE = (0.15, 0.60, 0.35)  # verde — rectángulo de mueble
     COLOR_SUELTO = (0.55, 0.15, 0.65)  # violeta — círculo de equipo suelto
     COLOR_RESALTADO = (1.0, 0.85, 0.0)  # amarillo — halo del rack clickeado
+    COLOR_FOCO = (0.85, 0.10, 0.10)    # rojo — cruz del equipo_foco (Fase 8)
 
     def __init__(self, id_plano, parent=None, id_sala_foco=None,
                  id_rack_x_sala_foco=None, id_mueble_foco=None,
-                 id_equiponoraqueable_foco=None):
+                 id_equiponoraqueable_foco=None, solo_lectura=False,
+                 equipo_foco=None):
         self._rack_resaltado = None
+        self._solo_lectura = solo_lectura
+        self._equipo_foco = equipo_foco
         self.id_plano = id_plano
         filas_plano = Modelo.devolver_plano(id_plano)
         nombre_plano = s(filas_plano[0][1]) if filas_plano else "?"
@@ -703,72 +722,81 @@ class VistaPlanoInteractivo(Gtk.Dialog):
             self._viz.set_motivo_sin_imagen(
                 _("Este plano todavía no tiene una imagen cargada."))
 
-        # ── barra inferior: selector de sala + editar contorno ──
-        hb = Gtk.Box(spacing=6)
-        hb.set_margin_start(8); hb.set_margin_end(8)
-        hb.set_margin_top(4);  hb.set_margin_bottom(8)
-        hb.pack_start(Gtk.Label(label=_("Sala:")), False, False, 0)
-
-        self._combo_salas = Gtk.ComboBoxText()
-        hb.pack_start(self._combo_salas, True, True, 0)
-        self._cargar_combo_salas(id_sala_foco)
-
-        btn_editar = Gtk.Button(
-            label="✏ " + _("Editar contorno de esta sala"))
-        btn_editar.connect("clicked", self._editar_contorno_sala)
-        hb.pack_start(btn_editar, False, False, 0)
-        ca.pack_start(hb, False, False, 0)
-
-        # ── barra inferior 2: selector de rack + ubicar en el plano (Fase 5) ──
-        hb2 = Gtk.Box(spacing=6)
-        hb2.set_margin_start(8); hb2.set_margin_end(8)
-        hb2.set_margin_top(0);  hb2.set_margin_bottom(8)
-        hb2.pack_start(Gtk.Label(label=_("Rack:")), False, False, 0)
-
-        self._combo_racks = Gtk.ComboBoxText()
-        hb2.pack_start(self._combo_racks, True, True, 0)
+        # ── barras de selector + edición (sala/rack/mueble/equipo
+        # suelto): ocultas por completo en modo solo_lectura (Fase 8) —
+        # ese modo es un visor puntual (ver "Ver ubicación" en la ficha
+        # de Equipo), no un editor de todo el plano. Los combos ni
+        # siquiera se instancian; los atributos usados por los otros
+        # métodos (self._rack_pcts, etc.) quedan como dict vacío para
+        # que _dibujar_overlay/_on_click_overlay no exploten si alguna
+        # otra parte del código los consulta.
         self._rack_pcts = {}
-        self._cargar_combo_racks(id_rack_x_sala_foco)
-
-        btn_ubicar_rack = Gtk.Button(
-            label="📍 " + _("Ubicar/mover este rack en el plano"))
-        btn_ubicar_rack.connect("clicked", self._ubicar_rack)
-        hb2.pack_start(btn_ubicar_rack, False, False, 0)
-        ca.pack_start(hb2, False, False, 0)
-
-        # ── barra inferior 3: selector de mueble + ubicar/redimensionar (Fase 6) ──
-        hb3 = Gtk.Box(spacing=6)
-        hb3.set_margin_start(8); hb3.set_margin_end(8)
-        hb3.set_margin_top(0);  hb3.set_margin_bottom(8)
-        hb3.pack_start(Gtk.Label(label=_("Mueble:")), False, False, 0)
-
-        self._combo_muebles = Gtk.ComboBoxText()
-        hb3.pack_start(self._combo_muebles, True, True, 0)
         self._mueble_geoms = {}
-        self._cargar_combo_muebles(id_mueble_foco)
-
-        btn_ubicar_mueble = Gtk.Button(
-            label="▭ " + _("Ubicar/redimensionar este mueble en el plano"))
-        btn_ubicar_mueble.connect("clicked", self._ubicar_mueble)
-        hb3.pack_start(btn_ubicar_mueble, False, False, 0)
-        ca.pack_start(hb3, False, False, 0)
-
-        # ── barra inferior 4: selector de equipo suelto + ubicar (Fase 7) ──
-        hb4 = Gtk.Box(spacing=6)
-        hb4.set_margin_start(8); hb4.set_margin_end(8)
-        hb4.set_margin_top(0);  hb4.set_margin_bottom(8)
-        hb4.pack_start(Gtk.Label(label=_("Equipo suelto:")), False, False, 0)
-
-        self._combo_equipos_sueltos = Gtk.ComboBoxText()
-        hb4.pack_start(self._combo_equipos_sueltos, True, True, 0)
         self._equipo_suelto_datos = {}
-        self._cargar_combo_equipos_sueltos(id_equiponoraqueable_foco)
+        if not solo_lectura:
+            # ── barra inferior: selector de sala + editar contorno ──
+            hb = Gtk.Box(spacing=6)
+            hb.set_margin_start(8); hb.set_margin_end(8)
+            hb.set_margin_top(4);  hb.set_margin_bottom(8)
+            hb.pack_start(Gtk.Label(label=_("Sala:")), False, False, 0)
 
-        btn_ubicar_suelto = Gtk.Button(
-            label="📍 " + _("Ubicar/mover este equipo suelto en el plano"))
-        btn_ubicar_suelto.connect("clicked", self._ubicar_equipo_suelto)
-        hb4.pack_start(btn_ubicar_suelto, False, False, 0)
-        ca.pack_start(hb4, False, False, 0)
+            self._combo_salas = Gtk.ComboBoxText()
+            hb.pack_start(self._combo_salas, True, True, 0)
+            self._cargar_combo_salas(id_sala_foco)
+
+            btn_editar = Gtk.Button(
+                label="✏ " + _("Editar contorno de esta sala"))
+            btn_editar.connect("clicked", self._editar_contorno_sala)
+            hb.pack_start(btn_editar, False, False, 0)
+            ca.pack_start(hb, False, False, 0)
+
+            # ── barra inferior 2: selector de rack + ubicar en el plano (Fase 5) ──
+            hb2 = Gtk.Box(spacing=6)
+            hb2.set_margin_start(8); hb2.set_margin_end(8)
+            hb2.set_margin_top(0);  hb2.set_margin_bottom(8)
+            hb2.pack_start(Gtk.Label(label=_("Rack:")), False, False, 0)
+
+            self._combo_racks = Gtk.ComboBoxText()
+            hb2.pack_start(self._combo_racks, True, True, 0)
+            self._cargar_combo_racks(id_rack_x_sala_foco)
+
+            btn_ubicar_rack = Gtk.Button(
+                label="📍 " + _("Ubicar/mover este rack en el plano"))
+            btn_ubicar_rack.connect("clicked", self._ubicar_rack)
+            hb2.pack_start(btn_ubicar_rack, False, False, 0)
+            ca.pack_start(hb2, False, False, 0)
+
+            # ── barra inferior 3: selector de mueble + ubicar/redimensionar (Fase 6) ──
+            hb3 = Gtk.Box(spacing=6)
+            hb3.set_margin_start(8); hb3.set_margin_end(8)
+            hb3.set_margin_top(0);  hb3.set_margin_bottom(8)
+            hb3.pack_start(Gtk.Label(label=_("Mueble:")), False, False, 0)
+
+            self._combo_muebles = Gtk.ComboBoxText()
+            hb3.pack_start(self._combo_muebles, True, True, 0)
+            self._cargar_combo_muebles(id_mueble_foco)
+
+            btn_ubicar_mueble = Gtk.Button(
+                label="▭ " + _("Ubicar/redimensionar este mueble en el plano"))
+            btn_ubicar_mueble.connect("clicked", self._ubicar_mueble)
+            hb3.pack_start(btn_ubicar_mueble, False, False, 0)
+            ca.pack_start(hb3, False, False, 0)
+
+            # ── barra inferior 4: selector de equipo suelto + ubicar (Fase 7) ──
+            hb4 = Gtk.Box(spacing=6)
+            hb4.set_margin_start(8); hb4.set_margin_end(8)
+            hb4.set_margin_top(0);  hb4.set_margin_bottom(8)
+            hb4.pack_start(Gtk.Label(label=_("Equipo suelto:")), False, False, 0)
+
+            self._combo_equipos_sueltos = Gtk.ComboBoxText()
+            hb4.pack_start(self._combo_equipos_sueltos, True, True, 0)
+            self._cargar_combo_equipos_sueltos(id_equiponoraqueable_foco)
+
+            btn_ubicar_suelto = Gtk.Button(
+                label="📍 " + _("Ubicar/mover este equipo suelto en el plano"))
+            btn_ubicar_suelto.connect("clicked", self._ubicar_equipo_suelto)
+            hb4.pack_start(btn_ubicar_suelto, False, False, 0)
+            ca.pack_start(hb4, False, False, 0)
 
         # ── barra inferior 5: lo que muestra el clic sobre un rack (Fase 7) ──
         self.lbl_rack_resaltado = Gtk.Label(xalign=0)
@@ -787,6 +815,18 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     def _on_viz_realize(self, widget):
         if self._viz.pixbuf:
             self._viz._zoom_fit()
+            # Fase 8: centrar el visor sobre el punto de equipo_foco, si
+            # vino uno — mismo criterio que el resto del visor, en
+            # porcentaje del ancho/alto real de la imagen del plano.
+            if self._equipo_foco:
+                xf = self._equipo_foco.get("x_pct")
+                yf = self._equipo_foco.get("y_pct")
+                if xf is not None and yf is not None:
+                    ancho_img = self._viz.pixbuf.get_width()
+                    alto_img = self._viz.pixbuf.get_height()
+                    self._viz.scroll_to_img(
+                        (float(xf) / 100.0) * ancho_img,
+                        (float(yf) / 100.0) * alto_img)
 
     def _cargar_combo_salas(self, id_sala_foco=None):
         self._combo_salas.remove_all()
@@ -1037,6 +1077,48 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                 icono = "🧱" if es_pared else "🖴"
                 cr.move_to(wx_s + radio_s + 3, wy_s + 4)
                 cr.show_text(icono + " " + s(nombre_eq))
+
+        # ── Fase 8: marca del equipo_foco (visor de "Ver ubicación" de
+        # la ficha de Equipo) — cruz roja con halo, dibujada por encima
+        # de todo lo demás para que no se pierda entre sala/rack/mueble/
+        # suelto si coinciden en el mismo punto. No depende de
+        # `contenido` (el bucle de arriba): se dibuja una sola vez con
+        # las coordenadas ya resueltas por
+        # Modelo.devolver_ubicacion_fisica_de_equipo. ──
+        if self._equipo_foco:
+            xf = self._equipo_foco.get("x_pct")
+            yf = self._equipo_foco.get("y_pct")
+            if xf is not None and yf is not None:
+                try:
+                    x_img_f = (float(xf) / 100.0) * ancho_img
+                    y_img_f = (float(yf) / 100.0) * alto_img
+                except (TypeError, ValueError):
+                    x_img_f = y_img_f = None
+                if x_img_f is not None:
+                    wx_f, wy_f = self._viz.i2w(x_img_f, y_img_f)
+                    radio_f = max(10, 14 * self._viz.zoom)
+                    rh, gh, bh = self.COLOR_RESALTADO
+                    cr.set_source_rgba(rh, gh, bh, 0.55)
+                    cr.arc(wx_f, wy_f, radio_f + 6, 0, 2 * math.pi)
+                    cr.fill()
+                    rf, gf, bf = self.COLOR_FOCO
+                    cr.set_source_rgba(rf, gf, bf, 0.95)
+                    cr.set_line_width(3)
+                    cr.arc(wx_f, wy_f, radio_f, 0, 2 * math.pi)
+                    cr.stroke()
+                    brazo = radio_f * 0.55
+                    cr.move_to(wx_f - brazo, wy_f)
+                    cr.line_to(wx_f + brazo, wy_f)
+                    cr.move_to(wx_f, wy_f - brazo)
+                    cr.line_to(wx_f, wy_f + brazo)
+                    cr.stroke()
+                    nombre_f = self._equipo_foco.get("nombre", "")
+                    if nombre_f:
+                        cr.set_source_rgb(0.05, 0.05, 0.05)
+                        cr.select_font_face("Sans", 0, 1)  # bold
+                        cr.set_font_size(13)
+                        cr.move_to(wx_f + radio_f + 6, wy_f - 6)
+                        cr.show_text("📍 " + s(nombre_f))
 
     # ── modo navegar: clic sobre un rack -> listar/resaltar equipos ──────
     def _on_click_overlay(self, widget, event):

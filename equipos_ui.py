@@ -52,7 +52,6 @@ from pantallas_comunes import (
     _grid,
     _lbl_entry,
     _entry,
-    _entry_btn,
     _searchable_combo,
     _get_combo_id,
     _set_combo_id,
@@ -62,7 +61,6 @@ from pantallas_comunes import (
 from pantallas_avanzadas import (
     abrir_historial_diagnosticos,
     abrir_arbol_conexiones,
-    abrir_coords_imagen,
     abrir_diagrama_conexiones,
     abrir_editor_masivo_conectores,
     abrir_imagen_conectores,
@@ -353,7 +351,15 @@ class _DialogoEquipo(Gtk.Dialog):
         self.id_equipo = id_equipo
         self.id_marca = ""
         self.id_tipo = ""
+        # id_imagen/x/y "legado" (Fase 8 de
+        # plan_desarrollo_ubicacion_fisica_planos.md): ya no se editan
+        # desde esta ficha (ver el separador "Ubicación física en
+        # planos" más abajo), pero si el equipo ya tenía algo cargado
+        # con el mecanismo viejo se conserva tal cual al guardar — no
+        # se pisa con vacío sólo porque el campo salió de la UI.
         self.id_imagen = ""
+        self._x_legado = ""
+        self._y_legado = ""
 
         # Crear contenedor principal vertical
         vbox_main = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -380,62 +386,56 @@ class _DialogoEquipo(Gtk.Dialog):
         self.e_inventario = _entry(g, 4)
         _lbl_entry(g, _("Serie:"), 5)
         self.e_serie = _entry(g, 5)
-        _lbl_entry(g, _("Imagen:"), 6)
-        self.e_imagen = _entry_btn(g, 6, "…", self._sel_imagen)
-        _lbl_entry(g, _("Coord X:"), 7)
-        self.e_x = _entry(g, 7)
-        _lbl_entry(g, _("Coord Y:"), 8)
-        self.e_y = _entry(g, 8)
-        _lbl_entry(g, _("Manual (PDF):"), 9)
+        _lbl_entry(g, _("Manual (PDF):"), 6)
         # Entry para el manual PDF
         self.e_manual = Gtk.Entry(hexpand=True)
-        g.attach(self.e_manual, 1, 9, 1, 1)
+        g.attach(self.e_manual, 1, 6, 1, 1)
         # Botón para seleccionar manual
         btn_sel_manual = Gtk.Button(label="…")
         btn_sel_manual.connect("clicked", self._sel_manual)
-        g.attach(btn_sel_manual, 2, 9, 1, 1)
+        g.attach(btn_sel_manual, 2, 6, 1, 1)
         # Botón para ver el PDF
         btn_view_manual = Gtk.Button(label="👁 " + _("Ver"))
         btn_view_manual.connect("clicked", self._ver_manual)
-        g.attach(btn_view_manual, 3, 9, 1, 1)
-        _lbl_entry(g, _("Foto (Picon):"), 10)
+        g.attach(btn_view_manual, 3, 6, 1, 1)
+        _lbl_entry(g, _("Foto (Picon):"), 7)
         # Entry para el nombre de archivo de la foto del equipo (picon)
         self.e_picon = Gtk.Entry(hexpand=True)
-        g.attach(self.e_picon, 1, 10, 1, 1)
+        g.attach(self.e_picon, 1, 7, 1, 1)
         # Botón para seleccionar la foto
         btn_sel_picon = Gtk.Button(label="…")
         btn_sel_picon.connect("clicked", self._sel_picon)
-        g.attach(btn_sel_picon, 2, 10, 1, 1)
+        g.attach(btn_sel_picon, 2, 7, 1, 1)
         # Botón para quitar la foto
         btn_quitar_picon = Gtk.Button(label="✖")
         btn_quitar_picon.set_tooltip_text(_("Quitar foto"))
         btn_quitar_picon.connect("clicked", self._quitar_picon)
-        g.attach(btn_quitar_picon, 3, 10, 1, 1)
+        g.attach(btn_quitar_picon, 3, 7, 1, 1)
         # Miniatura de vista previa de la foto
         self.img_picon = Gtk.Image()
         self.img_picon.set_size_request(140, 140)
         frame_picon = Gtk.Frame()
         frame_picon.add(self.img_picon)
-        g.attach(frame_picon, 1, 11, 1, 1)
-        _lbl_entry(g, _("Fecha de fabricación:"), 12)
-        self.e_fecha_fabricacion = _entry(g, 12)
+        g.attach(frame_picon, 1, 8, 1, 1)
+        _lbl_entry(g, _("Fecha de fabricación:"), 9)
+        self.e_fecha_fabricacion = _entry(g, 9)
         self.e_fecha_fabricacion.set_placeholder_text("AAAA-MM-DD")
         self.chk_equipo_usado = Gtk.CheckButton(label=_("Equipo usado (no nuevo)"))
-        g.attach(self.chk_equipo_usado, 1, 13, 2, 1)
+        g.attach(self.chk_equipo_usado, 1, 10, 2, 1)
 
 
 
         # ── Sección: Riesgo de falla (IRF) ──
         sep_riesgo = Gtk.Separator()
-        g.attach(sep_riesgo, 0, 14, 4, 1)
+        g.attach(sep_riesgo, 0, 11, 4, 1)
         lbl_riesgo_titulo = Gtk.Label()
         lbl_riesgo_titulo.set_markup("<b>🔺 " + _("Riesgo de falla") + "</b>")
         lbl_riesgo_titulo.set_xalign(0)
-        g.attach(lbl_riesgo_titulo, 0, 15, 4, 1)
+        g.attach(lbl_riesgo_titulo, 0, 12, 4, 1)
 
         self.lbl_riesgo_score = Gtk.Label(label="—")
         self.lbl_riesgo_score.set_xalign(0)
-        g.attach(self.lbl_riesgo_score, 0, 16, 4, 1)
+        g.attach(self.lbl_riesgo_score, 0, 13, 4, 1)
 
         self.chk_equipo_critico = Gtk.CheckButton(
             label="⭐ " + _("Equipo crítico de la cadena"))
@@ -448,13 +448,13 @@ class _DialogoEquipo(Gtk.Dialog):
               "diagrama de conexiones (seleccioná con rectángulo o "
               "Shift/Ctrl+clic y usá '⭐ Marcar críticos')."))
         self.chk_equipo_critico.connect("toggled", self._on_toggle_critico)
-        g.attach(self.chk_equipo_critico, 0, 17, 4, 1)
+        g.attach(self.chk_equipo_critico, 0, 14, 4, 1)
 
         self.lbl_riesgo_detalle = Gtk.Label(label="")
         self.lbl_riesgo_detalle.set_xalign(0)
         self.lbl_riesgo_detalle.set_line_wrap(True)
         self.lbl_riesgo_detalle.get_style_context().add_class("dim-label")
-        g.attach(self.lbl_riesgo_detalle, 0, 18, 4, 2)
+        g.attach(self.lbl_riesgo_detalle, 0, 15, 4, 2)
 
         hbox_riesgo = Gtk.Box(spacing=6)
         btn_recalc_riesgo = Gtk.Button(label="🔄 " + _("Recalcular"))
@@ -469,12 +469,12 @@ class _DialogoEquipo(Gtk.Dialog):
             "falla (no destructivo, no toca la base)."))
         btn_ver_afectados.connect("clicked", self._ver_equipos_afectados)
         hbox_riesgo.pack_start(btn_ver_afectados, False, False, 0)
-        g.attach(hbox_riesgo, 0, 20, 4, 1)
+        g.attach(hbox_riesgo, 0, 17, 4, 1)
 
-        # ── Ubicación física en planos (Fase 7 de
+        # ── Ubicación física en planos (Fase 8 de
         # plan_desarrollo_ubicacion_fisica_planos.md) ──
         sep_ubicacion = Gtk.Separator()
-        g.attach(sep_ubicacion, 0, 21, 4, 1)
+        g.attach(sep_ubicacion, 0, 18, 4, 1)
         self.chk_es_modulo_frame = Gtk.CheckButton(
             label=_("Es módulo de frame (requiere estar instalado en un "
                     "frame para tener ubicación física)"))
@@ -484,7 +484,7 @@ class _DialogoEquipo(Gtk.Dialog):
               "marcarse como equipo suelto ni ubicarse sobre un mueble: "
               "su ubicación en el plano se hereda automáticamente del "
               "rack cuando el frame que lo contiene está rackeado."))
-        g.attach(self.chk_es_modulo_frame, 0, 22, 4, 1)
+        g.attach(self.chk_es_modulo_frame, 0, 19, 4, 1)
 
         nb.append_page(g, Gtk.Label(label=_("Datos")))
 
@@ -622,9 +622,15 @@ class _DialogoEquipo(Gtk.Dialog):
             btn_template.connect("clicked", self._equipo_a_template)
             hbox_fila3.pack_start(btn_template, False, False, 0)
 
-        btn_coords = Gtk.Button(label="📍 " + _("Ver ubicación"))
-        btn_coords.connect("clicked", self._sel_coordenadas)
-        hbox_fila3.pack_start(btn_coords, False, False, 0)
+        if id_equipo:
+            btn_coords = Gtk.Button(label="📍 " + _("Ver ubicación"))
+            btn_coords.set_tooltip_text(
+                _("Muestra dónde está este equipo en el plano (propia o "
+                  "heredada de su rack/mueble/frame) — de sólo lectura, "
+                  "la ubicación se carga desde Infraestructura → Racks "
+                  "y Salas / Muebles."))
+            btn_coords.connect("clicked", self._ver_ubicacion_fisica)
+            hbox_fila3.pack_start(btn_coords, False, False, 0)
 
         if id_equipo:
             n_problemas = Modelo.devolver_cantidad_problemas_de_equipo(id_equipo)
@@ -651,10 +657,9 @@ class _DialogoEquipo(Gtk.Dialog):
                 self.e_serie.set_text(s(r[5]))
                 _set_combo_id(self.c_marca, s(r[6]))
                 _set_combo_id(self.c_tipo, s(r[8]))
-                self.e_imagen.set_text(s(r[9]))
                 self.id_imagen = s(r[10])
-                self.e_x.set_text(s(r[11]))
-                self.e_y.set_text(s(r[12]))
+                self._x_legado = s(r[11])
+                self._y_legado = s(r[12])
                 self.e_manual.set_text(s(r[13]))
                 if r[14]:
                     markdown_text = s(r[14])
@@ -765,14 +770,6 @@ class _DialogoEquipo(Gtk.Dialog):
                 start_iter = buffer.get_iter_at_offset(start_offset)
                 end_iter = buffer.get_iter_at_offset(end_offset)
                 buffer.apply_tag(tag, start_iter, end_iter)
-
-    def _sel_imagen(self, btn):
-        from cabledoc import ImagenesListado
-        dlg = ImagenesListado(parent=self, modo_seleccion=True)
-        if dlg.run() == Gtk.ResponseType.OK:
-            self.id_imagen = dlg.resultado_id
-            self.e_imagen.set_text(dlg.resultado_nombre)
-        dlg.destroy()
 
     def _sel_manual(self, btn):
         """Seleccionar archivo PDF y copiarlo a manuales/"""
@@ -1174,16 +1171,68 @@ class _DialogoEquipo(Gtk.Dialog):
         else:
             mostrar_error(self, "No se pudo crear el molde.")
 
-    def _sel_coordenadas(self, btn):
-        id_img = self.id_imagen if self.id_imagen else None
-        res = abrir_coords_imagen(
-            id_imagen=id_img, solo_xy=True,
-            x=self.e_x.get_text(), y=self.e_y.get_text(),
-            parent=self,
-        )
-        if res:
-            self.e_x.set_text(res["x"])
-            self.e_y.set_text(res["y"])
+    def _ver_ubicacion_fisica(self, btn):
+        """Fase 8 de plan_desarrollo_ubicacion_fisica_planos.md: versión
+        de sólo lectura de "Ver ubicación" — reemplaza al viejo
+        _sel_coordenadas (que abría el selector de punto sobre
+        equipo.imagen/x/y, mecanismo dado de baja). Resuelve la
+        ubicación real (propia o heredada de rack/módulo de
+        frame/mueble/suelto) vía Modelo.devolver_ubicacion_fisica_de_equipo
+        y abre VistaPlanoInteractivo centrado en ese punto; si no hay
+        ubicación, muestra un mensaje contextual según el motivo
+        (Modelo.motivo_sin_ubicacion_fisica_equipo)."""
+        from planos_ui import VistaPlanoInteractivo
+
+        ubic = Modelo.devolver_ubicacion_fisica_de_equipo(self.id_equipo)
+        if not ubic:
+            motivo = Modelo.motivo_sin_ubicacion_fisica_equipo(self.id_equipo)
+            textos_motivo = {
+                "RACK_SIN_UBICAR": _(
+                    "Este equipo está montado en un rack, pero ese rack "
+                    "todavía no fue ubicado en el plano (Infraestructura "
+                    "→ Racks y Salas → \"📍 Ubicar en el plano\")."),
+                "SALA_SIN_PLANO": _(
+                    "La sala de este equipo todavía no tiene un plano "
+                    "asignado (Infraestructura → Racks y Salas)."),
+                "FRAME_NO_RACKEADO": _(
+                    "Este equipo es un módulo instalado en un frame que "
+                    "todavía no está montado en ningún rack."),
+                "MODULO_SIN_FRAME": _(
+                    "Este equipo está marcado como módulo de frame, "
+                    "pero no está instalado en ningún frame — sin "
+                    "frame no tiene una posición física relevante que "
+                    "registrar."),
+                "MUEBLE_SIN_UBICAR": _(
+                    "El mueble de este equipo todavía no fue ubicado "
+                    "en el plano (Infraestructura → 🪑 Muebles)."),
+                "SUELTO_SIN_UBICAR": _(
+                    "Este equipo suelto todavía no fue ubicado con un "
+                    "punto en el plano (Infraestructura → Racks y "
+                    "Salas → \"Equipos sueltos por Sala\")."),
+                "SIN_ASIGNACION": _(
+                    "Este equipo no tiene sala, rack ni mueble "
+                    "asignado, así que no tiene una ubicación física "
+                    "para mostrar."),
+            }
+            mostrar_info(
+                self,
+                textos_motivo.get(motivo, _(
+                    "Este equipo no tiene una ubicación física asignada "
+                    "todavía.")))
+            return
+
+        if not ubic.get("id_plano"):
+            mostrar_info(self, _(
+                "La sala de este equipo todavía no tiene un plano "
+                "asignado (Infraestructura → Racks y Salas)."))
+            return
+
+        equipo_foco = dict(ubic)
+        equipo_foco["nombre"] = self.e_nombre.get_text() or "?"
+        VistaPlanoInteractivo(
+            ubic["id_plano"], parent=self, solo_lectura=True,
+            equipo_foco=equipo_foco,
+        ).run_and_destroy()
 
     def run_and_destroy(self):
         if self.run() == Gtk.ResponseType.OK:
@@ -1208,7 +1257,7 @@ class _DialogoEquipo(Gtk.Dialog):
                     self.e_modelo.get_text(),
                     self.e_nombre.get_text(),
                     self.id_imagen or None,
-                    self.e_x.get_text(), self.e_y.get_text(),
+                    self._x_legado, self._y_legado,
                     path_manual if path_manual else None,
                     configuraciones if configuraciones else None,
                     picon if picon else None,
@@ -1225,7 +1274,7 @@ class _DialogoEquipo(Gtk.Dialog):
                     self.e_modelo.get_text(),
                     self.e_nombre.get_text(),
                     self.id_imagen or None,
-                    self.e_x.get_text(), self.e_y.get_text(),
+                    self._x_legado, self._y_legado,
                     path_manual if path_manual else None,
                     configuraciones if configuraciones else None,
                     picon if picon else None,
