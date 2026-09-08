@@ -2029,3 +2029,72 @@ no usar xvfb-run") — ver Todo List.
   cambio — sólo se lo tuvo en cuenta como caso borde en
   `devolver_extremos_de_cable` (NULLs cuando corresponde a una Extensión,
   no a un FANTASMA).
+
+## Fix zoom símbolo vectorial en Editor masivo de conectores — 2026-09-08T17:15
+
+### Current Focus
+Papi empezó el smoke test visual pendiente de Fase 1 de
+`plan_paneles_vectoriales_v3.md` (marcado como pendiente en la sesión
+2026-09-07T19:30) y encontró que en `EditorMasivoConectoresBase` (editor
+masivo, tanto para equipo real como para molde de catálogo) el símbolo
+vectorial del conector se dibuja con un tamaño fijo que no respeta el
+zoom del visor — a zoom bajo se ve gigante respecto al panel de fondo.
+En `ImagenConectoresYCables` (misma Fase 1, otro archivo) el mismo
+mecanismo sí funciona bien.
+
+### Cómo se resolvió
+- Causa: `Modelo.calcular_radio_simbolo_px()` devuelve el radio en
+  píxeles NATIVOS de la imagen, sin zoom, por contrato explícito de su
+  docstring ("el llamador multiplica por su factor de zoom al dibujar").
+  `imagen_conectores_ui.py._dibujar_overlay()` sí hace
+  `radio_px = radio_img_px * z`. `editor_masivo_conectores_ui.py` (clase
+  base compartida `EditorMasivoConectoresBase`, entregada en la misma
+  sesión 2026-09-07T19:30) se olvidó de esa multiplicación — el
+  changelog de esa entrega documenta explícitamente que se dejó "sin
+  multiplicar por zoom, igual que ya hacía el círculo genérico en esta
+  clase", asumiendo (incorrectamente) que el símbolo vectorial debía
+  seguir el mismo criterio de tamaño fijo en pantalla que usa el
+  círculo genérico de fallback (`self.R = 10`, constante, sin cambios).
+- Fix de una línea en `EditorMasivoConectoresBase._dibujar_overlay()`:
+  se separó `radio_img_px` (retorno crudo de
+  `calcular_radio_simbolo_px`) de `radio_px = radio_img_px * self._viz.zoom`,
+  igual que en `imagen_conectores_ui.py`. `self._viz` es el mismo
+  widget visor compartido (`pantallas_comunes.py`) en ambos archivos,
+  con atributo `.zoom` — confirmado antes de tocar el código.
+- No se tocó el círculo genérico de fallback (`self.R`, deliberadamente
+  fijo en pantalla) ni `EditorMasivoConectoresImagen`/
+  `EditorMasivoConectoresCatalogo` (heredan el fix de la clase base sin
+  cambios propios, ambas subclases se benefician de una sola vez).
+
+### Todo List
+- [x] Diagnóstico de la causa exacta comparando con
+      `imagen_conectores_ui.py` (que sí funciona bien).
+- [x] Fix de una línea en `editor_masivo_conectores_ui.py`.
+- [x] `ast.parse` + `py_compile` sobre el archivo.
+- [x] `pyflakes` comparado contra el HEAD previo (git stash): sin
+      hallazgos nuevos.
+- [x] `git diff` generado y validado con `git apply --check` sobre
+      árbol limpio.
+- [x] `APP_VERSION` → `1.20260908171500` + changelog.
+- [ ] **Pendiente — a cargo de Papi:** confirmar visualmente en su
+      máquina que el símbolo ya escala con el zoom en el editor masivo,
+      con el mismo SVG de conector hembra que reportó el bug.
+- [ ] Sigue pendiente (arrastrado de la sesión anterior, no tocado acá):
+      smoke test visual completo de Fase 1 contra `database/db.db` real
+      con imágenes de producción — este bug es justamente lo que salió
+      de arrancar ese smoke test, puede haber más hallazgos similares
+      al seguir probando.
+
+### Latest Blockers/Discoveries
+- El círculo genérico de fallback (`self.R = 10`) en
+  `EditorMasivoConectoresBase` es deliberadamente de tamaño fijo en
+  pantalla (no escala con zoom) — es un patrón distinto al de
+  `imagen_conectores_ui.py`/`MARCADOR`, que sí escala. Al portar el
+  mecanismo de símbolo vectorial a esta clase se copió por error el
+  criterio del círculo genérico en vez del de `imagen_conectores_ui.py`,
+  a pesar de que ambos archivos implementan la misma Fase 1 del mismo
+  plan. Vale la pena, en la próxima revisión de este código, confirmar
+  si el círculo genérico fijo es intencional (target de clic más
+  predecible a cualquier zoom) o si es el mismo bug agazapado en el
+  fallback — no se tocó en esta entrega porque Papi no lo reportó y no
+  es lo que rompía el smoke test.
