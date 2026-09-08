@@ -456,9 +456,10 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
                 info = self._handles_por_tipo.get(c.get("id_tipo_conector"))
                 if info is not None:
                     handle, tamano_rel = info
-                    radio_px = Modelo.calcular_radio_simbolo_px(
+                    radio_img_px = Modelo.calcular_radio_simbolo_px(
                         tamano_rel, self._mm_por_pixel,
                         radio_default_px=self.R)
+                    radio_px = radio_img_px * self._viz.zoom
                     if _dibujar_simbolo_conector(cr, handle, wx, wy, radio_px):
                         if es_sel:
                             cr.set_source_rgba(1, 0.9, 0, 0.85)
