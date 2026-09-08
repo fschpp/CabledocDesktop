@@ -2024,86 +2024,124 @@ class Modelo:
     # UI (alta_equipo, modificacion_equipo, alta_catalogo, etc.) para no
     # arriesgar los muchos call sites existentes — ver PROGRESS.md de la
     # entrega para el detalle de esta decisión.
+    #
+    # CORRECCIÓN post-merge (2026-09-07, sobre el PR #21 ya mergeado a
+    # main): catalogo_simbolo_conector se ató originalmente a
+    # id_tipo_conector (rol IN/OUT del jack). El símbolo vectorial
+    # (forma real: XLR, BNC, etc.) corresponde a `tipo_ficha` — el mismo
+    # catálogo que ya usa `conector.id_tipo_ficha` para "qué es
+    # eléctricamente" un jack (ver PROGRESS.md, corrección de diseño
+    # 2026-08-19). Se corrige acá antes de que existan símbolos reales
+    # cargados en producción. Alcance de esta corrección: real
+    # (equipo/conector, que ya tiene id_tipo_ficha) queda resuelto por
+    # completo. equipo_catalogo/conector_catalogo (moldes) NO tiene
+    # columna id_tipo_ficha todavía — agregarla implica tocar
+    # agregar_conector/instanciar_desde_catalogo/crear_catalogo_desde_equipo
+    # y el diálogo de conector de molde, fuera de alcance de esta
+    # corrección puntual (mismo criterio de riesgo/alcance que ya usó la
+    # entrega original para no tocar alta_equipo/modificacion_equipo).
+    # Por ahora el símbolo con forma real simplemente no se activa para
+    # moldes (cae al marcador genérico, fallback ya existente) — ver
+    # PROGRESS.md, queda como pendiente explícito.
 
     @staticmethod
     def asegurar_tablas_catalogo_simbolos():
         """Crea catalogo_simbolo_conector si no existe. Un símbolo (forma
-        real: XLR, BNC, etc.) por tipo_conector, reutilizable entre todos
-        los equipos — no depende de ninguna imagen puntual."""
+        real: XLR, BNC, etc.) por tipo_ficha — la ficha (`tipo_ficha`) es
+        el catálogo que representa qué es un conector eléctricamente
+        (XLR3, BNC, RCA...); `tipo_conector` es sólo el rol/dirección del
+        jack en el equipo (IN/OUT) y nunca tuvo formato eléctrico (ver
+        PROGRESS.md, corrección de diseño 2026-08-19, que agregó
+        conector.id_tipo_ficha por este mismo motivo). El símbolo es
+        reutilizable entre todos los equipos y no depende de ninguna
+        imagen puntual.
+
+        CORRECCIÓN 2026-09-07 (post-merge del PR #21, sin datos reales
+        cargados todavía): la Fase 0 original ató el símbolo a
+        id_tipo_conector por error. Si la tabla ya existe con ese
+        esquema viejo se reconstruye vacía acá mismo — no hay forma
+        sensata de mapear IN/OUT a una ficha física, así que no se
+        intenta migrar filas; los símbolos ya cargados (fixtures/pruebas)
+        se vuelven a cargar a mano con el catálogo correcto."""
+        columnas = {
+            r[1] for r in Modelo._query(
+                "PRAGMA table_info(catalogo_simbolo_conector)")
+        }
+        if columnas and "id_tipo_ficha" not in columnas:
+            Modelo._exec("DROP TABLE catalogo_simbolo_conector")
         Modelo._exec(
             "CREATE TABLE IF NOT EXISTS catalogo_simbolo_conector ("
             "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "  id_tipo_conector INTEGER NOT NULL UNIQUE,"
+            "  id_tipo_ficha INTEGER NOT NULL UNIQUE,"
             "  svg_fragmento TEXT NOT NULL,"
             "  viewbox TEXT NOT NULL DEFAULT '0 0 24 24',"
             "  tamano_relativo REAL NOT NULL DEFAULT 1.0,"
             "  color_sugerido TEXT,"
             "  fecha_ultima_edicion TEXT,"
-            "  FOREIGN KEY(id_tipo_conector) REFERENCES tipo_conector(id_tipo_conector) "
+            "  FOREIGN KEY(id_tipo_ficha) REFERENCES tipo_ficha(id_tipo_ficha) "
             "    ON DELETE CASCADE"
             ")"
         )
 
     @staticmethod
     def devolver_simbolos_conector():
-        """Listado para la pantalla de administración: (id, nombre del
-        tipo de conector, tamaño relativo, largo del fragmento SVG en
-        caracteres — para detectar de un vistazo un símbolo vacío/roto)."""
+        """Listado para la pantalla de administración: (id, nombre de la
+        ficha, tamaño relativo, largo del fragmento SVG en caracteres —
+        para detectar de un vistazo un símbolo vacío/roto)."""
         Modelo.asegurar_tablas_catalogo_simbolos()
         return Modelo._query(
-            "SELECT cs.id, COALESCE(tc.nombre,'?'), cs.tamano_relativo, "
+            "SELECT cs.id, COALESCE(tf.nombre,'?'), cs.tamano_relativo, "
             "       LENGTH(cs.svg_fragmento) "
             "FROM catalogo_simbolo_conector cs "
-            "LEFT JOIN tipo_conector tc ON tc.id_tipo_conector = cs.id_tipo_conector "
-            "ORDER BY tc.nombre"
+            "LEFT JOIN tipo_ficha tf ON tf.id_tipo_ficha = cs.id_tipo_ficha "
+            "ORDER BY tf.nombre"
         )
 
     @staticmethod
     def devolver_simbolo_conector(id_):
         Modelo.asegurar_tablas_catalogo_simbolos()
         return Modelo._query(
-            "SELECT id, id_tipo_conector, svg_fragmento, viewbox, "
+            "SELECT id, id_tipo_ficha, svg_fragmento, viewbox, "
             "       tamano_relativo, color_sugerido "
             "FROM catalogo_simbolo_conector WHERE id=?", (id_,))
 
     @staticmethod
-    def devolver_simbolo_de_tipo_conector(id_tipo_conector):
-        """Como devolver_simbolo_conector pero buscando por
-        id_tipo_conector en vez de por id propio — conveniencia para el
-        editor de dimensiones, que ya tiene el tipo a mano y no el id del
-        símbolo."""
+    def devolver_simbolo_de_tipo_ficha(id_tipo_ficha):
+        """Como devolver_simbolo_conector pero buscando por id_tipo_ficha
+        en vez de por id propio — conveniencia para el editor de
+        dimensiones, que ya tiene la ficha a mano y no el id del símbolo."""
         Modelo.asegurar_tablas_catalogo_simbolos()
         filas = Modelo._query(
-            "SELECT id, id_tipo_conector, svg_fragmento, viewbox, "
+            "SELECT id, id_tipo_ficha, svg_fragmento, viewbox, "
             "       tamano_relativo, color_sugerido "
-            "FROM catalogo_simbolo_conector WHERE id_tipo_conector=?",
-            (id_tipo_conector,))
+            "FROM catalogo_simbolo_conector WHERE id_tipo_ficha=?",
+            (id_tipo_ficha,))
         return filas[0] if filas else None
 
     @staticmethod
-    def alta_simbolo_conector(id_tipo_conector, svg_fragmento, viewbox="0 0 24 24",
+    def alta_simbolo_conector(id_tipo_ficha, svg_fragmento, viewbox="0 0 24 24",
                               tamano_relativo=1.0, color_sugerido=None):
         Modelo.asegurar_tablas_catalogo_simbolos()
         Modelo._exec(
             "INSERT INTO catalogo_simbolo_conector "
-            "(id_tipo_conector, svg_fragmento, viewbox, tamano_relativo, "
+            "(id_tipo_ficha, svg_fragmento, viewbox, tamano_relativo, "
             " color_sugerido, fecha_ultima_edicion) "
             "VALUES (?,?,?,?,?, STRFTIME('%Y-%m-%dT%H:%M:%S','now','localtime'))",
-            (_n(id_tipo_conector), svg_fragmento, viewbox or "0 0 24 24",
+            (_n(id_tipo_ficha), svg_fragmento, viewbox or "0 0 24 24",
              float(tamano_relativo or 1.0), _n(color_sugerido)),
         )
 
     @staticmethod
-    def modificacion_simbolo_conector(id_, id_tipo_conector, svg_fragmento,
+    def modificacion_simbolo_conector(id_, id_tipo_ficha, svg_fragmento,
                                       viewbox="0 0 24 24", tamano_relativo=1.0,
                                       color_sugerido=None):
         Modelo.asegurar_tablas_catalogo_simbolos()
         Modelo._exec(
-            "UPDATE catalogo_simbolo_conector SET id_tipo_conector=?, "
+            "UPDATE catalogo_simbolo_conector SET id_tipo_ficha=?, "
             "svg_fragmento=?, viewbox=?, tamano_relativo=?, color_sugerido=?, "
             "fecha_ultima_edicion=STRFTIME('%Y-%m-%dT%H:%M:%S','now','localtime') "
             "WHERE id=?",
-            (_n(id_tipo_conector), svg_fragmento, viewbox or "0 0 24 24",
+            (_n(id_tipo_ficha), svg_fragmento, viewbox or "0 0 24 24",
              float(tamano_relativo or 1.0), _n(color_sugerido), id_),
         )
 
@@ -2113,20 +2151,20 @@ class Modelo:
         Modelo._exec("DELETE FROM catalogo_simbolo_conector WHERE id=?", (id_,))
 
     @staticmethod
-    def obtener_simbolos_conector(ids_tipo_conector):
-        """Devuelve {id_tipo_conector: (svg_fragmento, viewbox,
-        tamano_relativo, color_sugerido)} para los tipos pedidos — una
+    def obtener_simbolos_conector(ids_tipo_ficha):
+        """Devuelve {id_tipo_ficha: (svg_fragmento, viewbox,
+        tamano_relativo, color_sugerido)} para las fichas pedidas — una
         sola consulta, pensada para llamarse una vez por carga de pantalla
         (no por cada redibujo) desde el overlay de conectores (Fase 1)."""
         Modelo.asegurar_tablas_catalogo_simbolos()
-        ids = [i for i in set(ids_tipo_conector or []) if i]
+        ids = [i for i in set(ids_tipo_ficha or []) if i]
         if not ids:
             return {}
         marcadores = ",".join("?" * len(ids))
         filas = Modelo._query(
-            "SELECT id_tipo_conector, svg_fragmento, viewbox, "
+            "SELECT id_tipo_ficha, svg_fragmento, viewbox, "
             "       tamano_relativo, color_sugerido "
-            f"FROM catalogo_simbolo_conector WHERE id_tipo_conector IN ({marcadores})",
+            f"FROM catalogo_simbolo_conector WHERE id_tipo_ficha IN ({marcadores})",
             tuple(ids),
         )
         return {f[0]: (f[1], f[2], f[3], f[4]) for f in filas}
