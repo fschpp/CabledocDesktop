@@ -73,6 +73,8 @@ from pantallas_comunes import (
     _lbl_entry,
     _entry,
     _entry_btn,
+    _fmt_mm,
+    _parse_mm,
     _searchable_combo,
     _get_combo_id,
     _set_combo_id,
@@ -327,6 +329,43 @@ class _DialogoCatalogoEquipo(Gtk.Dialog):
         frame_picon = Gtk.Frame()
         frame_picon.add(self.img_picon)
         g.attach(frame_picon, 1, 7, 1, 1)
+
+        # ── Dimensiones físicas (§2.2/§3 de
+        # plan_paneles_vectoriales_v3.md) — se heredan por COALESCE en
+        # cada equipo instanciado desde este molde si el equipo no tiene
+        # su propio valor cargado. Usadas para calibrar la escala de los
+        # símbolos de conector reales sobre imágenes SVG. ──
+        sep_dim = Gtk.Separator()
+        g.attach(sep_dim, 0, 8, 4, 1)
+        lbl_dim_titulo = Gtk.Label()
+        lbl_dim_titulo.set_markup(
+            "<b>📏 " + _("Dimensiones físicas") + "</b>  <small>" +
+            _("(escala de símbolos de conector sobre imagen SVG)") +
+            "</small>")
+        lbl_dim_titulo.set_xalign(0)
+        g.attach(lbl_dim_titulo, 0, 9, 4, 1)
+
+        lbl_ancho = Gtk.Label(label=_("Ancho (mm):"), xalign=1)
+        g.attach(lbl_ancho, 0, 10, 1, 1)
+        self.e_ancho_mm = Gtk.Entry(hexpand=True)
+        g.attach(self.e_ancho_mm, 1, 10, 1, 1)
+        lbl_alto = Gtk.Label(label=_("Alto (mm):"), xalign=1)
+        g.attach(lbl_alto, 2, 10, 1, 1)
+        self.e_alto_mm = Gtk.Entry(hexpand=True)
+        g.attach(self.e_alto_mm, 3, 10, 1, 1)
+
+        lbl_prof = Gtk.Label(label=_("Profundidad (mm):"), xalign=1)
+        g.attach(lbl_prof, 0, 11, 1, 1)
+        self.e_profundidad_mm = Gtk.Entry(hexpand=True)
+        g.attach(self.e_profundidad_mm, 1, 11, 1, 1)
+        btn_ancho_19 = Gtk.Button(label=_("Usar ancho estándar 19″"))
+        btn_ancho_19.set_tooltip_text(
+            _("Precarga {mm:.1f} mm (19 pulgadas, ancho estándar EIA-310 "
+              "de rack) en el campo Ancho.").format(
+                  mm=Modelo.ANCHO_RACK_19_MM))
+        btn_ancho_19.connect("clicked", self._usar_ancho_19)
+        g.attach(btn_ancho_19, 2, 11, 2, 1)
+
         ca.pack_start(g, False, False, 0)
 
         hbox_buttons = Gtk.Box(spacing=6)
@@ -366,9 +405,20 @@ class _DialogoCatalogoEquipo(Gtk.Dialog):
                 self.e_manual.set_text(s(r[9]))
                 if len(r) > 11 and r[11]:
                     self.e_picon.set_text(s(r[11]))
+                ancho_mm, alto_mm, profundidad_mm = \
+                    Modelo.obtener_dimensiones(
+                        "equipo_catalogo", id_equipo_catalogo)
+                self.e_ancho_mm.set_text(_fmt_mm(ancho_mm))
+                self.e_alto_mm.set_text(_fmt_mm(alto_mm))
+                self.e_profundidad_mm.set_text(_fmt_mm(profundidad_mm))
 
         self._actualizar_picon_preview()
         self.show_all()
+
+    def _usar_ancho_19(self, btn):
+        """Atajo de §2.2 de plan_paneles_vectoriales_v3.md: precarga el
+        ancho estándar de rack de 19″ (EIA-310) en el campo Ancho."""
+        self.e_ancho_mm.set_text(_fmt_mm(Modelo.ANCHO_RACK_19_MM))
 
     def _sel_tipo_dropdown(self, btn):
         from cabledoc import TiposEquipoListado
@@ -496,6 +546,9 @@ class _DialogoCatalogoEquipo(Gtk.Dialog):
             modelo = self.e_modelo.get_text().strip()
             manual = self.e_manual.get_text().strip() or None
             picon = self.e_picon.get_text().strip() or None
+            ancho_mm = _parse_mm(self.e_ancho_mm.get_text())
+            alto_mm = _parse_mm(self.e_alto_mm.get_text())
+            profundidad_mm = _parse_mm(self.e_profundidad_mm.get_text())
             if self.id_equipo_catalogo:
                 Modelo.modificacion_catalogo(
                     self.id_equipo_catalogo, nombre, id_tipo or None,
@@ -506,6 +559,9 @@ class _DialogoCatalogoEquipo(Gtk.Dialog):
                     nombre, id_tipo or None, id_marca or None, modelo,
                     self.id_imagen or None, manual, picon=picon)
                 self.id_equipo_catalogo = nuevo_id
+            Modelo.actualizar_dimensiones(
+                "equipo_catalogo", self.id_equipo_catalogo,
+                ancho_mm, alto_mm, profundidad_mm)
         self.destroy()
 
 
