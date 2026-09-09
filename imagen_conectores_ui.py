@@ -564,7 +564,7 @@ class ImagenConectoresYCables(Gtk.Dialog):
         cons = Modelo._query(
             "SELECT c.id_conector, c.nombre, "
             "       c.coordenada_x_en_imagen, c.coordenada_y_en_imagen, "
-            "       i.path_archivo, c.id_tipo_conector, i.id_imagen "
+            "       i.path_archivo, c.id_tipo_ficha, i.id_imagen "
             "FROM conector c "
             "LEFT JOIN imagen i ON i.id_imagen = c.id_imagen "
             "WHERE c.id_equipo = ? ORDER BY c.nombre",
@@ -610,7 +610,7 @@ class ImagenConectoresYCables(Gtk.Dialog):
             x_str     = s(r[2]).strip() if r[2] is not None else ""
             y_str     = s(r[3]).strip() if r[3] is not None else ""
             path      = s(r[4]).strip() if r[4] else ""
-            id_tipo_conector    = r[5] if len(r) > 5 else None
+            id_tipo_ficha       = r[5] if len(r) > 5 else None
             id_imagen_conector  = r[6] if len(r) > 6 else None
 
             if path and path_img is None:
@@ -641,7 +641,7 @@ class ImagenConectoresYCables(Gtk.Dialog):
                         "cable": cable_str, "con_local": con_local,
                         "eq_b": eq_b, "tipo_b": tipo_b,
                         "con_b": con_b, "id_eq_b": id_eq_b,
-                        "id_tipo_conector": id_tipo_conector,
+                        "id_tipo_ficha": id_tipo_ficha,
                     })
                     self._store.append([
                         str(num), hex_c, con_local, cable_str,
@@ -694,8 +694,8 @@ class ImagenConectoresYCables(Gtk.Dialog):
                 "equipo", self.id_equipo, self._id_imagen_actual, ancho_px)
         except Exception:
             self._mm_por_pixel = None
-        tipos = {m["id_tipo_conector"] for m in self._marcadores
-                 if m.get("id_tipo_conector")}
+        tipos = {m["id_tipo_ficha"] for m in self._marcadores
+                 if m.get("id_tipo_ficha")}
         if not tipos:
             return
         try:
@@ -725,7 +725,7 @@ class ImagenConectoresYCables(Gtk.Dialog):
             # marcador genérico. Si falla por lo que sea, se cae al
             # marcador genérico de siempre (fallback nunca-rompe, §4).
             if self._simbolos_activos:
-                info = self._handles_por_tipo.get(m.get("id_tipo_conector"))
+                info = self._handles_por_tipo.get(m.get("id_tipo_ficha"))
                 if info is not None:
                     handle, tamano_rel = info
                     radio_img_px = Modelo.calcular_radio_simbolo_px(

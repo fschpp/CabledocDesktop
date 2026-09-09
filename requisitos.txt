@@ -1,0 +1,11 @@
+# CableDoc GTK3 - Dependencias Python
+# Instalar con: pip install -r requisitos.txt
+#
+# NOTA: PyGObject (gi) se instala preferentemente desde el gestor de paquetes
+# del sistema operativo, no desde pip:
+#   Ubuntu/Debian: sudo apt install python3-gi gir1.2-gtk-3.0
+#   Fedora:        sudo dnf install python3-gobject
+#   Arch:          sudo pacman -S python-gobject
+#
+# Solo instalar desde pip si no está disponible vía apt/dnf/pacman:
+PyGObject>=3.42.0

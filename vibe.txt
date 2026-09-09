@@ -1,0 +1,2 @@
+To continue this session, run: vibe --continue
+Or: vibe --resume b616232a

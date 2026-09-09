@@ -122,13 +122,13 @@ CREATE TABLE IF NOT EXISTS "imagen" (
 );
 CREATE TABLE IF NOT EXISTS catalogo_simbolo_conector (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  id_tipo_conector INTEGER NOT NULL UNIQUE,
+  id_tipo_ficha INTEGER NOT NULL UNIQUE,
   svg_fragmento TEXT NOT NULL,
   viewbox TEXT NOT NULL DEFAULT '0 0 24 24',
   tamano_relativo REAL NOT NULL DEFAULT 1.0,
   color_sugerido TEXT,
   fecha_ultima_edicion TEXT,
-  FOREIGN KEY(id_tipo_conector) REFERENCES tipo_conector(id_tipo_conector) ON DELETE CASCADE
+  FOREIGN KEY(id_tipo_ficha) REFERENCES tipo_ficha(id_tipo_ficha) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS "marca" (
 	"id_marca"	INTEGER,
