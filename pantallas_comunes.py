@@ -877,6 +877,32 @@ def _entry(grid, fila):
     return e
 
 
+def _fmt_mm(v):
+    """Formatea un valor en mm (float/None) para mostrarlo en un Gtk.Entry:
+    sin decimales de sobra (300.0 → "300"), con hasta 1 decimal si hace
+    falta (482.6 → "482.6"). Usado por los campos ancho_mm/alto_mm/
+    profundidad_mm de plan_paneles_vectoriales_v3.md §2.2."""
+    if v is None or v == "":
+        return ""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return ""
+    return f"{v:.1f}".rstrip("0").rstrip(".") if v != int(v) else str(int(v))
+
+
+def _parse_mm(texto):
+    """Inverso de _fmt_mm: texto de Gtk.Entry → float o None si está
+    vacío/no es numérico (nunca levanta excepción)."""
+    texto = (texto or "").strip().replace(",", ".")
+    if not texto:
+        return None
+    try:
+        return float(texto)
+    except ValueError:
+        return None
+
+
 def _entry_btn(grid, fila, btn_label, callback, readonly=False):
     e = Gtk.Entry(hexpand=True)
     if readonly:

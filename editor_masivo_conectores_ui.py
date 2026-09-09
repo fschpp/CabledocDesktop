@@ -209,6 +209,62 @@ class _DialogoColocacionLote(Gtk.Dialog):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  _DialogoMedicion — herramienta "Medir en la imagen" (§3.4 de
+#  plan_paneles_vectoriales_v3.md)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class _DialogoMedicion(Gtk.Dialog):
+    """Se abre después de que el usuario marcó dos puntos de referencia
+    sobre la imagen (dos clics en modo "Medir en la imagen"). Pide cuánto
+    mide esa distancia en la realidad, en mm, y con eso el llamador
+    calcula `imagen.mm_por_pixel = mm_reales / distancia_px` (fuente 1
+    de la cascada de calibración, §3.3 — gana siempre sobre ancho_mm del
+    equipo y sobre el fallback genérico)."""
+
+    def __init__(self, distancia_px, parent=None):
+        super().__init__(title=_("Medir en la imagen"), transient_for=parent,
+                         modal=True, destroy_with_parent=True)
+        self.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
+                         _("Aceptar"), Gtk.ResponseType.OK)
+        self.set_default_size(360, -1)
+        self.valor_mm = None
+
+        box = self.get_content_area()
+        box.set_spacing(8)
+        box.set_border_width(12)
+
+        lbl_info = Gtk.Label(xalign=0)
+        lbl_info.set_line_wrap(True)
+        lbl_info.set_markup(
+            _("Distancia marcada: <b>{px:.1f} px</b> (píxeles nativos de "
+              "la imagen, no de pantalla).\n"
+              "¿Cuánto mide esa distancia en la realidad, en mm?")
+            .format(px=distancia_px))
+        box.pack_start(lbl_info, False, False, 0)
+
+        hbox = Gtk.Box(spacing=6)
+        hbox.pack_start(Gtk.Label(label=_("Milímetros:")), False, False, 0)
+        self.e_mm = Gtk.SpinButton()
+        self.e_mm.set_adjustment(Gtk.Adjustment(
+            value=0, lower=0, upper=1000000, step_increment=1,
+            page_increment=10))
+        self.e_mm.set_digits(1)
+        self.e_mm.set_numeric(True)
+        self.e_mm.set_activates_default(True)
+        hbox.pack_start(self.e_mm, True, True, 0)
+        box.pack_start(hbox, False, False, 0)
+
+        self.set_default_response(Gtk.ResponseType.OK)
+        self.connect("response", self._on_response)
+        self.show_all()
+
+    def _on_response(self, dlg, resp):
+        if resp == Gtk.ResponseType.OK:
+            v = self.e_mm.get_value()
+            self.valor_mm = v if v > 0 else None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  EditorMasivoConectoresBase — lógica común
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -278,6 +334,10 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
         self._simbolos_activos = False
         self._handles_por_tipo = {}
         self._mm_por_pixel     = None
+        # Herramienta "Medir en la imagen" (§3.4 del plan) — ver
+        # _toggle_medir / _on_clic_medir.
+        self._modo_medir = False
+        self._medir_p1   = None
 
         self._build_ui()
         self._cargar()
@@ -389,6 +449,23 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
         btn_lote = Gtk.Button(label=_("▦ Colocar fila / grilla…"))
         btn_lote.connect("clicked", self._abrir_colocacion_lote)
         right.pack_start(btn_lote, False, False, 4)
+
+        self._btn_medir = Gtk.ToggleButton(label=_("📏 Medir en la imagen…"))
+        self._btn_medir.set_tooltip_text(_(
+            "Clic en dos puntos de referencia sobre la imagen (ej. el "
+            "ancho total del equipo, la distancia entre dos tornillos) y "
+            "cargá cuánto miden en mm reales. Calibra esta imagen para "
+            "que los símbolos de conector salgan a su tamaño físico real "
+            "en vez del tamaño genérico — ver plan_paneles_vectoriales_"
+            "v3.md §3.4. Clic derecho cancela la medición en curso."))
+        self._btn_medir.connect("toggled", self._toggle_medir)
+        right.pack_start(self._btn_medir, False, False, 0)
+
+        self._lbl_medir_estado = Gtk.Label(xalign=0)
+        self._lbl_medir_estado.get_style_context().add_class("dim-label")
+        self._lbl_medir_estado.set_line_wrap(True)
+        self._lbl_medir_estado.set_no_show_all(True)
+        right.pack_start(self._lbl_medir_estado, False, False, 0)
 
         hpaned.pack2(right, resize=False, shrink=False)
 
@@ -530,12 +607,94 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
 
     # ── Interacción imagen ────────────────────────────────────────────────────
 
+    def _id_imagen_actual(self):
+        """id_imagen de la imagen actualmente cargada en el visor, sea
+        cual sea la vía por la que se determina (compartido entre la
+        colocación normal de conectores y la herramienta de medición)."""
+        img_nombre = self._e_imagen.get_text().strip()
+        if img_nombre:
+            rows = Modelo._query(
+                "SELECT id_imagen FROM imagen WHERE path_archivo=?",
+                (img_nombre,))
+            if rows:
+                return str(rows[0][0])
+        return getattr(self, "_img_id_actual", "") or None
+
+    def _toggle_medir(self, btn):
+        """Activa/desactiva el modo "Medir en la imagen" (§3.4 del plan).
+        Mientras está activo, los clics en la imagen no colocan
+        conectores — se usan para marcar los dos extremos del segmento a
+        medir."""
+        self._modo_medir = btn.get_active()
+        self._medir_p1 = None
+        if self._modo_medir:
+            self._tv.get_selection().unselect_all()
+            self._lbl_medir_estado.set_text(
+                _("Clic en el primer punto de referencia…"))
+            self._lbl_medir_estado.show()
+        else:
+            self._lbl_medir_estado.hide()
+        self._viz.da.queue_draw()
+
+    def _on_clic_medir(self, ix, iy, button):
+        if button == 3:   # clic derecho → cancelar medición en curso
+            self._medir_p1 = None
+            self._lbl_medir_estado.set_text(
+                _("Clic en el primer punto de referencia…"))
+            self._viz.da.queue_draw()
+            return
+
+        if self._medir_p1 is None:
+            self._medir_p1 = (ix, iy)
+            self._lbl_medir_estado.set_text(
+                _("Clic en el segundo punto de referencia…"))
+            self._viz.da.queue_draw()
+            return
+
+        x1, y1 = self._medir_p1
+        self._medir_p1 = None
+        distancia_px = math.hypot(ix - x1, iy - y1)
+        self._viz.da.queue_draw()
+        if distancia_px < 1:
+            self._lbl_medir_estado.set_text(
+                _("Clic en el primer punto de referencia…"))
+            return
+
+        dlg = _DialogoMedicion(distancia_px, parent=self)
+        resp = dlg.run()
+        mm_reales = dlg.valor_mm if resp == Gtk.ResponseType.OK else None
+        dlg.destroy()
+
+        self._btn_medir.set_active(False)   # dispara _toggle_medir → apaga modo
+
+        if not mm_reales:
+            return
+
+        id_img = self._id_imagen_actual()
+        if not id_img:
+            msg = Gtk.MessageDialog(
+                transient_for=self, modal=True,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.OK,
+                text=_("No se pudo determinar la imagen actual — "
+                       "elegí una imagen guardada antes de calibrar."))
+            msg.run(); msg.destroy()
+            return
+
+        Modelo.actualizar_mm_por_pixel_imagen(id_img, mm_reales / distancia_px)
+        self._preparar_simbolos_conector(self._viz.pixbuf, id_img)
+        self._viz.da.queue_draw()
+
     def _on_clic_imagen(self, da, ev):
         if self._viz.pixbuf is None:
             return
         ix, iy = self._viz.w2i(ev.x, ev.y)
         if not (0 <= ix < self._viz.pixbuf.get_width() and
                 0 <= iy < self._viz.pixbuf.get_height()):
+            return
+
+        if self._modo_medir:
+            self._on_clic_medir(ix, iy, ev.button)
             return
 
         # Fase 2 de plan_paneles_vectoriales_v3.md: recordar el último
@@ -551,11 +710,7 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
             return
 
         # Obtener id_imagen de la imagen actual
-        img_nombre = self._e_imagen.get_text().strip()
-        rows = Modelo._query(
-            "SELECT id_imagen FROM imagen WHERE path_archivo=?", (img_nombre,))
-        id_img = str(rows[0][0]) if rows else \
-                 getattr(self, "_img_id_actual", "")
+        id_img = self._id_imagen_actual()
 
         p = self._pendientes[self._sel_id]
         p["x"] = str(int(round(ix)))
@@ -756,6 +911,18 @@ class EditorMasivoConectoresBase(Gtk.Dialog):
                 cr.move_to(cx - 12, cy); cr.line_to(cx + 12, cy)
                 cr.move_to(cx, cy - 12); cr.line_to(cx, cy + 12)
                 cr.stroke()
+
+        # Primer punto marcado de la herramienta "Medir en la imagen"
+        # (§3.4 del plan), a la espera del segundo clic.
+        if self._modo_medir and self._medir_p1:
+            wx, wy = self._viz.i2w(*self._medir_p1)
+            cr.set_source_rgba(1, 0.15, 0.15, 0.9)
+            cr.arc(wx, wy, 5, 0, 2 * math.pi)
+            cr.fill()
+            cr.set_source_rgb(1, 1, 1)
+            cr.set_line_width(1.5)
+            cr.arc(wx, wy, 5, 0, 2 * math.pi)
+            cr.stroke()
 
     # ── Guardar ───────────────────────────────────────────────────────────────
 

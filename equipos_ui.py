@@ -52,6 +52,8 @@ from pantallas_comunes import (
     _grid,
     _lbl_entry,
     _entry,
+    _fmt_mm,
+    _parse_mm,
     _searchable_combo,
     _get_combo_id,
     _set_combo_id,
@@ -423,19 +425,54 @@ class _DialogoEquipo(Gtk.Dialog):
         self.chk_equipo_usado = Gtk.CheckButton(label=_("Equipo usado (no nuevo)"))
         g.attach(self.chk_equipo_usado, 1, 10, 2, 1)
 
+        # ── Sección: Dimensiones físicas (§2.2/§3 de
+        # plan_paneles_vectoriales_v3.md) — se usan para calibrar la
+        # escala de los símbolos de conector reales sobre imágenes SVG
+        # (ver "Edición masiva conectores en imagen"). Todo opcional: si
+        # no se carga nada, los símbolos siguen usando el tamaño
+        # genérico de siempre. ──
+        sep_dim = Gtk.Separator()
+        g.attach(sep_dim, 0, 11, 4, 1)
+        lbl_dim_titulo = Gtk.Label()
+        lbl_dim_titulo.set_markup(
+            "<b>📏 " + _("Dimensiones físicas") + "</b>  <small>" +
+            _("(escala de símbolos de conector sobre imagen SVG)") +
+            "</small>")
+        lbl_dim_titulo.set_xalign(0)
+        g.attach(lbl_dim_titulo, 0, 12, 4, 1)
 
+        lbl_ancho = Gtk.Label(label=_("Ancho (mm):"), xalign=1)
+        g.attach(lbl_ancho, 0, 13, 1, 1)
+        self.e_ancho_mm = Gtk.Entry(hexpand=True)
+        g.attach(self.e_ancho_mm, 1, 13, 1, 1)
+        lbl_alto = Gtk.Label(label=_("Alto (mm):"), xalign=1)
+        g.attach(lbl_alto, 2, 13, 1, 1)
+        self.e_alto_mm = Gtk.Entry(hexpand=True)
+        g.attach(self.e_alto_mm, 3, 13, 1, 1)
+
+        lbl_prof = Gtk.Label(label=_("Profundidad (mm):"), xalign=1)
+        g.attach(lbl_prof, 0, 14, 1, 1)
+        self.e_profundidad_mm = Gtk.Entry(hexpand=True)
+        g.attach(self.e_profundidad_mm, 1, 14, 1, 1)
+        btn_ancho_19 = Gtk.Button(label=_("Usar ancho estándar 19″"))
+        btn_ancho_19.set_tooltip_text(
+            _("Precarga {mm:.1f} mm (19 pulgadas, ancho estándar EIA-310 "
+              "de rack) en el campo Ancho.").format(
+                  mm=Modelo.ANCHO_RACK_19_MM))
+        btn_ancho_19.connect("clicked", self._usar_ancho_19)
+        g.attach(btn_ancho_19, 2, 14, 2, 1)
 
         # ── Sección: Riesgo de falla (IRF) ──
         sep_riesgo = Gtk.Separator()
-        g.attach(sep_riesgo, 0, 11, 4, 1)
+        g.attach(sep_riesgo, 0, 15, 4, 1)
         lbl_riesgo_titulo = Gtk.Label()
         lbl_riesgo_titulo.set_markup("<b>🔺 " + _("Riesgo de falla") + "</b>")
         lbl_riesgo_titulo.set_xalign(0)
-        g.attach(lbl_riesgo_titulo, 0, 12, 4, 1)
+        g.attach(lbl_riesgo_titulo, 0, 16, 4, 1)
 
         self.lbl_riesgo_score = Gtk.Label(label="—")
         self.lbl_riesgo_score.set_xalign(0)
-        g.attach(self.lbl_riesgo_score, 0, 13, 4, 1)
+        g.attach(self.lbl_riesgo_score, 0, 17, 4, 1)
 
         self.chk_equipo_critico = Gtk.CheckButton(
             label="⭐ " + _("Equipo crítico de la cadena"))
@@ -448,13 +485,13 @@ class _DialogoEquipo(Gtk.Dialog):
               "diagrama de conexiones (seleccioná con rectángulo o "
               "Shift/Ctrl+clic y usá '⭐ Marcar críticos')."))
         self.chk_equipo_critico.connect("toggled", self._on_toggle_critico)
-        g.attach(self.chk_equipo_critico, 0, 14, 4, 1)
+        g.attach(self.chk_equipo_critico, 0, 18, 4, 1)
 
         self.lbl_riesgo_detalle = Gtk.Label(label="")
         self.lbl_riesgo_detalle.set_xalign(0)
         self.lbl_riesgo_detalle.set_line_wrap(True)
         self.lbl_riesgo_detalle.get_style_context().add_class("dim-label")
-        g.attach(self.lbl_riesgo_detalle, 0, 15, 4, 2)
+        g.attach(self.lbl_riesgo_detalle, 0, 19, 4, 2)
 
         hbox_riesgo = Gtk.Box(spacing=6)
         btn_recalc_riesgo = Gtk.Button(label="🔄 " + _("Recalcular"))
@@ -469,12 +506,12 @@ class _DialogoEquipo(Gtk.Dialog):
             "falla (no destructivo, no toca la base)."))
         btn_ver_afectados.connect("clicked", self._ver_equipos_afectados)
         hbox_riesgo.pack_start(btn_ver_afectados, False, False, 0)
-        g.attach(hbox_riesgo, 0, 17, 4, 1)
+        g.attach(hbox_riesgo, 0, 21, 4, 1)
 
         # ── Ubicación física en planos (Fase 8 de
         # plan_desarrollo_ubicacion_fisica_planos.md) ──
         sep_ubicacion = Gtk.Separator()
-        g.attach(sep_ubicacion, 0, 18, 4, 1)
+        g.attach(sep_ubicacion, 0, 22, 4, 1)
         self.chk_es_modulo_frame = Gtk.CheckButton(
             label=_("Es módulo de frame (requiere estar instalado en un "
                     "frame para tener ubicación física)"))
@@ -484,7 +521,7 @@ class _DialogoEquipo(Gtk.Dialog):
               "marcarse como equipo suelto ni ubicarse sobre un mueble: "
               "su ubicación en el plano se hereda automáticamente del "
               "rack cuando el frame que lo contiene está rackeado."))
-        g.attach(self.chk_es_modulo_frame, 0, 19, 4, 1)
+        g.attach(self.chk_es_modulo_frame, 0, 23, 4, 1)
 
         nb.append_page(g, Gtk.Label(label=_("Datos")))
 
@@ -675,6 +712,11 @@ class _DialogoEquipo(Gtk.Dialog):
                     self.chk_equipo_usado.set_active(bool(r[17]))
                 if len(r) > 18 and r[18]:
                     self.chk_es_modulo_frame.set_active(bool(r[18]))
+                ancho_mm, alto_mm, profundidad_mm = \
+                    Modelo.obtener_dimensiones("equipo", id_equipo)
+                self.e_ancho_mm.set_text(_fmt_mm(ancho_mm))
+                self.e_alto_mm.set_text(_fmt_mm(alto_mm))
+                self.e_profundidad_mm.set_text(_fmt_mm(profundidad_mm))
 
         self._actualizar_seccion_riesgo()
         self._actualizar_picon_preview()
@@ -960,6 +1002,12 @@ class _DialogoEquipo(Gtk.Dialog):
         self.e_picon.set_text("")
         self._actualizar_picon_preview()
 
+    def _usar_ancho_19(self, btn):
+        """Atajo de §2.2 de plan_paneles_vectoriales_v3.md: precarga el
+        ancho estándar de rack de 19″ (EIA-310) en el campo Ancho, para
+        no tener que buscarlo en el manual cada vez."""
+        self.e_ancho_mm.set_text(_fmt_mm(Modelo.ANCHO_RACK_19_MM))
+
     def _actualizar_picon_preview(self):
         """Actualiza la miniatura de vista previa de la foto del equipo."""
         filename = self.e_picon.get_text().strip()
@@ -1243,6 +1291,9 @@ class _DialogoEquipo(Gtk.Dialog):
             fecha_fabricacion = self.e_fecha_fabricacion.get_text().strip()
             es_equipo_usado = self.chk_equipo_usado.get_active()
             es_modulo_frame = self.chk_es_modulo_frame.get_active()
+            ancho_mm = _parse_mm(self.e_ancho_mm.get_text())
+            alto_mm = _parse_mm(self.e_alto_mm.get_text())
+            profundidad_mm = _parse_mm(self.e_profundidad_mm.get_text())
             # Obtener texto de configuraciones desde el editor
             buf = self.tv_configuraciones_edit.get_buffer()
             start, end = buf.get_bounds()
@@ -1266,6 +1317,8 @@ class _DialogoEquipo(Gtk.Dialog):
                 )
                 Modelo.actualizar_es_modulo_de_frame(
                     self.id_equipo, es_modulo_frame)
+                Modelo.actualizar_dimensiones(
+                    "equipo", self.id_equipo, ancho_mm, alto_mm, profundidad_mm)
             else:
                 nuevo_id = Modelo.alta_equipo_retorna_id(
                     id_tipo or None, id_marca or None,
@@ -1284,6 +1337,8 @@ class _DialogoEquipo(Gtk.Dialog):
                 if es_modulo_frame:
                     Modelo.actualizar_es_modulo_de_frame(
                         nuevo_id, es_modulo_frame)
+                Modelo.actualizar_dimensiones(
+                    "equipo", nuevo_id, ancho_mm, alto_mm, profundidad_mm)
         
         # Limpiar buffers de TextView para liberar memoria antes de destruir
         try:
