@@ -3839,6 +3839,8 @@ class Modelo:
             (_n(nombre), _n(id_equipo), _n(id_frame), _n(id_imagen),
              x_pct, y_pct, w_pct, h_pct),
         )
+        if id_frame:
+            Modelo.sincronizar_referencia_virtual_frame(id_frame)
 
     @staticmethod
     def agregar_slot_retorna_id(nombre, id_equipo, id_frame, id_imagen,
@@ -3855,13 +3857,26 @@ class Modelo:
                  x_pct, y_pct, w_pct, h_pct),
             )
             conn.commit()
-            return cur.lastrowid
+            id_slot = cur.lastrowid
+        if id_frame:
+            Modelo.sincronizar_referencia_virtual_frame(id_frame)
+        return id_slot
 
     @staticmethod
     def modificar_slot(id_slot, nombre, id_equipo, id_frame, id_imagen,
                        x, y, ancho, alto):
         x_pct, y_pct, w_pct, h_pct = Modelo._pct_rect_o_none(
             Modelo._path_imagen(id_imagen), _n(x), _n(y), _n(ancho), _n(alto))
+        # plan_referencia_virtual_frame.md: si cambia el equipo del slot
+        # (se asigna otro módulo o se lo vacía), el equipo SALIENTE puede
+        # haber quedado con una conexión virtual de referencia colgando
+        # (si venía de este mismo frame o de otro) — se limpia antes de
+        # aplicar el cambio, después se resincroniza el/los frame(s)
+        # afectados con el estado ya guardado.
+        filas_previas = Modelo._query(
+            "SELECT id_equipo, id_frame FROM slot WHERE id_slot=?", (id_slot,))
+        id_equipo_previo, id_frame_previo = (
+            filas_previas[0] if filas_previas else (None, None))
         Modelo._exec(
             "UPDATE slot SET nombre=?, id_equipo=?, id_frame=?, id_imagen=?, "
             "rectangulo_x_en_imagen=?, rectangulo_y_en_imagen=?, "
@@ -3870,10 +3885,215 @@ class Modelo:
             (_n(nombre), _n(id_equipo), _n(id_frame), _n(id_imagen),
              x_pct, y_pct, w_pct, h_pct, id_slot),
         )
+        # Comparación por str(): la fila leída de sqlite trae int/None,
+        # mientras que _n() siempre devuelve str/None — sin normalizar,
+        # "5" != 5 dispararía una limpieza/resync espurios en cada save.
+        id_equipo_previo_s = str(id_equipo_previo) if id_equipo_previo is not None else None
+        id_frame_previo_s = str(id_frame_previo) if id_frame_previo is not None else None
+        if id_equipo_previo_s and id_equipo_previo_s != _n(id_equipo):
+            Modelo._limpiar_referencia_virtual_de_equipo(id_equipo_previo)
+        if id_frame_previo_s and id_frame_previo_s != _n(id_frame):
+            Modelo.sincronizar_referencia_virtual_frame(id_frame_previo)
+        if id_frame:
+            Modelo.sincronizar_referencia_virtual_frame(id_frame)
 
     @staticmethod
     def eliminar_slot(id_slot):
+        # Guardamos el id_equipo antes de borrar el slot para poder dar de
+        # baja sus conexiones virtuales de referencia (plan_referencia_
+        # virtual_frame.md) — una vez borrado el slot, el equipo ya no
+        # tiene forma de saber a qué frame pertenecía.
+        filas = Modelo._query(
+            "SELECT id_equipo FROM slot WHERE id_slot=?", (id_slot,))
+        id_equipo_saliente = filas[0][0] if filas and filas[0][0] else None
         Modelo._exec("DELETE FROM slot WHERE id_slot=?", (id_slot,))
+        if id_equipo_saliente:
+            Modelo._limpiar_referencia_virtual_de_equipo(id_equipo_saliente)
+
+    # ── Referencia virtual de frame (plan_referencia_virtual_frame.md) ─────────
+    # Un módulo con REFERENCE INPUT sin cablear no significa "no necesita
+    # sync": significa "toma la del frame". Estas conexiones virtuales
+    # (cable.es_cable_conexion_interna=1, código con prefijo
+    # 'REF-VIRTUAL-') son filas reales de cable/conexion, así que
+    # graph_impact.py las recorre exactamente igual que un cable físico,
+    # sin ningún cambio estructural en el motor. Ver el plan para el
+    # diseño completo; acá sólo el alta/baja automática.
+
+    _PREFIJO_CABLE_REF_VIRTUAL = "REF-VIRTUAL-"
+
+    @staticmethod
+    def _frames_con_tipo_equipo(id_tipo_equipo):
+        """id_frame de todos los frames que tienen, en alguno de sus
+        slots, un equipo del tipo dado."""
+        filas = Modelo._query(
+            "SELECT DISTINCT s.id_frame FROM slot s "
+            "JOIN equipo e ON e.id_equipo = s.id_equipo "
+            "WHERE e.id_tipo_equipo=? AND s.id_frame IS NOT NULL",
+            (id_tipo_equipo,),
+        )
+        return [f[0] for f in filas]
+
+    @staticmethod
+    def _frame_de_equipo(id_equipo):
+        """id_frame del slot donde está posicionado un equipo, o None si
+        no está en ningún frame (equipo suelto)."""
+        if not id_equipo:
+            return None
+        filas = Modelo._query(
+            "SELECT id_frame FROM slot WHERE id_equipo=? AND id_frame IS NOT NULL",
+            (id_equipo,),
+        )
+        return filas[0][0] if filas else None
+
+    @staticmethod
+    def _limpiar_referencia_virtual_de_equipo(id_equipo):
+        """Borra cualquier conexión virtual de referencia que cuelgue de
+        los conectores de este equipo (usado cuando el equipo sale de un
+        slot/frame, ver eliminar_slot y el hook de modificar_slot)."""
+        if not id_equipo:
+            return
+        with Modelo._conn_ctx() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT DISTINCT cx.id_cable FROM conexion cx "
+                "JOIN conector c ON c.id_conector = cx.id_conector "
+                "JOIN cable cb ON cb.id_cable = cx.id_cable "
+                "WHERE c.id_equipo=? AND cx.es_conexion_interna=1 "
+                "AND cb.codigo LIKE ?",
+                (id_equipo, Modelo._PREFIJO_CABLE_REF_VIRTUAL + "%"),
+            )
+            ids_cable = [r[0] for r in cur.fetchall()]
+            for id_cable in ids_cable:
+                cur.execute("DELETE FROM conexion WHERE id_cable=?", (id_cable,))
+                cur.execute("DELETE FROM cable WHERE id_cable=?", (id_cable,))
+            conn.commit()
+
+    @staticmethod
+    def _purgar_conexiones_virtuales_huerfanas():
+        """Cables de referencia virtual que quedaron con menos de 2
+        conexiones (ej. porque el conector del otro extremo se borró en
+        cascada al eliminar un equipo/tipo_conector por fuera de los
+        puntos de enganche normales). Barrido global, barato: son pocas
+        filas y sólo corre cuando se llama a sincronizar_referencia_
+        virtual_frame."""
+        with Modelo._conn_ctx() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT cb.id_cable, ("
+                "  SELECT COUNT(*) FROM conexion cx WHERE cx.id_cable = cb.id_cable"
+                ") AS n_conexiones "
+                "FROM cable cb WHERE cb.codigo LIKE ?",
+                (Modelo._PREFIJO_CABLE_REF_VIRTUAL + "%",),
+            )
+            for id_cable, n_conexiones in cur.fetchall():
+                if n_conexiones != 2:
+                    cur.execute("DELETE FROM conexion WHERE id_cable=?", (id_cable,))
+                    cur.execute("DELETE FROM cable WHERE id_cable=?", (id_cable,))
+            conn.commit()
+
+    @staticmethod
+    def sincronizar_referencia_virtual_frame(id_frame):
+        """Recorre los módulos del frame dado y crea/borra la conexión
+        virtual REFOUT interno ↔ REF IN módulo según corresponda.
+        Idempotente — se puede llamar de más (alta/baja de slot.id_equipo,
+        alta/baja de conexion real sobre un conector es_entrada_
+        referencia=1, alta/baja de rol_senal=DISTRIBUIDOR_FRAME) sin
+        duplicar filas ni pisar cables reales.
+
+        Regla:
+          - Conector es_entrada_referencia=1 SIN conexión real → si el
+            frame tiene un equipo DISTRIBUIDOR_FRAME con conector
+            "REF OUT INTERNO", se crea (si no existe) el cable+conexión
+            virtual.
+          - Conector es_entrada_referencia=1 CON conexión real → se borra
+            la virtual si existía (el cable real gana, sin confirmación).
+          - Sin equipo DISTRIBUIDOR_FRAME en el frame (o sin su conector
+            "REF OUT INTERNO") → se borran todas las virtuales del frame.
+        """
+        if not id_frame:
+            return
+        Modelo.asegurar_columnas_control_idioma()
+        Modelo._purgar_conexiones_virtuales_huerfanas()
+        with Modelo._conn_ctx() as conn:
+            cur = conn.cursor()
+
+            # Conector "REF OUT INTERNO" del equipo DISTRIBUIDOR_FRAME del
+            # frame (si hay más de uno, se toma el primero — caso no
+            # contemplado por el plan, fuera de alcance).
+            cur.execute(
+                "SELECT c.id_conector FROM slot s "
+                "JOIN equipo e ON e.id_equipo = s.id_equipo "
+                "JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
+                "JOIN conector c ON c.id_equipo = e.id_equipo "
+                "WHERE s.id_frame=? AND te.rol_senal='DISTRIBUIDOR_FRAME' "
+                "AND UPPER(c.nombre)='REF OUT INTERNO' "
+                "LIMIT 1",
+                (id_frame,),
+            )
+            fila = cur.fetchone()
+            id_conector_refout = fila[0] if fila else None
+
+            # Conectores es_entrada_referencia=1 de los módulos del frame.
+            cur.execute(
+                "SELECT c.id_conector FROM slot s "
+                "JOIN equipo e ON e.id_equipo = s.id_equipo "
+                "JOIN conector c ON c.id_equipo = e.id_equipo "
+                "JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector "
+                "WHERE s.id_frame=? AND tc.es_entrada_referencia=1",
+                (id_frame,),
+            )
+            conectores_ref_in = [r[0] for r in cur.fetchall()]
+
+            for id_con_in in conectores_ref_in:
+                cur.execute(
+                    "SELECT 1 FROM conexion "
+                    "WHERE id_conector=? AND "
+                    "(es_conexion_interna IS NULL OR es_conexion_interna=0) LIMIT 1",
+                    (id_con_in,),
+                )
+                tiene_cable_real = cur.fetchone() is not None
+
+                cur.execute(
+                    "SELECT cx.id_cable FROM conexion cx "
+                    "JOIN cable cb ON cb.id_cable = cx.id_cable "
+                    "WHERE cx.id_conector=? AND cx.es_conexion_interna=1 "
+                    "AND cb.codigo LIKE ?",
+                    (id_con_in, Modelo._PREFIJO_CABLE_REF_VIRTUAL + "%"),
+                )
+                fila_virtual = cur.fetchone()
+                id_cable_virtual = fila_virtual[0] if fila_virtual else None
+
+                if tiene_cable_real or not id_conector_refout:
+                    if id_cable_virtual:
+                        cur.execute(
+                            "DELETE FROM conexion WHERE id_cable=?",
+                            (id_cable_virtual,))
+                        cur.execute(
+                            "DELETE FROM cable WHERE id_cable=?",
+                            (id_cable_virtual,))
+                    continue
+
+                if id_cable_virtual:
+                    continue  # ya existe, nada que hacer (idempotente)
+
+                codigo = f"{Modelo._PREFIJO_CABLE_REF_VIRTUAL}{id_frame}-{id_con_in}"
+                cur.execute(
+                    "INSERT INTO cable (codigo, es_cable_conexion_interna, estado) "
+                    "VALUES (?, 1, 'VERIFICADO')",
+                    (codigo,),
+                )
+                id_cable = cur.lastrowid
+                cur.execute(
+                    "INSERT INTO conexion (id_cable, id_conector, es_conexion_interna) "
+                    "VALUES (?,?,1)",
+                    (id_cable, id_conector_refout),
+                )
+                cur.execute(
+                    "INSERT INTO conexion (id_cable, id_conector, es_conexion_interna) "
+                    "VALUES (?,?,1)",
+                    (id_cable, id_con_in),
+                )
+            conn.commit()
 
     # ── Cables ────────────────────────────────────────────────────────────────
     @staticmethod
@@ -4324,19 +4544,54 @@ class Modelo:
             "VALUES (?,?,?)",
             (_n(id_cable), _n(id_conector), es_conexion_interna),
         )
+        if not es_conexion_interna:
+            Modelo._resync_referencia_virtual_si_aplica(id_conector)
 
     @staticmethod
     def modificacion_conexion(id_conexion, id_cable, id_conector,
                                es_conexion_interna=0):
+        filas = Modelo._query(
+            "SELECT id_conector FROM conexion WHERE id_conexion=?", (id_conexion,))
+        id_conector_previo = filas[0][0] if filas else None
         Modelo._exec(
             "UPDATE conexion SET id_cable=?, id_conector=?, "
             "es_conexion_interna=? WHERE id_conexion=?",
             (_n(id_cable), _n(id_conector), es_conexion_interna, id_conexion),
         )
+        Modelo._resync_referencia_virtual_si_aplica(id_conector_previo)
+        Modelo._resync_referencia_virtual_si_aplica(id_conector)
 
     @staticmethod
     def eliminar_conexion(id_conexion):
+        filas = Modelo._query(
+            "SELECT id_conector FROM conexion WHERE id_conexion=?", (id_conexion,))
+        id_conector_afectado = filas[0][0] if filas else None
         Modelo._exec("DELETE FROM conexion WHERE id_conexion=?", (id_conexion,))
+        Modelo._resync_referencia_virtual_si_aplica(id_conector_afectado)
+
+    @staticmethod
+    def _resync_referencia_virtual_si_aplica(id_conector):
+        """plan_referencia_virtual_frame.md: si el conector afectado por
+        un alta/baja/edición de conexion es un tipo_conector.
+        es_entrada_referencia=1 dentro de un frame, recalcula las
+        conexiones virtuales de ese frame (el cable real que se acaba de
+        cablear/quitar puede hacer aparecer o desaparecer la necesidad de
+        la virtual). No-op barato para el 99% de las conexiones, que no
+        tocan un conector de este tipo."""
+        if not id_conector:
+            return
+        Modelo.asegurar_columnas_control_idioma()
+        filas = Modelo._query(
+            "SELECT c.id_equipo FROM conector c "
+            "JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector "
+            "WHERE c.id_conector=? AND tc.es_entrada_referencia=1",
+            (id_conector,),
+        )
+        if not filas:
+            return
+        id_frame = Modelo._frame_de_equipo(filas[0][0])
+        if id_frame:
+            Modelo.sincronizar_referencia_virtual_frame(id_frame)
 
     # ── Ficha propia del cable en este punto de conexión (plan_riesgo_senal_audio.md) ──
     @staticmethod
@@ -5693,7 +5948,8 @@ class Modelo:
     # por conector (sin historial) — UNIQUE(id_conector) garantiza que un
     # conector tenga a lo sumo una fila vigente.
     ROLES_SENAL = ("FUENTE", "DISTRIBUIDOR", "ENRUTADOR", "PROCESADOR", "CONSUMIDOR",
-                   "PATCHERA", "FANTASMA", "CONVERSOR_BALANCE", "SUMADOR_CANAL")
+                   "PATCHERA", "FANTASMA", "CONVERSOR_BALANCE", "SUMADOR_CANAL",
+                   "DISTRIBUIDOR_FRAME")
     # Los 5 primeros son roles de propagación de señal propiamente dichos
     # (usados por senal_propagation.py); PATCHERA y FANTASMA se agregaron
     # en la Fase 1/4/5 de plan_desarrollo_hardcodes_idioma.md para poder
@@ -5706,6 +5962,13 @@ class Modelo:
     # cuyo rol es convertir formato de audio analógico (DI box, sumador,
     # transformador de balance) — signal_risk.py no marca falso-positivo
     # de mismatch de formato en un cable que cuelga de uno de estos.
+    # DISTRIBUIDOR_FRAME se agregó para plan_referencia_virtual_frame.md:
+    # equipos que reciben REF1/REF2 externo y lo reparten internamente a
+    # los demás slots del frame (ej. PS1 de un frame openGear). NO es un
+    # rol de propagación de senal_propagation.py (no entra en
+    # ROLES_SENAL_PROPAGACION) — sólo dispara la creación/baja de
+    # conexiones virtuales en Modelo.sincronizar_referencia_virtual_frame,
+    # que graph_impact.py recorre como un cable real cualquiera.
     ROLES_SENAL_PROPAGACION = ROLES_SENAL[:5]
     ROLES_SENAL_CONVERSION_FORMATO = ("CONVERSOR_BALANCE", "SUMADOR_CANAL")
 
@@ -5780,6 +6043,22 @@ class Modelo:
                 cur.execute(
                     "UPDATE tipo_conector SET es_referencia_generada = 1 "
                     "WHERE nombre = 'REFOUT'")
+                conn.commit()
+            if "es_entrada_referencia" not in cols_tc:
+                # plan_referencia_virtual_frame.md: simétrica a
+                # es_referencia_generada pero del lado de entrada — marca
+                # el TIPO de conector ("REFERENCE INPUT BNC", "SYNC IN",
+                # etc.) como candidato a heredar la referencia del frame
+                # cuando el conector puntual queda sin cable propio. A
+                # diferencia de direccion/es_referencia_generada, esta
+                # columna se deja SIN semilla por texto (decisión tomada
+                # con el usuario 2026-09-10): arranca en 0 para todos los
+                # tipos existentes y se marca a mano en el catálogo
+                # (TiposConectorListado / _DialogoTipoConector), evitando
+                # falsos positivos de una heurística de nombre.
+                cur.execute(
+                    "ALTER TABLE tipo_conector ADD COLUMN "
+                    "es_entrada_referencia INTEGER NOT NULL DEFAULT 0")
                 conn.commit()
 
             # ── conector.fila_patchera ──────────────────────────────────
@@ -6576,10 +6855,19 @@ class Modelo:
                 f"(debe ser uno de {Modelo.ROLES_SENAL})"
             )
         Modelo.asegurar_tablas_senal()
+        rol_anterior = Modelo.devolver_rol_senal_tipo_equipo(id_tipo_equipo)
         Modelo._exec(
             "UPDATE tipo_equipo SET rol_senal=? WHERE id_tipo_equipo=?",
             (rol_senal, id_tipo_equipo),
         )
+        # plan_referencia_virtual_frame.md: si este tipo pasa a ser (o
+        # deja de ser) DISTRIBUIDOR_FRAME, hay que recalcular las
+        # conexiones virtuales de todos los frames donde haya un equipo
+        # de este tipo — puede aparecer o desaparecer el "REF OUT
+        # INTERNO" que las alimenta.
+        if "DISTRIBUIDOR_FRAME" in (rol_anterior, rol_senal):
+            for id_frame in Modelo._frames_con_tipo_equipo(id_tipo_equipo):
+                Modelo.sincronizar_referencia_virtual_frame(id_frame)
 
     # -- direccion / es_referencia_generada por tipo_conector (Fase 7) --
     @staticmethod
@@ -6591,6 +6879,34 @@ class Modelo:
             "UPDATE tipo_conector SET direccion=? WHERE id_tipo_conector=?",
             (direccion, id_tipo_conector),
         )
+
+    @staticmethod
+    def establecer_es_entrada_referencia_tipo_conector(id_tipo_conector, valor):
+        """plan_referencia_virtual_frame.md: marca/desmarca el tipo de
+        conector como candidato a heredar referencia del frame. No
+        recalcula conexiones virtuales acá — eso lo dispara el próximo
+        alta/baja de slot.id_equipo o de conexion real sobre un conector
+        de este tipo (ver sincronizar_referencia_virtual_frame)."""
+        Modelo.asegurar_columnas_control_idioma()
+        Modelo._exec(
+            "UPDATE tipo_conector SET es_entrada_referencia=? WHERE id_tipo_conector=?",
+            (1 if valor else 0, id_tipo_conector),
+        )
+
+    @staticmethod
+    def devolver_control_idioma_tipo_conector(id_tipo_conector):
+        """(direccion, es_referencia_generada, es_entrada_referencia) de
+        un tipo_conector puntual, para precargar su diálogo de edición."""
+        Modelo.asegurar_columnas_control_idioma()
+        filas = Modelo._query(
+            "SELECT direccion, es_referencia_generada, es_entrada_referencia "
+            "FROM tipo_conector WHERE id_tipo_conector=?",
+            (id_tipo_conector,),
+        )
+        if not filas:
+            return (None, 0, 0)
+        direccion, es_ref_gen, es_ent_ref = filas[0]
+        return (direccion, int(es_ref_gen or 0), int(es_ent_ref or 0))
 
     @staticmethod
     def establecer_es_referencia_generada_tipo_conector(id_tipo_conector, valor):
