@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-.venv/bin/python cabledoc.py
+.venv/bin/python ui_gtk/cabledoc.py
