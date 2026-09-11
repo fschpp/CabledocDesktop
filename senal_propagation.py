@@ -28,7 +28,29 @@ Reglas de propagación (ver plan_entidad_senal.md, sección 2):
   - A través de un cable: la señal viaja sin cambios del conector OUT
     de un equipo al conector IN del equipo del otro extremo (el cable
     en sí no transforma nada).
-  - Dentro de un equipo, según tipo_equipo.rol_senal:
+  - Dentro de un equipo, PRIMERO se mira si tiene ruteo de matriz
+    guardado (matriz_ruteo con al menos una fila para alguno de sus
+    conectores OUT) y, si lo tiene, ese ruteo manda sin importar
+    tipo_equipo.rol_senal — mismo criterio genérico que ya usa
+    graph_impact.py._leer_bd()/construir_grafo() para el Análisis de
+    Impacto (ahí tampoco se filtra por rol_senal=='ENRUTADOR': cualquier
+    equipo con filas en matriz_ruteo se modela como ruteado). Antes de
+    este cambio este motor sí exigía rol_senal=='ENRUTADOR', así que un
+    equipo con matriz cargada pero con otro rol asignado (típicamente
+    porque nunca se le puso el rol ENRUTADOR pese a tener la matriz real
+    armada, o porque el rol se cambió después de cargar el ruteo) se
+    reflejaba en el Análisis de Impacto pero NO en este motor — quedaba
+    tratado como si no tuviera ruteo interno. Unificar el criterio trae
+    la misma salvedad que graph_impact.py ya documenta en construir_
+    grafo(): hay equipos con filas RESIDUALES en matriz_ruteo, de un
+    ruteo cargado antes de un cambio de rol posterior, que hasta ahora
+    este motor ignoraba a propósito por no ser ENRUTADOR — con el
+    criterio unificado esas filas residuales SÍ pasan a usarse acá
+    también (igual que ya les pasa en el Análisis de Impacto desde
+    siempre), por diseño: si el dato está mal y no corresponde, hay que
+    limpiarlo en matriz_ruteo, no ocultarlo detrás de un rol distinto.
+    Sólo cuando el equipo NO tiene ninguna fila de matriz se cae a la
+    regla por rol_senal:
       FUENTE       → no hereda de ningún IN (si su OUT no está
                      etiquetado a mano, ese OUT queda sin señal).
       DISTRIBUIDOR → sólo se propaga cuando el equipo tiene EXACTAMENTE
@@ -46,15 +68,23 @@ Reglas de propagación (ver plan_entidad_senal.md, sección 2):
                      reutiliza el mismo criterio ya probado en
                      pantallas_avanzadas.DiagramaConexiones.
                      _calc_conexion_interna() (botón "🔌 Conexión
-                     interna" del diagrama).
+                     interna" del diagrama). El bypass de PATCHERA tiene
+                     prioridad incluso sobre una matriz residual: sus 4
+                     puertos se identifican EXCLUSIVAMENTE por
+                     conector.id_funcion_patchera, nunca por matriz_
+                     ruteo.
       ENRUTADOR    → cada conector OUT hereda únicamente del IN que
                      matriz_ruteo tiene asignado para esa salida; si el
-                     equipo no tiene ruteo guardado, no se propaga nada
-                     a través de él (no hay forma de saber qué va a
-                     cada salida).
+                     equipo no tiene ninguna fila de ruteo guardada,
+                     queda marcado en equipos_enrutador_sin_matriz (no
+                     se propaga nada a través de él — no hay forma de
+                     saber qué va a cada salida).
       PROCESADOR   → no propaga IN→OUT (la salida es señal nueva, se
-                     exige carga manual — DSK, encoder, decoder, etc).
-      CONSUMIDOR   → no tiene salidas de señal, nada que propagar.
+                     exige carga manual — DSK, encoder, decoder, etc),
+                     salvo que tenga matriz cargada (ver arriba).
+      CONSUMIDOR   → no tiene salidas de señal, nada que propagar (si
+                     por algún motivo tuviera OUT con matriz cargada,
+                     igual se respeta el ruteo — ver arriba).
 
   Caso especial — equipos rol_senal='PATCHERA' (bypass full-normal):
       Un jack de patchera típico expone 4 conectores, cada uno con una
@@ -130,6 +160,11 @@ class ResultadoPropagacion:
     convergio:  bool = True    # False si se alcanzó el tope de iteraciones
                                  # sin estabilizar (posible ciclo de ruteo)
     equipos_enrutador_sin_matriz: set = field(default_factory=set)
+    # Sólo equipos con rol_senal=ENRUTADOR que además no tienen NINGUNA
+    # fila propia en matriz_ruteo. Un equipo de cualquier rol que sí
+    # tenga matriz cargada ya usa ese ruteo (ver criterio unificado con
+    # graph_impact.py en el docstring de cabecera) y por lo tanto nunca
+    # entra acá, tenga o no rol_senal=ENRUTADOR.
     # Equipos rol_senal=DISTRIBUIDOR con más de un conector IN — no se
     # asume ninguna correspondencia IN→OUT (ver comentario de cabecera).
     # Candidatos típicos para revisar el rol asignado (probablemente
@@ -359,6 +394,22 @@ class PropagadorSenal:
                         (puertos["FRONT_INSERCION"], puertos["BACK_SALIDA"]))
                 continue
 
+            # ── Ruteo de matriz, genérico e independiente del rol ──
+            # Unifica con graph_impact.py (ver docstring de cabecera):
+            # cualquier equipo con al menos una fila en matriz_ruteo para
+            # alguno de sus OUT se trata como ruteado, sin mirar
+            # rol_senal. Esto incluye, a propósito, equipos con filas
+            # RESIDUALES de un rol ENRUTADOR viejo — antes este motor
+            # (a diferencia de graph_impact.py) las ignoraba por no ser
+            # rol_senal=='ENRUTADOR'; ahora ambos motores coinciden.
+            tiene_ruteo_matriz = any(cout in ruteo_por_salida for cout in outs)
+            if tiene_ruteo_matriz:
+                for cout in outs:
+                    cin = ruteo_por_salida.get(cout)
+                    if cin:
+                        internal_edges.append((cin, cout))
+                continue
+
             if rol == "DISTRIBUIDOR":
                 if len(ins) == 1:
                     cin = next(iter(ins))
@@ -368,15 +419,11 @@ class PropagadorSenal:
                     equipos_distribuidor_ambiguo.add(eid)
                 # len(ins) == 0: nada que propagar, no es ambiguo, sólo vacío.
             elif rol == "ENRUTADOR":
-                tiene_ruteo = any(cout in ruteo_por_salida for cout in outs)
-                if not tiene_ruteo:
-                    equipos_enrutador_sin_matriz.add(eid)
-                    continue
-                for cout in outs:
-                    cin = ruteo_por_salida.get(cout)
-                    if cin:
-                        internal_edges.append((cin, cout))
-            # FUENTE / PROCESADOR / CONSUMIDOR: sin aristas internas.
+                # Ya se descartó arriba el caso con matriz: llegar acá
+                # significa que no tiene NINGUNA fila de ruteo guardada.
+                equipos_enrutador_sin_matriz.add(eid)
+            # FUENTE / PROCESADOR / CONSUMIDOR sin matriz: sin aristas
+            # internas.
 
         # ── Semillas: señal cargada a mano ──
         db = sqlite3.connect(self._db_path)
