@@ -71,6 +71,23 @@ from graphqlite.graph import Graph
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Réplica defensiva de Modelo._PREFIJO_CABLE_REF_VIRTUAL
+# (plan_referencia_virtual_frame.md) — no se importa Modelo acá a
+# propósito, mismo criterio que el resto de este módulo (funciona solo,
+# sin depender de que cabledoc.py/modelo.py ya hayan corrido). Sólo se
+# usa para el nombre cosmético que ve el usuario en impacto_ui.py; el
+# motor de grafo trata a estos cables exactamente igual que a uno real,
+# sin ninguna rama especial de código (ver el comentario en
+# Modelo.sincronizar_referencia_virtual_frame).
+_PREFIJO_CABLE_REF_VIRTUAL = "REF-VIRTUAL-"
+
+
+def _etiqueta_nombre_cable(codigo: str) -> str:
+    if codigo and codigo.startswith(_PREFIJO_CABLE_REF_VIRTUAL):
+        return "Referencia heredada del frame"
+    return codigo
+
+
 @dataclass
 class ResultadoImpacto:
     cable_desconectado: str          # id_cable (str)
@@ -895,7 +912,7 @@ class GraphImpactAnalyzer:
             seen.add(id_cable_str)
             cables.append({
                 "id_cable":     id_cable_str,
-                "nombre":       str(r["Cable"]),
+                "nombre":       _etiqueta_nombre_cable(str(r["Cable"])),
                 "src":          src,
                 "dst":          dst,
                 "src_conector": src_conector,

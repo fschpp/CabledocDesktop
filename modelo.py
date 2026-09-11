@@ -3745,9 +3745,20 @@ class Modelo:
 
     @staticmethod
     def agregar_tipo_conector(nombre):
-        Modelo._exec(
-            "INSERT INTO tipo_conector (nombre) VALUES (?)", (_n(nombre),)
-        )
+        """Devuelve el id_tipo_conector recién insertado. Antes no
+        devolvía nada (llamadas existentes que ignoran el valor de
+        retorno siguen funcionando igual); se necesita el id para poder
+        aplicar el checkbox de es_referencia_generada inmediatamente
+        después del alta en el mismo diálogo — ver _DialogoTipoConector
+        en catalogos_basicos_ui.py (Fase 7 de plan_desarrollo_hardcodes_
+        idioma.md)."""
+        with Modelo._conn_ctx() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO tipo_conector (nombre) VALUES (?)", (_n(nombre),)
+            )
+            conn.commit()
+            return cur.lastrowid
 
     @staticmethod
     def modificar_tipo_conector(id_tipo_conector, nombre):
@@ -3994,21 +4005,35 @@ class Modelo:
     @staticmethod
     def sincronizar_referencia_virtual_frame(id_frame):
         """Recorre los módulos del frame dado y crea/borra la conexión
-        virtual REFOUT interno ↔ REF IN módulo según corresponda.
-        Idempotente — se puede llamar de más (alta/baja de slot.id_equipo,
-        alta/baja de conexion real sobre un conector es_entrada_
-        referencia=1, alta/baja de rol_senal=DISTRIBUIDOR_FRAME) sin
-        duplicar filas ni pisar cables reales.
+        virtual conector-salida ↔ conector-entrada de referencia según
+        corresponda. Idempotente — se puede llamar de más (alta/baja de
+        slot.id_equipo, alta/baja de conexion real sobre un conector
+        es_entrada_referencia=1, alta/baja de rol_senal=DISTRIBUIDOR_
+        FRAME, toggle de es_entrada_referencia/es_salida_referencia_
+        frame en la ficha de un conector) sin duplicar filas ni pisar
+        cables reales.
 
         Regla:
           - Conector es_entrada_referencia=1 SIN conexión real → si el
-            frame tiene un equipo DISTRIBUIDOR_FRAME con conector
-            "REF OUT INTERNO", se crea (si no existe) el cable+conexión
-            virtual.
+            frame tiene un equipo DISTRIBUIDOR_FRAME con un conector
+            es_salida_referencia_frame=1, se crea (si no existe) el
+            cable+conexión virtual.
           - Conector es_entrada_referencia=1 CON conexión real → se borra
             la virtual si existía (el cable real gana, sin confirmación).
-          - Sin equipo DISTRIBUIDOR_FRAME en el frame (o sin su conector
-            "REF OUT INTERNO") → se borran todas las virtuales del frame.
+          - Conector con virtual existente que YA NO tiene
+            es_entrada_referencia=1 (se destildó el checkbox en su ficha)
+            → se borra la virtual, aunque el conector ya no aparezca en
+            el scan de "candidatos" de este ciclo.
+          - Sin equipo DISTRIBUIDOR_FRAME en el frame, o sin un conector
+            es_salida_referencia_frame=1 en él → se borran todas las
+            virtuales del frame.
+
+        Nota sobre el conector de salida: NO se identifica por nombre
+        (ver corrección 2026-09-10 en establecer_es_salida_referencia_
+        frame_conector más abajo) — es un checkbox por conector puntual,
+        igual que es_entrada_referencia. El nombre convencional "REF OUT
+        INTERNO" sigue siendo el sugerido en la UI/documentación pero ya
+        no es un requisito de matching en tiempo de ejecución.
         """
         if not id_frame:
             return
@@ -4017,29 +4042,66 @@ class Modelo:
         with Modelo._conn_ctx() as conn:
             cur = conn.cursor()
 
-            # Conector "REF OUT INTERNO" del equipo DISTRIBUIDOR_FRAME del
-            # frame (si hay más de uno, se toma el primero — caso no
-            # contemplado por el plan, fuera de alcance).
+            # Conector "salida de referencia" del equipo DISTRIBUIDOR_FRAME
+            # del frame (si hay más de uno, se toma el primero — caso no
+            # contemplado por el plan, fuera de alcance). Corrección
+            # 2026-09-10: antes matcheaba por UPPER(c.nombre)='REF OUT
+            # INTERNO' — un usuario renombrando ese conector rompía toda
+            # la distribución de referencia del frame en silencio. Ahora
+            # es un checkbox (conector.es_salida_referencia_frame), el
+            # nombre del conector puede ser cualquier cosa.
             cur.execute(
                 "SELECT c.id_conector FROM slot s "
                 "JOIN equipo e ON e.id_equipo = s.id_equipo "
                 "JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
                 "JOIN conector c ON c.id_equipo = e.id_equipo "
                 "WHERE s.id_frame=? AND te.rol_senal='DISTRIBUIDOR_FRAME' "
-                "AND UPPER(c.nombre)='REF OUT INTERNO' "
+                "AND c.es_salida_referencia_frame=1 "
                 "LIMIT 1",
                 (id_frame,),
             )
             fila = cur.fetchone()
             id_conector_refout = fila[0] if fila else None
 
+            # Limpieza de virtuales obsoletas de ESTE frame cuyo conector-
+            # entrada ya NO califica (se destildó el checkbox "Entrada de
+            # referencia" en su ficha, o el conector fue borrado). Corrección
+            # 2026-09-10: antes de que es_entrada_referencia fuera por-
+            # conector, este caso no hacía falta cubrirlo acá porque
+            # prácticamente no se destildaba nada en caliente. Ahora que es
+            # un checkbox de uso normal en cada conector, el loop de abajo
+            # (que sólo recorre los conectores que SÍ califican en este
+            # momento) no alcanza para detectar "dejó de calificar" — el id
+            # del conector-entrada va codificado en el propio código del
+            # cable ("REF-VIRTUAL-<id_frame>-<id_conector_entrada>"), así
+            # que se lee de ahí en vez de necesitar otro JOIN.
+            cur.execute(
+                "SELECT id_cable, codigo FROM cable WHERE codigo LIKE ?",
+                (f"{Modelo._PREFIJO_CABLE_REF_VIRTUAL}{id_frame}-%",),
+            )
+            for id_cable_v, codigo_v in cur.fetchall():
+                try:
+                    id_con_in_v = int(codigo_v.rsplit("-", 1)[-1])
+                except ValueError:
+                    continue
+                cur.execute(
+                    "SELECT es_entrada_referencia FROM conector WHERE id_conector=?",
+                    (id_con_in_v,),
+                )
+                fila_c = cur.fetchone()
+                if not fila_c or not fila_c[0]:
+                    cur.execute("DELETE FROM conexion WHERE id_cable=?", (id_cable_v,))
+                    cur.execute("DELETE FROM cable WHERE id_cable=?", (id_cable_v,))
+
             # Conectores es_entrada_referencia=1 de los módulos del frame.
+            # Corrección 2026-09-10: es un atributo del conector puntual
+            # (columna en `conector`), no de su tipo_conector — no hace
+            # falta el JOIN a tipo_conector para esto.
             cur.execute(
                 "SELECT c.id_conector FROM slot s "
                 "JOIN equipo e ON e.id_equipo = s.id_equipo "
                 "JOIN conector c ON c.id_equipo = e.id_equipo "
-                "JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector "
-                "WHERE s.id_frame=? AND tc.es_entrada_referencia=1",
+                "WHERE s.id_frame=? AND c.es_entrada_referencia=1",
                 (id_frame,),
             )
             conectores_ref_in = [r[0] for r in cur.fetchall()]
@@ -4572,19 +4634,32 @@ class Modelo:
     @staticmethod
     def _resync_referencia_virtual_si_aplica(id_conector):
         """plan_referencia_virtual_frame.md: si el conector afectado por
-        un alta/baja/edición de conexion es un tipo_conector.
-        es_entrada_referencia=1 dentro de un frame, recalcula las
-        conexiones virtuales de ese frame (el cable real que se acaba de
-        cablear/quitar puede hacer aparecer o desaparecer la necesidad de
-        la virtual). No-op barato para el 99% de las conexiones, que no
-        tocan un conector de este tipo."""
+        un alta/baja/edición de conexion (o por un toggle directo del
+        checkbox "Entrada de referencia" / "Salida de referencia interna
+        del frame" en su ficha) pertenece a un equipo que está en un
+        frame, recalcula las conexiones virtuales de ese frame (el cable
+        real que se acaba de cablear/quitar, o el checkbox que se acaba
+        de prender/apagar, puede hacer aparecer o desaparecer la
+        necesidad de la virtual — y en el caso de "salida", puede afectar
+        a TODOS los conectores de entrada del frame de una).
+
+        Corrección 2026-09-10: antes filtraba acá mismo por
+        tipo_conector.es_entrada_referencia=1 antes de resincronizar, como
+        optimización para no tocar sincronizar_referencia_virtual_frame
+        en el 99% de las conexiones. Ahora que es_entrada_referencia es
+        por conector puntual (no por tipo), ese filtro dejaría de
+        detectar el caso de "se acaba de DESmarcar el checkbox" (el
+        conector ya no cumple la condición en el momento de esta
+        llamada, pero igual puede haber una virtual vieja para borrar).
+        Se cambia a resincronizar siempre que el equipo esté en un frame
+        — sincronizar_referencia_virtual_frame ya es idempotente y barato
+        (un scan acotado a los slots de ESE frame), así que el costo
+        extra es marginal frente a la garantía de no dejar huérfanos."""
         if not id_conector:
             return
         Modelo.asegurar_columnas_control_idioma()
         filas = Modelo._query(
-            "SELECT c.id_equipo FROM conector c "
-            "JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector "
-            "WHERE c.id_conector=? AND tc.es_entrada_referencia=1",
+            "SELECT id_equipo FROM conector WHERE id_conector=?",
             (id_conector,),
         )
         if not filas:
@@ -6044,24 +6119,17 @@ class Modelo:
                     "UPDATE tipo_conector SET es_referencia_generada = 1 "
                     "WHERE nombre = 'REFOUT'")
                 conn.commit()
-            if "es_entrada_referencia" not in cols_tc:
-                # plan_referencia_virtual_frame.md: simétrica a
-                # es_referencia_generada pero del lado de entrada — marca
-                # el TIPO de conector ("REFERENCE INPUT BNC", "SYNC IN",
-                # etc.) como candidato a heredar la referencia del frame
-                # cuando el conector puntual queda sin cable propio. A
-                # diferencia de direccion/es_referencia_generada, esta
-                # columna se deja SIN semilla por texto (decisión tomada
-                # con el usuario 2026-09-10): arranca en 0 para todos los
-                # tipos existentes y se marca a mano en el catálogo
-                # (TiposConectorListado / _DialogoTipoConector), evitando
-                # falsos positivos de una heurística de nombre.
-                cur.execute(
-                    "ALTER TABLE tipo_conector ADD COLUMN "
-                    "es_entrada_referencia INTEGER NOT NULL DEFAULT 0")
-                conn.commit()
+            # es_entrada_referencia NO va acá — ver conector.es_entrada_
+            # referencia más abajo (junto a fila_patchera). Corrección
+            # 2026-09-10: la primera versión de plan_referencia_virtual_
+            # frame.md la había puesto en tipo_conector, simétrica a
+            # es_referencia_generada de arriba, pero eso es incorrecto:
+            # un tipo de conector compartido (ej. "BNC") no dice nada de
+            # si UN conector puntual de un equipo real necesita heredar
+            # referencia del frame — depende de la instancia, no del
+            # modelo/catálogo. Se mueve a nivel conector.
 
-            # ── conector.fila_patchera ──────────────────────────────────
+            # ── conector.fila_patchera / es_entrada_referencia ───────────
             cols_c = [c[1] for c in cur.execute(
                 "PRAGMA table_info(conector)").fetchall()]
             if "fila_patchera" not in cols_c:
@@ -6089,6 +6157,55 @@ class Modelo:
                     "  SELECT e.id_equipo FROM equipo e"
                     "  JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo"
                     "  WHERE te.rol_senal = 'PATCHERA' OR UPPER(te.nombre) = 'MODULO PATCHERA')")
+                conn.commit()
+
+            if "es_entrada_referencia" not in cols_c:
+                # plan_referencia_virtual_frame.md, corrección 2026-09-10
+                # (ver nota arriba, junto a tipo_conector.es_referencia_
+                # generada): candidato a heredar la referencia del frame
+                # es EL CONECTOR puntual de un equipo real, no su tipo.
+                # Sin semilla por texto/heurística, igual que la versión
+                # vieja por-tipo — arranca en 0 para todos los conectores
+                # existentes y se marca a mano desde la ficha "Editar
+                # Conector" de cada equipo (conectores_ui.py,
+                # _DialogoConector), evitando falsos positivos.
+                cur.execute(
+                    "ALTER TABLE conector ADD COLUMN "
+                    "es_entrada_referencia INTEGER NOT NULL DEFAULT 0")
+                conn.commit()
+
+            if "es_salida_referencia_frame" not in cols_c:
+                # Corrección 2026-09-10 (post-entrega, observación de
+                # Fede): sincronizar_referencia_virtual_frame() ubicaba
+                # el conector "fuente" (REF OUT INTERNO) del equipo
+                # DISTRIBUIDOR_FRAME comparando UPPER(c.nombre)='REF OUT
+                # INTERNO' en cada corrida — el mismo anti-patrón de
+                # nombre-hardcodeado-como-dato que motivó reemplazar
+                # nombre='REFOUT' por tipo_conector.es_referencia_
+                # generada más arriba (ver "ex REFOUT" en el comentario
+                # del bloque de arriba). Con un match por nombre en
+                # tiempo de ejecución (no sólo en la semilla), cualquier
+                # usuario que renombre ese conector (traducirlo, corregir
+                # un typo, lo que sea) rompe la distribución de
+                # referencia de TODO el frame en silencio — sin error,
+                # sin aviso, sólo deja de aparecer en el próximo Análisis
+                # de Impacto. Se reemplaza por esta columna booleana,
+                # igual que se hizo en su momento con REFOUT: el nombre
+                # del conector puede ser cualquier cosa, lo que importa
+                # es el checkbox "Salida de referencia interna del
+                # frame" en su ficha (conectores_ui.py, _DialogoConector,
+                # misma sección "Referencia" que es_entrada_referencia).
+                # Semilla única a partir del nombre actual (mismo
+                # criterio que es_referencia_generada/REFOUT arriba) para
+                # no romper instalaciones que ya tengan un conector
+                # llamado literalmente "REF OUT INTERNO" tal como
+                # esperaba la versión anterior de esta función.
+                cur.execute(
+                    "ALTER TABLE conector ADD COLUMN "
+                    "es_salida_referencia_frame INTEGER NOT NULL DEFAULT 0")
+                cur.execute(
+                    "UPDATE conector SET es_salida_referencia_frame = 1 "
+                    "WHERE UPPER(nombre) = 'REF OUT INTERNO'")
                 conn.commit()
 
             # ── tipo_equipo.rol_senal: poblar PATCHERA/FANTASMA una sola vez ──
@@ -6881,32 +6998,24 @@ class Modelo:
         )
 
     @staticmethod
-    def establecer_es_entrada_referencia_tipo_conector(id_tipo_conector, valor):
-        """plan_referencia_virtual_frame.md: marca/desmarca el tipo de
-        conector como candidato a heredar referencia del frame. No
-        recalcula conexiones virtuales acá — eso lo dispara el próximo
-        alta/baja de slot.id_equipo o de conexion real sobre un conector
-        de este tipo (ver sincronizar_referencia_virtual_frame)."""
-        Modelo.asegurar_columnas_control_idioma()
-        Modelo._exec(
-            "UPDATE tipo_conector SET es_entrada_referencia=? WHERE id_tipo_conector=?",
-            (1 if valor else 0, id_tipo_conector),
-        )
-
-    @staticmethod
     def devolver_control_idioma_tipo_conector(id_tipo_conector):
-        """(direccion, es_referencia_generada, es_entrada_referencia) de
-        un tipo_conector puntual, para precargar su diálogo de edición."""
+        """(direccion, es_referencia_generada) de un tipo_conector puntual,
+        para precargar su diálogo de edición.
+
+        es_entrada_referencia NO vive más acá — ver nota en
+        establecer_es_entrada_referencia_conector() más abajo sobre por
+        qué se movió a nivel `conector` (instancia real), no
+        `tipo_conector` (modelo/catálogo compartido)."""
         Modelo.asegurar_columnas_control_idioma()
         filas = Modelo._query(
-            "SELECT direccion, es_referencia_generada, es_entrada_referencia "
+            "SELECT direccion, es_referencia_generada "
             "FROM tipo_conector WHERE id_tipo_conector=?",
             (id_tipo_conector,),
         )
         if not filas:
-            return (None, 0, 0)
-        direccion, es_ref_gen, es_ent_ref = filas[0]
-        return (direccion, int(es_ref_gen or 0), int(es_ent_ref or 0))
+            return (None, 0)
+        direccion, es_ref_gen = filas[0]
+        return (direccion, int(es_ref_gen or 0))
 
     @staticmethod
     def establecer_es_referencia_generada_tipo_conector(id_tipo_conector, valor):
@@ -6915,6 +7024,78 @@ class Modelo:
             "UPDATE tipo_conector SET es_referencia_generada=? WHERE id_tipo_conector=?",
             (1 if valor else 0, id_tipo_conector),
         )
+
+    # -- es_entrada_referencia por conector puntual (no por tipo_conector) --
+    # plan_referencia_virtual_frame.md, corrección 2026-09-10: la primera
+    # versión de esto vivía en tipo_conector (mismo nivel que direccion/
+    # es_referencia_generada de arriba), pero un tipo_conector no
+    # garantiza nada sobre si UN conector puntual de un equipo real
+    # necesita heredar referencia del frame — el mismo tipo "BNC" puede
+    # estar en un montón de equipos que no tienen nada que ver con
+    # referencia. Se corrigió para que sea un atributo del conector
+    # puntual (ficha "Editar Conector" de un equipo real, conectores_ui.
+    # py), igual que fila_patchera / es_armado_correcto / id_tipo_ficha,
+    # que ya son todos por-conector y no por-tipo.
+    @staticmethod
+    def establecer_es_entrada_referencia_conector(id_conector, valor):
+        """Marca/desmarca ESTE conector puntual como candidato a heredar
+        referencia del frame si queda sin cable propio. Sí recalcula acá
+        mismo (a diferencia de la versión vieja por-tipo): al ser un
+        toggle directo sobre un conector ya existente, prender o apagar
+        el checkbox tiene que crear o borrar la conexión virtual al
+        toque, no esperar a la próxima alta/baja de cable."""
+        Modelo.asegurar_columnas_control_idioma()
+        Modelo._exec(
+            "UPDATE conector SET es_entrada_referencia=? WHERE id_conector=?",
+            (1 if valor else 0, id_conector),
+        )
+        Modelo._resync_referencia_virtual_si_aplica(id_conector)
+
+    @staticmethod
+    def devolver_es_entrada_referencia_conector(id_conector):
+        Modelo.asegurar_columnas_control_idioma()
+        filas = Modelo._query(
+            "SELECT es_entrada_referencia FROM conector WHERE id_conector=?",
+            (id_conector,),
+        )
+        return int(filas[0][0] or 0) if filas else 0
+
+    # -- es_salida_referencia_frame por conector puntual --
+    # Corrección 2026-09-10 (post-entrega, observación de Fede): el
+    # conector "fuente" (REF OUT INTERNO) del equipo DISTRIBUIDOR_FRAME
+    # se ubicaba comparando UPPER(nombre)='REF OUT INTERNO' en cada
+    # corrida de sincronizar_referencia_virtual_frame — el mismo
+    # anti-patrón de nombre-hardcodeado-como-dato que motivó reemplazar
+    # nombre='REFOUT' por tipo_conector.es_referencia_generada (ver "ex
+    # REFOUT" en asegurar_columnas_control_idioma). Con un match por
+    # nombre en tiempo de ejecución, renombrar ese conector (traducirlo,
+    # corregir un typo) rompía la distribución de referencia de TODO el
+    # frame de forma silenciosa. Se reemplaza por este checkbox, igual
+    # que se hizo con REFOUT en su momento.
+    @staticmethod
+    def establecer_es_salida_referencia_frame_conector(id_conector, valor):
+        """Marca/desmarca ESTE conector puntual como la salida interna de
+        referencia (REF OUT INTERNO) del equipo DISTRIBUIDOR_FRAME al que
+        pertenece. Recalcula al toque: al prender o apagar este checkbox
+        puede aparecer o desaparecer TODA la distribución de referencia
+        del frame de una, no sólo la de un conector — mismo motivo por el
+        que establecer_es_entrada_referencia_conector recalcula al
+        toque."""
+        Modelo.asegurar_columnas_control_idioma()
+        Modelo._exec(
+            "UPDATE conector SET es_salida_referencia_frame=? WHERE id_conector=?",
+            (1 if valor else 0, id_conector),
+        )
+        Modelo._resync_referencia_virtual_si_aplica(id_conector)
+
+    @staticmethod
+    def devolver_es_salida_referencia_frame_conector(id_conector):
+        Modelo.asegurar_columnas_control_idioma()
+        filas = Modelo._query(
+            "SELECT es_salida_referencia_frame FROM conector WHERE id_conector=?",
+            (id_conector,),
+        )
+        return int(filas[0][0] or 0) if filas else 0
 
     # ── Diagramas personalizados (guardados) ────────────────────────────────
     # Feature aparte: diagramas armados a mano por el usuario (equipos +

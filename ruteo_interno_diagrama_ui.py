@@ -88,9 +88,30 @@ class RuteoInternoMixin:
             resumen = (f"ruteo interno: {n_rutas} salida(s) activa(s) "
                        f"en {len(estado['grupos'])} entrada(s)")
 
+        elif Modelo.existe_configuracion_matriz(nodo["id"]):
+            # Corrección 2026-09-10: "Editar matriz" ahora se habilita para
+            # cualquier equipo con entradas y salidas, no sólo ENRUTADOR
+            # (ver _editar_ruteo_matriz_click). Si el equipo YA tiene un
+            # ruteo guardado (sin importar su rol_senal), "Conexión
+            # interna" también lo muestra. A propósito NO se auto-abre el
+            # diálogo de configuración acá como en la rama de arriba —
+            # eso sólo tiene sentido para equipos pensados de entrada como
+            # matrices; para cualquier otro equipo, abrir un diálogo de
+            # ruteo sin que el usuario lo haya pedido explícitamente
+            # (vía "✏️ Editar matriz") sería una sorpresa, no una ayuda.
+            estado = self._calc_conexion_interna_matriz(nodo)
+            if not estado["grupos"]:
+                self._status(f"«{nodo['nombre']}»: sin salidas con entrada asignada.")
+                return
+            estado["modo"] = "matriz"
+            n_rutas = sum(len(g["out_ports"]) for g in estado["grupos"])
+            resumen = (f"ruteo interno: {n_rutas} salida(s) activa(s) "
+                       f"en {len(estado['grupos'])} entrada(s)")
+
         else:
             self._status(f"«{nodo['nombre']}» no soporta conexión interna "
-                          "(solo MODULO PATCHERA, DDV o MATRIZ).")
+                          "(solo MODULO PATCHERA, DDV, MATRIZ, o cualquier "
+                          "equipo con un ruteo ya guardado vía «✏️ Editar matriz»).")
             return
 
         self._conex_interna_id     = self._sel_id
@@ -101,19 +122,29 @@ class RuteoInternoMixin:
 
     def _editar_ruteo_matriz_click(self):
         """Botón toolbar '✏️ Editar matriz': permite reconfigurar el ruteo
-        aunque ya exista una configuración guardada."""
+        aunque ya exista una configuración guardada.
+
+        Corrección 2026-09-10: antes sólo se habilitaba para equipos
+        rol_senal='ENRUTADOR' (o tipo_equipo.nombre == "MATRIZ" como
+        fallback) — una restricción puramente de UI, no de datos: tanto
+        _DialogoRuteoMatriz como Modelo.guardar_ruteo_matriz()/
+        devolver_ruteo_matriz() ya son genéricos, sólo necesitan que el
+        equipo tenga conectores IN y OUT (nodo["in"]/nodo["out"], que
+        grafo_diagrama_ui.py arma para CUALQUIER equipo del diagrama, no
+        sólo los ENRUTADOR). graph_impact.py (Análisis de Impacto) ya lee
+        matriz_ruteo de forma genérica también, sin filtrar por
+        rol_senal. Se habilita entonces para cualquier equipo que tenga
+        al menos una entrada y una salida — sin necesidad de que su tipo
+        esté marcado como ENRUTADOR."""
         if not self._sel_id or self._sel_id not in self._nodos:
-            self._status("Seleccioná una matriz para editar su ruteo.")
+            self._status("Seleccioná un equipo para editar su ruteo.")
             return
         nodo = self._nodos[self._sel_id]
-        # Fase 6 de plan_desarrollo_hardcodes_idioma.md: se admite cualquier
-        # equipo con rol_senal='ENRUTADOR' (columna dedicada), no sólo el
-        # que se llame literalmente "MATRIZ" — con fallback al nombre para
-        # tipos creados antes de la migración y todavía sin rol_senal.
-        es_enrutador = (nodo.get("rol_senal") == "ENRUTADOR") or (
-            nodo.get("rol_senal") is None and s(nodo.get("tipo")).strip().upper() == "MATRIZ")
-        if not es_enrutador:
-            self._status(f"«{nodo['nombre']}» no es una matriz.")
+        if not nodo["in"] or not nodo["out"]:
+            self._status(
+                f"«{nodo['nombre']}»: necesita al menos una entrada y una "
+                f"salida para poder armarle un ruteo (tiene "
+                f"{len(nodo['in'])} entrada(s) y {len(nodo['out'])} salida(s)).")
             return
         if self._editar_ruteo_matriz(nodo):
             if self._conex_interna_activo and self._conex_interna_id == self._sel_id:

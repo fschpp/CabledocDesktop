@@ -262,6 +262,60 @@ class _DialogoConector(Gtk.Dialog):
             if filas_arm and filas_arm[0][1]:
                 self.e_detalle_armado.set_text(s(filas_arm[0][1]))
 
+        # ── Referencia de frame (plan_referencia_virtual_frame.md) ──
+        # Corrección 2026-09-10: es un atributo de ESTE conector puntual,
+        # no de su tipo_conector (ver nota larga en Modelo.establecer_
+        # es_entrada_referencia_conector) — mismo criterio que Armado/
+        # Formato eléctrico/Función de patchera de arriba: sólo tiene
+        # sentido con el conector ya guardado, y sólo se aplica al
+        # aceptar la ficha completa (no es un toggle en vivo) — igual que
+        # el resto de las secciones de este diálogo. Modelo sí recalcula
+        # la conexión virtual del frame inmediatamente al guardar (no
+        # hace falta tocar cables para que el análisis de impacto se
+        # entere), ver run_and_destroy más abajo.
+        #
+        # Corrección 2026-09-10 (segunda ronda, observación de Fede): el
+        # conector "fuente" ya NO se identifica buscando uno llamado
+        # literalmente "REF OUT INTERNO" — eso era un match por nombre en
+        # tiempo de ejecución, el mismo anti-patrón que ya se había
+        # sacado en su momento para REFOUT/es_referencia_generada.
+        # Renombrar el conector rompía la distribución de referencia de
+        # todo el frame en silencio. Ahora es otro checkbox puntual, "Es
+        # la salida de referencia interna del frame" — el nombre del
+        # conector puede ser cualquier cosa.
+        self.chk_entrada_referencia = None
+        self.chk_salida_referencia_frame = None
+        if id_conector is not None:
+            frame_ref = Gtk.Frame(label=" " + _("Referencia") + " ")
+            g6 = _grid()
+            self.chk_entrada_referencia = Gtk.CheckButton(
+                label=_("Entrada de referencia (hereda del frame si no se cablea)"))
+            self.chk_entrada_referencia.set_tooltip_text(
+                _("plan_referencia_virtual_frame.md: si este conector queda sin cable "
+                  "propio, se le crea automáticamente una conexión virtual desde el "
+                  "conector de un equipo distribuidor del frame (rol_senal="
+                  "DISTRIBUIDOR_FRAME) marcado como \"salida de referencia interna del "
+                  "frame\", en vez de quedar invisible para el análisis de impacto. Sólo "
+                  "tiene efecto si este equipo está montado en un frame."))
+            g6.attach(self.chk_entrada_referencia, 0, 0, 3, 1)
+
+            self.chk_salida_referencia_frame = Gtk.CheckButton(
+                label=_("Es la salida de referencia interna del frame (REF OUT INTERNO)"))
+            self.chk_salida_referencia_frame.set_tooltip_text(
+                _("Marcá esto en el conector del equipo distribuidor (rol_senal="
+                  "DISTRIBUIDOR_FRAME, ej. la fuente/backplane del frame) que "
+                  "efectivamente reparte REF1/REF2 al resto de los módulos. No depende "
+                  "del nombre del conector — podés llamarlo como quieras."))
+            g6.attach(self.chk_salida_referencia_frame, 0, 1, 3, 1)
+
+            frame_ref.add(g6)
+            self.get_content_area().pack_start(frame_ref, False, False, 6)
+
+            self.chk_entrada_referencia.set_active(
+                bool(Modelo.devolver_es_entrada_referencia_conector(id_conector)))
+            self.chk_salida_referencia_frame.set_active(
+                bool(Modelo.devolver_es_salida_referencia_frame_conector(id_conector)))
+
         _pack_ultima_edicion(self, "conector", "id_conector", id_conector)
         self.show_all()
 
@@ -373,6 +427,25 @@ class _DialogoConector(Gtk.Dialog):
                 detalle_arm = self.e_detalle_armado.get_text().strip() or None
                 Modelo.establecer_armado_conector(
                     self.id_conector, es_correcto, detalle_arm)
+
+            # Referencia de frame (plan_referencia_virtual_frame.md) —
+            # los setters ya recalculan la conexión virtual del frame acá
+            # mismo, ver Modelo.establecer_es_entrada_referencia_conector
+            # / establecer_es_salida_referencia_frame_conector. Se guarda
+            # primero la salida y después la entrada porque si en la
+            # misma edición se apaga la salida y se prende una entrada
+            # nueva, el resultado final (sin distribuidor activo, la
+            # entrada se queda sin virtual) tiene que reflejar el estado
+            # ya consistente de los dos checkboxes, no un estado a medio
+            # aplicar — igual el orden no cambia el resultado porque
+            # ambos setters resincronizan contra el estado ya guardado en
+            # la base en el momento en que corren.
+            if self.id_conector is not None and self.chk_salida_referencia_frame is not None:
+                Modelo.establecer_es_salida_referencia_frame_conector(
+                    self.id_conector, self.chk_salida_referencia_frame.get_active())
+            if self.id_conector is not None and self.chk_entrada_referencia is not None:
+                Modelo.establecer_es_entrada_referencia_conector(
+                    self.id_conector, self.chk_entrada_referencia.get_active())
         self.destroy()
 
 
