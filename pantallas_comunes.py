@@ -329,6 +329,12 @@ class _ImagenZoom(Gtk.Box):
         self.zoom       = 1.0
         self.overlay_fn = None      # callable(cr) — dibuja sobre la imagen
         self._motivo_sin_imagen = None
+        # callable() opcional sin argumentos: si está seteado, el botón
+        # "Ajustar" de la barra de zoom lo invoca en vez de _zoom_fit()
+        # — usado por CoordenadasImagenSeleccion con rect_referencia
+        # para poder volver a centrar sobre esa región (p.ej. el
+        # mueble) en vez de saltar a la imagen completa.
+        self.zoom_fit_override = None
 
         # ── barra de zoom ──
         hbz = Gtk.Box(spacing=4,
@@ -341,7 +347,9 @@ class _ImagenZoom(Gtk.Box):
             ("+",       lambda _: self.set_zoom(self.zoom * 1.25)),
             ("−",       lambda _: self.set_zoom(self.zoom / 1.25)),
             ("1:1",     lambda _: self.set_zoom(1.0)),
-            (_("Ajustar"), lambda _: self._zoom_fit()),
+            (_("Ajustar"), lambda _: (self.zoom_fit_override()
+                                       if self.zoom_fit_override
+                                       else self._zoom_fit())),
         ]:
             b = Gtk.Button(label=label)
             b.connect("clicked", fn)
@@ -419,6 +427,44 @@ class _ImagenZoom(Gtk.Box):
         zw = alloc.width  / self.pixbuf.get_width()
         zh = alloc.height / self.pixbuf.get_height()
         self.set_zoom(min(zw, zh))
+
+    def zoom_fit_region(self, x1, y1, x2, y2, margen_frac=0.25, zoom_max=4.0):
+        """Como _zoom_fit, pero ajusta el zoom para que quepa una región
+        (en píxeles de imagen, no necesariamente ordenada) en vez de la
+        imagen completa, y centra el scroll sobre ella — usado para abrir
+        el selector de coordenadas ya enfocado en un mueble/rack/área en
+        particular en vez de en todo el plano. `margen_frac` agranda la
+        región un porcentaje de su propio tamaño a cada lado para que el
+        elemento no quede pegado al borde del visor; `zoom_max` evita que
+        una región muy chica (p.ej. un mueble diminuto en un plano
+        enorme) termine con un acercamiento absurdo."""
+        if not self.pixbuf:
+            return
+        alloc = self._sw.get_allocation()
+        if alloc.width < 2 or alloc.height < 2:
+            return
+        rx1, rx2 = sorted((x1, x2))
+        ry1, ry2 = sorted((y1, y2))
+        ancho_reg = max(1.0, rx2 - rx1)
+        alto_reg  = max(1.0, ry2 - ry1)
+        mx = ancho_reg * margen_frac
+        my = alto_reg  * margen_frac
+        ancho_reg += 2 * mx
+        alto_reg  += 2 * my
+        cx = (rx1 + rx2) / 2.0
+        cy = (ry1 + ry2) / 2.0
+
+        zw = alloc.width  / ancho_reg
+        zh = alloc.height / alto_reg
+        self.set_zoom(min(zw, zh, zoom_max))
+
+        # centrar el scroll sobre el centro de la región, ya con el nuevo
+        # zoom aplicado (set_zoom ya actualizó self.zoom)
+        wx, wy = self.i2w(cx, cy)
+        ha = self._sw.get_hadjustment()
+        va = self._sw.get_vadjustment()
+        ha.set_value(max(0, wx - alloc.width  / 2))
+        va.set_value(max(0, wy - alloc.height / 2))
 
     def _on_draw(self, da, cr):
         # fondo blanco — antes era gris oscuro (0.25,0.25,0.25); con SVG

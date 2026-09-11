@@ -98,7 +98,7 @@ equipos_ui.py suma el checkbox "Es módulo de frame" en _DialogoEquipo.
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 
 import os
 import json
@@ -525,11 +525,30 @@ class _DialogoMueble(Gtk.Dialog):
         x_px_actual, y_px_actual = Modelo._px_punto_o_crudo(
             path_imagen_plano, x_pct_abs_actual, y_pct_abs_actual)
 
+        # rectángulo del mueble en píxeles de la imagen del plano, para
+        # que el selector arranque enfocado/con zoom sobre el mueble en
+        # vez de sobre el plano completo (ver rect_referencia en
+        # abrir_coords_imagen) — así se ve dónde, dentro del mueble,
+        # cae el punto, en lugar de un plano entero donde el mueble es
+        # un rectángulo minúsculo.
+        rect_referencia = None
+        try:
+            x1_px, y1_px = Modelo._px_punto_o_crudo(
+                path_imagen_plano, x_pct_m, y_pct_m)
+            x2_px, y2_px = Modelo._px_punto_o_crudo(
+                path_imagen_plano, x_pct_m + ancho_pct_m, y_pct_m + alto_pct_m)
+            if None not in (x1_px, y1_px, x2_px, y2_px):
+                rect_referencia = (x1_px, y1_px, x2_px, y2_px)
+        except DimensionesImagenError:
+            rect_referencia = None
+
         resultado = abrir_coords_imagen(
             id_imagen_plano, solo_xy=True,
             x=s(x_px_actual) if x_px_actual is not None else "",
             y=s(y_px_actual) if y_px_actual is not None else "",
-            parent=self)
+            parent=self,
+            rect_referencia=rect_referencia,
+            etiqueta_referencia=self.e_nombre.get_text().strip() or None)
         if not resultado:
             return
         try:
@@ -652,14 +671,16 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     Fase 7 también agrega, sobre el mismo overlay de sólo lectura, el
     punto de cada equipo suelto directo (círculo, con ícono/borde según
     tipo_montaje: sólido para Piso, punteado para Pared — a diferencia
-    del cuadrado de rack y el rectángulo de mueble) y un clic sobre el
-    cuadrado de un rack (hit-testing simple por distancia en la imagen,
-    tolerancia de ~20px en pantalla ajustada por zoom) que lista y
-    resalta tanto los equipos montados directo en ese rack como los
-    módulos instalados en los frames que contiene
-    (Modelo.devolver_equipos_de_rack_con_modulos) — el resaltado
-    (self._rack_resaltado) se dibuja con un halo amarillo alrededor del
-    cuadrado hasta el próximo clic en otro rack o el cierre del visor.
+    del cuadrado de rack y el rectángulo de mueble) y hit-testing simple
+    por distancia en la imagen (tolerancia de ~20px en pantalla ajustada
+    por zoom) sobre el cuadrado de un rack. (El clic simple llegó a
+    listar y resaltar con un halo amarillo los equipos de ese rack
+    —Modelo.devolver_equipos_de_rack_con_modulos— pero se sacó por
+    pedido explícito: quedaba un panel de texto largo y poco útil en
+    racks con muchos equipos/módulos. El doble clic sobre el rack sigue
+    abriendo directamente su Vista gráfica —ver _on_click_overlay— y el
+    nombre al pasar el mouse lo sigue dando el tooltip de
+    _on_query_tooltip.)
 
     Fase 8 ("Integración a la ficha de Equipo"): parámetro nuevo
     `solo_lectura` — oculta las 4 barras de selector+edición (sala/
@@ -693,10 +714,30 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                  id_rack_x_sala_foco=None, id_mueble_foco=None,
                  id_equiponoraqueable_foco=None, solo_lectura=False,
                  equipo_foco=None):
-        self._rack_resaltado = None
         self._solo_lectura = solo_lectura
         self._equipo_foco = equipo_foco
         self.id_plano = id_plano
+
+        # ── control de capas (feature "plano denso") ─────────────────
+        # Con muchos elementos cargados el overlay se vuelve ilegible —
+        # estos toggles permiten mostrar/ocultar cada tipo por separado
+        # en vez de forzar a ver todo siempre. Default pensado para
+        # reducir densidad de entrada: sólo áreas/nombres de sala +
+        # racks + muebles (con sus propios nombres, vía "etiquetas");
+        # equipos (tanto sueltos como los que cuelgan dentro de un
+        # mueble) arrancan ocultos y, aun activados, nunca dibujan su
+        # nombre de forma permanente — sólo al pasar el mouse por
+        # encima (_on_query_tooltip ya resuelve esto para los 4 tipos
+        # de elemento). Los nombres de sala son la única etiqueta que
+        # se dibuja siempre, sin togglear, por pedido explícito.
+        self._capas = {
+            "areas":     False,  # contorno/relleno del polígono de sala
+            "racks":     True,   # cuadrados de rack
+            "muebles":   True,   # rectángulos de mueble
+            "equipos":   False,  # puntos de equipo (sueltos + en mueble)
+            "etiquetas": True,   # nombre de rack/mueble junto al cuadrado/rectángulo
+        }
+        self._chk_capas = {}
         filas_plano = Modelo.devolver_plano(id_plano)
         nombre_plano = s(filas_plano[0][1]) if filas_plano else "?"
         self.id_imagen = filas_plano[0][2] if filas_plano else None
@@ -739,6 +780,38 @@ class VistaPlanoInteractivo(Gtk.Dialog):
         else:
             self._viz.set_motivo_sin_imagen(
                 _("Este plano todavía no tiene una imagen cargada."))
+
+        # ── barra de capas: mostrar/ocultar tipos de elemento del
+        # overlay para no saturar planos con muchos racks/muebles/
+        # equipos cargados. Visible también en modo solo_lectura (ahí
+        # sólo importa para las capas de fondo — el equipo_foco, si
+        # vino uno, siempre se dibuja aparte, sin togglear). ──
+        hb_capas = Gtk.Box(spacing=10)
+        hb_capas.set_margin_start(8); hb_capas.set_margin_end(8)
+        hb_capas.set_margin_top(4); hb_capas.set_margin_bottom(2)
+        hb_capas.pack_start(
+            Gtk.Label(label=_("Mostrar:")), False, False, 0)
+        for clave, etiqueta in [
+                ("areas", _("Áreas de sala")),
+                ("racks", _("Racks")),
+                ("muebles", _("Muebles")),
+                ("equipos", _("Equipos")),
+                ("etiquetas", _("Etiquetas de rack/mueble"))]:
+            chk = Gtk.CheckButton(label=etiqueta)
+            chk.set_active(self._capas[clave])
+            chk.connect("toggled", self._on_toggle_capa, clave)
+            hb_capas.pack_start(chk, False, False, 0)
+            self._chk_capas[clave] = chk
+        ca.pack_start(hb_capas, False, False, 0)
+        lbl_ayuda_capas = Gtk.Label(xalign=0)
+        lbl_ayuda_capas.set_margin_start(8)
+        lbl_ayuda_capas.set_margin_bottom(4)
+        lbl_ayuda_capas.set_markup(
+            "<small><i>" +
+            _("Los nombres de sala siempre se muestran; el nombre de "
+              "un rack/mueble/equipo puntual aparece al pasar el mouse "
+              "por encima.") + "</i></small>")
+        ca.pack_start(lbl_ayuda_capas, False, False, 0)
 
         # ── barras de selector + edición (sala/rack/mueble/equipo
         # suelto): ocultas por completo en modo solo_lectura (Fase 8) —
@@ -816,19 +889,11 @@ class VistaPlanoInteractivo(Gtk.Dialog):
             hb4.pack_start(btn_ubicar_suelto, False, False, 0)
             ca.pack_start(hb4, False, False, 0)
 
-        # ── barra inferior 5: lo que muestra el clic sobre un rack (Fase 7) ──
-        self.lbl_rack_resaltado = Gtk.Label(xalign=0)
-        self.lbl_rack_resaltado.set_margin_start(8)
-        self.lbl_rack_resaltado.set_margin_bottom(8)
-        self.lbl_rack_resaltado.set_line_wrap(True)
-        self.lbl_rack_resaltado.set_markup(
-            "<small><i>" +
-            _("Hacé clic sobre el cuadrado de un rack para listar los "
-              "equipos que tiene montados (directos y módulos de sus "
-              "frames).") + "</i></small>")
-        ca.pack_start(self.lbl_rack_resaltado, False, False, 0)
-
         self.show_all()
+
+    def _on_toggle_capa(self, chk, clave):
+        self._capas[clave] = chk.get_active()
+        self._viz.da.queue_draw()
 
     def _on_viz_realize(self, widget):
         if self._viz.pixbuf:
@@ -962,15 +1027,21 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                         continue
                     puntos_w.append(self._viz.i2w(x_img, y_img))
                 if len(puntos_w) >= 3:
-                    cr.set_source_rgba(r, g, b, 0.18)
-                    cr.move_to(*puntos_w[0])
-                    for wx, wy in puntos_w[1:]:
-                        cr.line_to(wx, wy)
-                    cr.close_path()
-                    cr.fill_preserve()
-                    cr.set_source_rgba(r, g, b, 0.95)
-                    cr.set_line_width(max(2, 3 * self._viz.zoom))
-                    cr.stroke()
+                    # capa "areas": sólo el relleno/contorno del
+                    # polígono — el nombre de la sala (abajo) se
+                    # dibuja siempre, sin togglear, por pedido
+                    # explícito (es lo mínimo para no perderse en el
+                    # plano aunque el resto de las capas esté oculto).
+                    if self._capas["areas"]:
+                        cr.set_source_rgba(r, g, b, 0.18)
+                        cr.move_to(*puntos_w[0])
+                        for wx, wy in puntos_w[1:]:
+                            cr.line_to(wx, wy)
+                        cr.close_path()
+                        cr.fill_preserve()
+                        cr.set_source_rgba(r, g, b, 0.95)
+                        cr.set_line_width(max(2, 3 * self._viz.zoom))
+                        cr.stroke()
 
                     cx = sum(p[0] for p in puntos_w) / len(puntos_w)
                     cy = sum(p[1] for p in puntos_w) / len(puntos_w)
@@ -987,115 +1058,116 @@ class VistaPlanoInteractivo(Gtk.Dialog):
             # de otros elementos del overlay que sí sean redondos
             # (equipos sueltos, Fase 7) ──
             r2, g2, b2 = self.COLOR_RACK
-            for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
-                try:
-                    x_img_r = (float(x_pct_r) / 100.0) * ancho_img
-                    y_img_r = (float(y_pct_r) / 100.0) * alto_img
-                except (TypeError, ValueError):
-                    continue
-                wx_r, wy_r = self._viz.i2w(x_img_r, y_img_r)
-                lado = max(12, 18 * self._viz.zoom)  # lado del cuadrado
-                mitad = lado / 2.0
-                # Fase 7: halo amarillo si este es el rack resaltado por
-                # el último clic (ver _on_click_overlay).
-                if self._rack_resaltado is not None and id_rack == self._rack_resaltado:
-                    rh, gh, bh = self.COLOR_RESALTADO
-                    cr.set_source_rgba(rh, gh, bh, 0.55)
-                    cr.rectangle(wx_r - mitad - 5, wy_r - mitad - 5,
-                                 lado + 10, lado + 10)
-                    cr.fill()
-                cr.set_source_rgba(r2, g2, b2, 0.92)
-                cr.rectangle(wx_r - mitad, wy_r - mitad, lado, lado)
-                cr.fill_preserve()
-                cr.set_source_rgb(0, 0, 0)
-                cr.set_line_width(1.5)
-                cr.stroke()
-                cr.set_source_rgb(0.05, 0.05, 0.05)
-                cr.select_font_face("Sans", 0, 0)
-                cr.set_font_size(12)
-                texto_r = "🗄 " + s(nombre_rack)
-                cr.move_to(wx_r + mitad + 3, wy_r + 4)
-                cr.show_text(texto_r)
+            if self._capas["racks"]:
+                for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
+                    try:
+                        x_img_r = (float(x_pct_r) / 100.0) * ancho_img
+                        y_img_r = (float(y_pct_r) / 100.0) * alto_img
+                    except (TypeError, ValueError):
+                        continue
+                    wx_r, wy_r = self._viz.i2w(x_img_r, y_img_r)
+                    lado = max(12, 18 * self._viz.zoom)  # lado del cuadrado
+                    mitad = lado / 2.0
+                    # (el halo amarillo de "rack resaltado por el último
+                    # clic" se sacó junto con el listado de equipos por
+                    # clic simple — ver _on_click_overlay)
+                    cr.set_source_rgba(r2, g2, b2, 0.92)
+                    cr.rectangle(wx_r - mitad, wy_r - mitad, lado, lado)
+                    cr.fill_preserve()
+                    cr.set_source_rgb(0, 0, 0)
+                    cr.set_line_width(1.5)
+                    cr.stroke()
+                    if self._capas["etiquetas"]:
+                        cr.set_source_rgb(0.05, 0.05, 0.05)
+                        cr.select_font_face("Sans", 0, 0)
+                        cr.set_font_size(12)
+                        texto_r = "🗄 " + s(nombre_rack)
+                        cr.move_to(wx_r + mitad + 3, wy_r + 4)
+                        cr.show_text(texto_r)
 
             # ── Fase 6: rectángulo de cada mueble de esta sala, con los
             # equipos que contiene dibujados adentro (posición relativa
             # al rectángulo del mueble, resuelta acá a absoluta — mismo
-            # criterio que Modelo.devolver_ubicacion_fisica_de_equipo) ──
+            # criterio que Modelo.devolver_ubicacion_fisica_de_equipo).
+            # Los equipos que cuelgan de un mueble se dibujan como
+            # puntos si la capa "equipos" está activa, pero su nombre
+            # NUNCA se dibuja de forma permanente acá — sólo aparece
+            # como tooltip al pasar el mouse (_on_query_tooltip), igual
+            # que los equipos sueltos más abajo: son justamente los que
+            # más saturaban un plano con muchos muebles cargados. ──
             r3, g3, b3 = self.COLOR_MUEBLE
-            for (id_mueble, nombre_mueble, x_pct_m, y_pct_m, ancho_pct_m,
-                 alto_pct_m, equipos_m) in sala.get("muebles", []):
-                try:
-                    x_img_m = (float(x_pct_m) / 100.0) * ancho_img
-                    y_img_m = (float(y_pct_m) / 100.0) * alto_img
-                    ancho_img_m = (float(ancho_pct_m) / 100.0) * ancho_img
-                    alto_img_m = (float(alto_pct_m) / 100.0) * alto_img
-                except (TypeError, ValueError):
-                    continue
-                wx_m, wy_m = self._viz.i2w(x_img_m, y_img_m)
-                wx_m2, wy_m2 = self._viz.i2w(
-                    x_img_m + ancho_img_m, y_img_m + alto_img_m)
-                cr.set_source_rgba(r3, g3, b3, 0.15)
-                cr.rectangle(wx_m, wy_m, wx_m2 - wx_m, wy_m2 - wy_m)
-                cr.fill_preserve()
-                cr.set_source_rgba(r3, g3, b3, 0.95)
-                cr.set_line_width(max(2, 2.5 * self._viz.zoom))
-                cr.stroke()
-                cr.set_source_rgb(0.05, 0.05, 0.05)
-                cr.select_font_face("Sans", 0, 1)  # bold
-                cr.set_font_size(12)
-                cr.move_to(wx_m + 4, wy_m + 14)
-                cr.show_text("🪑 " + s(nombre_mueble))
-
-                for id_eq, nombre_eq, x_rel, y_rel in equipos_m:
+            if self._capas["muebles"]:
+                for (id_mueble, nombre_mueble, x_pct_m, y_pct_m, ancho_pct_m,
+                     alto_pct_m, equipos_m) in sala.get("muebles", []):
                     try:
-                        x_rel_f = max(0.0, min(100.0, float(x_rel)))
-                        y_rel_f = max(0.0, min(100.0, float(y_rel)))
+                        x_img_m = (float(x_pct_m) / 100.0) * ancho_img
+                        y_img_m = (float(y_pct_m) / 100.0) * alto_img
+                        ancho_img_m = (float(ancho_pct_m) / 100.0) * ancho_img
+                        alto_img_m = (float(alto_pct_m) / 100.0) * alto_img
                     except (TypeError, ValueError):
                         continue
-                    x_img_e = x_img_m + (x_rel_f / 100.0) * ancho_img_m
-                    y_img_e = y_img_m + (y_rel_f / 100.0) * alto_img_m
-                    wx_e, wy_e = self._viz.i2w(x_img_e, y_img_e)
-                    radio_e = max(4, 6 * self._viz.zoom)
+                    wx_m, wy_m = self._viz.i2w(x_img_m, y_img_m)
+                    wx_m2, wy_m2 = self._viz.i2w(
+                        x_img_m + ancho_img_m, y_img_m + alto_img_m)
+                    cr.set_source_rgba(r3, g3, b3, 0.15)
+                    cr.rectangle(wx_m, wy_m, wx_m2 - wx_m, wy_m2 - wy_m)
+                    cr.fill_preserve()
                     cr.set_source_rgba(r3, g3, b3, 0.95)
-                    cr.arc(wx_e, wy_e, radio_e, 0, 2 * math.pi)
-                    cr.fill()
-                    cr.set_source_rgb(0.05, 0.05, 0.05)
-                    cr.select_font_face("Sans", 0, 0)
-                    cr.set_font_size(10)
-                    cr.move_to(wx_e + radio_e + 2, wy_e + 3)
-                    cr.show_text(s(nombre_eq))
+                    cr.set_line_width(max(2, 2.5 * self._viz.zoom))
+                    cr.stroke()
+                    if self._capas["etiquetas"]:
+                        cr.set_source_rgb(0.05, 0.05, 0.05)
+                        cr.select_font_face("Sans", 0, 1)  # bold
+                        cr.set_font_size(12)
+                        cr.move_to(wx_m + 4, wy_m + 14)
+                        cr.show_text("🪑 " + s(nombre_mueble))
+
+                    if self._capas["equipos"]:
+                        for id_eq, nombre_eq, x_rel, y_rel in equipos_m:
+                            try:
+                                x_rel_f = max(0.0, min(100.0, float(x_rel)))
+                                y_rel_f = max(0.0, min(100.0, float(y_rel)))
+                            except (TypeError, ValueError):
+                                continue
+                            x_img_e = x_img_m + (x_rel_f / 100.0) * ancho_img_m
+                            y_img_e = y_img_m + (y_rel_f / 100.0) * alto_img_m
+                            wx_e, wy_e = self._viz.i2w(x_img_e, y_img_e)
+                            radio_e = max(4, 6 * self._viz.zoom)
+                            cr.set_source_rgba(r3, g3, b3, 0.95)
+                            cr.arc(wx_e, wy_e, radio_e, 0, 2 * math.pi)
+                            cr.fill()
+                            # sin texto acá — nombre sólo por tooltip
+                            # (ver _hit_test_overlay / _on_query_tooltip)
 
             # ── Fase 7: puntos de equipo suelto directo de esta sala —
             # círculos (a diferencia del cuadrado de rack y el
             # rectángulo de mueble), con borde punteado si el tipo de
             # montaje es PARED (sólido para PISO) para distinguirlos a
-            # simple vista sin depender sólo del ícono ──
-            for (id_en, id_eq, nombre_eq, x_pct_s, y_pct_s,
-                 tipo_montaje_s) in sala.get("equipos_sueltos", []):
-                try:
-                    x_img_s = (float(x_pct_s) / 100.0) * ancho_img
-                    y_img_s = (float(y_pct_s) / 100.0) * alto_img
-                except (TypeError, ValueError):
-                    continue
-                wx_s, wy_s = self._viz.i2w(x_img_s, y_img_s)
-                radio_s = max(6, 8 * self._viz.zoom)
-                es_pared = (tipo_montaje_s or "PISO") == "PARED"
-                r4, g4, b4 = self.COLOR_SUELTO_PARED if es_pared else self.COLOR_SUELTO
-                cr.set_source_rgba(r4, g4, b4, 0.92)
-                cr.arc(wx_s, wy_s, radio_s, 0, 2 * math.pi)
-                cr.fill_preserve()
-                cr.set_source_rgb(0, 0, 0)
-                cr.set_line_width(1.5)
-                if es_pared:
-                    cr.set_dash([3, 2])
-                cr.stroke()
-                cr.set_dash([])
-                cr.set_source_rgb(0.05, 0.05, 0.05)
-                cr.select_font_face("Sans", 0, 0)
-                cr.set_font_size(11)
-                icono = "🧱" if es_pared else "🖴"
-                cr.move_to(wx_s + radio_s + 3, wy_s + 4)
-                cr.show_text(icono + " " + s(nombre_eq))
+            # simple vista sin depender sólo del ícono. Igual que los
+            # equipos de mueble: sin nombre permanente, sólo tooltip. ──
+            if self._capas["equipos"]:
+                for (id_en, id_eq, nombre_eq, x_pct_s, y_pct_s,
+                     tipo_montaje_s) in sala.get("equipos_sueltos", []):
+                    try:
+                        x_img_s = (float(x_pct_s) / 100.0) * ancho_img
+                        y_img_s = (float(y_pct_s) / 100.0) * alto_img
+                    except (TypeError, ValueError):
+                        continue
+                    wx_s, wy_s = self._viz.i2w(x_img_s, y_img_s)
+                    radio_s = max(6, 8 * self._viz.zoom)
+                    es_pared = (tipo_montaje_s or "PISO") == "PARED"
+                    r4, g4, b4 = self.COLOR_SUELTO_PARED if es_pared else self.COLOR_SUELTO
+                    cr.set_source_rgba(r4, g4, b4, 0.92)
+                    cr.arc(wx_s, wy_s, radio_s, 0, 2 * math.pi)
+                    cr.fill_preserve()
+                    cr.set_source_rgb(0, 0, 0)
+                    cr.set_line_width(1.5)
+                    if es_pared:
+                        cr.set_dash([3, 2])
+                    cr.stroke()
+                    cr.set_dash([])
+                    # sin texto acá — nombre sólo por tooltip (ver
+                    # _hit_test_overlay / _on_query_tooltip)
 
         # ── Fase 8: marca del equipo_foco (visor de "Ver ubicación" de
         # la ficha de Equipo) — cruz roja con halo, dibujada por encima
@@ -1140,14 +1212,16 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                         cr.show_text("📍 " + s(nombre_f))
 
     # ── modo navegar: clic sobre un rack -> listar/resaltar equipos ──────
-    def _on_click_overlay(self, widget, event):
-        if not self._viz.pixbuf:
-            return
-        ancho_img = self._viz.pixbuf.get_width()
-        alto_img = self._viz.pixbuf.get_height()
-        if not ancho_img or not alto_img:
-            return
-        ix, iy = self._viz.w2i(event.x, event.y)
+    def _buscar_rack_en_punto(self, ix, iy, ancho_img, alto_img):
+        """Devuelve (id_rack, nombre_rack) del cuadrado de rack más
+        cercano a (ix, iy) dentro de la tolerancia de clic, o
+        (None, None). Extraído de _on_click_overlay para que tanto el
+        clic simple (resaltar + listar equipos) como el doble clic
+        (abrir la vista gráfica del rack) reutilicen el mismo
+        hit-testing en vez de duplicar el loop. Si la capa "racks" está
+        oculta, no hay nada clickeable — mismo criterio que el dibujo."""
+        if not self._capas["racks"]:
+            return None, None
         tolerancia_img = 20.0 / max(self._viz.zoom, 0.01)
 
         # Fase 9: reusa el cache poblado por el último _dibujar_overlay
@@ -1171,28 +1245,39 @@ class VistaPlanoInteractivo(Gtk.Dialog):
                     mejor_dist = dist
                     mejor_id_rack = id_rack
                     mejor_nombre_rack = nombre_rack
-        if mejor_id_rack is None:
+        return mejor_id_rack, mejor_nombre_rack
+
+    def _on_click_overlay(self, widget, event):
+        if not self._viz.pixbuf:
+            return
+        ancho_img = self._viz.pixbuf.get_width()
+        alto_img = self._viz.pixbuf.get_height()
+        if not ancho_img or not alto_img:
+            return
+        ix, iy = self._viz.w2i(event.x, event.y)
+
+        if event.type != Gdk.EventType._2BUTTON_PRESS:
+            # El clic simple sobre un rack ya no hace nada acá — antes
+            # resaltaba el cuadrado y listaba sus equipos en un panel
+            # de texto debajo del visor; se sacó por pedido explícito
+            # (quedaba una lista larga y poco útil sobre planos con
+            # racks con muchos equipos/módulos). El nombre al pasar el
+            # mouse lo sigue dando el tooltip (_on_query_tooltip); ver
+            # el detalle completo de equipos de un rack sigue
+            # disponible con doble clic (abajo) o desde el catálogo de
+            # Racks → "📦 Dispositivos en este rack".
             return
 
-        self._rack_resaltado = mejor_id_rack
-        self._viz.da.queue_draw()
-
-        equipos = Modelo.devolver_equipos_de_rack_con_modulos(mejor_id_rack)
-        if not equipos:
-            texto = _("«{0}» no tiene equipos montados todavía.").format(
-                s(mejor_nombre_rack))
-        else:
-            lineas = []
-            for id_eq, nombre_eq, origen in equipos:
-                if origen == "directo":
-                    lineas.append("• " + s(nombre_eq) + " — " + _("directo en el rack"))
-                else:
-                    lineas.append(
-                        "• " + s(nombre_eq) + " — " +
-                        _("módulo del frame «{0}»").format(s(origen)))
-            texto = _("Equipos en «{0}»:").format(s(mejor_nombre_rack)) + "\n" + "\n".join(lineas)
-        self.lbl_rack_resaltado.set_markup(
-            "<small>" + texto.replace("&", "&amp;").replace("<", "&lt;") + "</small>")
+        # Doble clic sobre un rack: abre directamente su Vista
+        # gráfica de rack (rack_ui.abrir_vista_rack), el mismo
+        # atajo que el botón "🖼 Vista gráfica del rack" de
+        # _DialogoRack — evita tener que ir a buscar el rack por
+        # nombre en el catálogo cuando ya se lo está viendo acá.
+        mejor_id_rack, _nombre = self._buscar_rack_en_punto(
+            ix, iy, ancho_img, alto_img)
+        if mejor_id_rack is not None:
+            from rack_ui import abrir_vista_rack
+            abrir_vista_rack(id_rack=mejor_id_rack, parent=self)
 
     # ── Fase 9 "Pulido": tooltip con nombre al pasar el mouse ────────────
     @staticmethod
@@ -1214,46 +1299,72 @@ class VistaPlanoInteractivo(Gtk.Dialog):
     def _hit_test_overlay(self, ix, iy, ancho_img, alto_img):
         """Devuelve (tipo, nombre) del elemento del overlay bajo el punto
         de imagen (ix, iy), o None. tipo en {'sala','rack','mueble',
-        'suelto'}. Se prueban primero los elementos puntuales/rectangulares
-        (rack, mueble, equipo suelto) y al final el contorno de sala (el
-        de mayor área, para no taparle el hit-test a lo que tiene adentro).
-        Usa self._contenido_cache si ya está poblado (ver __init__)."""
+        'equipo_mueble','suelto'}. Se prueban primero los elementos
+        puntuales/rectangulares (rack, equipo dentro de mueble, mueble,
+        equipo suelto) y al final el contorno de sala (el de mayor
+        área, para no taparle el hit-test a lo que tiene adentro).
+        Respeta self._capas: un elemento de una capa oculta no es
+        "hittable" — ni por clic ni por tooltip — mismo criterio que
+        _dibujar_overlay para que lo que no se ve tampoco reaccione al
+        mouse. Usa self._contenido_cache si ya está poblado (ver
+        __init__)."""
         contenido = self._contenido_cache
         if contenido is None:
             contenido = Modelo.devolver_contenido_plano(self.id_plano)
         tolerancia_img = 20.0 / max(self._viz.zoom, 0.01)
 
         for sala in contenido:
-            for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
-                try:
-                    x_img_r = (float(x_pct_r) / 100.0) * ancho_img
-                    y_img_r = (float(y_pct_r) / 100.0) * alto_img
-                except (TypeError, ValueError):
-                    continue
-                if math.hypot(ix - x_img_r, iy - y_img_r) <= tolerancia_img:
-                    return ("rack", nombre_rack)
+            if self._capas["racks"]:
+                for id_rxs, id_rack, nombre_rack, x_pct_r, y_pct_r in sala.get("racks", []):
+                    try:
+                        x_img_r = (float(x_pct_r) / 100.0) * ancho_img
+                        y_img_r = (float(y_pct_r) / 100.0) * alto_img
+                    except (TypeError, ValueError):
+                        continue
+                    if math.hypot(ix - x_img_r, iy - y_img_r) <= tolerancia_img:
+                        return ("rack", nombre_rack)
 
             for (id_mueble, nombre_mueble, x_pct_m, y_pct_m, ancho_pct_m,
                  alto_pct_m, equipos_m) in sala.get("muebles", []):
                 try:
                     x0 = (float(x_pct_m) / 100.0) * ancho_img
                     y0 = (float(y_pct_m) / 100.0) * alto_img
-                    x1 = x0 + (float(ancho_pct_m) / 100.0) * ancho_img
-                    y1 = y0 + (float(alto_pct_m) / 100.0) * alto_img
+                    ancho_m = (float(ancho_pct_m) / 100.0) * ancho_img
+                    alto_m = (float(alto_pct_m) / 100.0) * alto_img
                 except (TypeError, ValueError):
                     continue
-                if min(x0, x1) <= ix <= max(x0, x1) and min(y0, y1) <= iy <= max(y0, y1):
+                x1, y1 = x0 + ancho_m, y0 + alto_m
+
+                # equipo dentro del mueble: se prueba primero (radio
+                # chico) para que ganarle al rectángulo del mueble
+                # entero cuando el punto cae justo sobre el equipo.
+                if self._capas["equipos"]:
+                    for id_eq, nombre_eq, x_rel, y_rel in equipos_m:
+                        try:
+                            x_rel_f = max(0.0, min(100.0, float(x_rel)))
+                            y_rel_f = max(0.0, min(100.0, float(y_rel)))
+                        except (TypeError, ValueError):
+                            continue
+                        x_img_e = x0 + (x_rel_f / 100.0) * ancho_m
+                        y_img_e = y0 + (y_rel_f / 100.0) * alto_m
+                        if math.hypot(ix - x_img_e, iy - y_img_e) <= tolerancia_img:
+                            return ("equipo_mueble", nombre_eq)
+
+                if (self._capas["muebles"] and
+                        min(x0, x1) <= ix <= max(x0, x1) and
+                        min(y0, y1) <= iy <= max(y0, y1)):
                     return ("mueble", nombre_mueble)
 
-            for (id_en, id_eq, nombre_eq, x_pct_s, y_pct_s,
-                 tipo_montaje_s) in sala.get("equipos_sueltos", []):
-                try:
-                    x_img_s = (float(x_pct_s) / 100.0) * ancho_img
-                    y_img_s = (float(y_pct_s) / 100.0) * alto_img
-                except (TypeError, ValueError):
-                    continue
-                if math.hypot(ix - x_img_s, iy - y_img_s) <= tolerancia_img:
-                    return ("suelto", nombre_eq)
+            if self._capas["equipos"]:
+                for (id_en, id_eq, nombre_eq, x_pct_s, y_pct_s,
+                     tipo_montaje_s) in sala.get("equipos_sueltos", []):
+                    try:
+                        x_img_s = (float(x_pct_s) / 100.0) * ancho_img
+                        y_img_s = (float(y_pct_s) / 100.0) * alto_img
+                    except (TypeError, ValueError):
+                        continue
+                    if math.hypot(ix - x_img_s, iy - y_img_s) <= tolerancia_img:
+                        return ("suelto", nombre_eq)
 
         for sala in contenido:
             poligono = sala.get("poligono")
@@ -1291,6 +1402,7 @@ class VistaPlanoInteractivo(Gtk.Dialog):
             "sala": _("Sala"),
             "rack": _("Rack"),
             "mueble": _("Mueble"),
+            "equipo_mueble": _("Equipo"),
             "suelto": _("Equipo suelto"),
         }
         tooltip.set_text(

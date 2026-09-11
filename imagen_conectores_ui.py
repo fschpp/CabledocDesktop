@@ -89,7 +89,8 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
 
     def __init__(self, id_imagen=None, solo_xy=True,
                  x="", y="", ancho="", alto="", parent=None,
-                 modo_poligono=False, vertices=None):
+                 modo_poligono=False, vertices=None,
+                 rect_referencia=None, etiqueta_referencia=None):
         super().__init__(
             title=_("Seleccionar polígono en imagen") if modo_poligono
                   else _("Seleccionar coordenadas en imagen"),
@@ -105,6 +106,17 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         self.ancho = ancho; self.alto = alto
         self.solo_xy = solo_xy
         self.modo_poligono = modo_poligono
+
+        # región de referencia (p.ej. el rectángulo de un mueble dentro
+        # del plano completo): si viene cargada, el visor arranca
+        # enfocado/con zoom sobre esa región en vez de la imagen entera
+        # (ver _on_viz_realize) y se dibuja como marco naranja punteado
+        # de fondo, para que quede claro qué parte de la imagen
+        # corresponde al mueble/elemento sobre el que se está ubicando
+        # algo — sin esto, en un plano grande con muchos muebles no hay
+        # forma de saber en qué parte del mueble cae el clic.
+        self._rect_referencia = rect_referencia
+        self._etiqueta_referencia = etiqueta_referencia
 
         # resultado público del modo polígono
         self.vertices = [(int(vx), int(vy)) for vx, vy in vertices] if vertices else []
@@ -230,8 +242,17 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         self.show_all()
 
     def _on_viz_realize(self, widget):
-        """Ajustar imagen automáticamente cuando el widget se realiza."""
-        if self._viz.pixbuf:
+        """Ajustar imagen automáticamente cuando el widget se realiza —
+        con foco en self._rect_referencia si vino cargado (ver
+        __init__), en vez de ajustar siempre a la imagen completa."""
+        if not self._viz.pixbuf:
+            return
+        if self._rect_referencia:
+            x1, y1, x2, y2 = self._rect_referencia
+            self._viz.zoom_fit_override = (
+                lambda: self._viz.zoom_fit_region(x1, y1, x2, y2))
+            self._viz.zoom_fit_override()
+        else:
             self._viz._zoom_fit()
 
     # ── overlay Cairo ─────────────────────────────────────────────────────
@@ -239,6 +260,8 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
         z  = self._viz.zoom
         M  = self.MARCADOR * z
         HM = M / 2
+
+        self._dibujar_rect_referencia(cr, z)
 
         if self.modo_poligono:
             self._dibujar_overlay_poligono(cr, z)
@@ -288,6 +311,45 @@ class CoordenadasImagenSeleccion(Gtk.Dialog):
                     cr.move_to(px - s4, py); cr.line_to(px + s4, py)
                     cr.move_to(px, py - s4); cr.line_to(px, py + s4)
                 cr.stroke()
+
+    def _dibujar_rect_referencia(self, cr, z):
+        """Marco naranja punteado que delimita self._rect_referencia
+        (p.ej. el rectángulo del mueble dentro del plano completo) —
+        puramente informativo, no es seleccionable ni editable acá."""
+        if not self._rect_referencia:
+            return
+        x1, y1, x2, y2 = self._rect_referencia
+        wx1, wy1 = self._viz.i2w(x1, y1)
+        wx2, wy2 = self._viz.i2w(x2, y2)
+        rw, rh = wx2 - wx1, wy2 - wy1
+
+        cr.save()
+        cr.set_source_rgba(1.0, 0.55, 0.0, 0.10)
+        cr.rectangle(wx1, wy1, rw, rh)
+        cr.fill()
+        cr.set_source_rgba(1.0, 0.55, 0.0, 0.95)
+        cr.set_line_width(max(2, 4 * z))
+        cr.set_dash([10 * z, 6 * z])
+        cr.rectangle(wx1, wy1, rw, rh)
+        cr.stroke()
+        cr.restore()
+
+        if self._etiqueta_referencia:
+            cr.save()
+            cr.select_font_face("Sans", 0, 1)  # bold
+            cr.set_font_size(13)
+            texto = self._etiqueta_referencia
+            ext = cr.text_extents(texto)
+            pad = 4
+            tx, ty = wx1 + 4, wy1 - 6
+            cr.set_source_rgba(1.0, 0.55, 0.0, 0.85)
+            cr.rectangle(tx - pad, ty - ext.height - pad,
+                        ext.width + 2 * pad, ext.height + 2 * pad)
+            cr.fill()
+            cr.set_source_rgb(1, 1, 1)
+            cr.move_to(tx, ty)
+            cr.show_text(texto)
+            cr.restore()
 
     def _dibujar_overlay_poligono(self, cr, z):
         R  = self.RADIO_VERTICE * z
@@ -825,15 +887,25 @@ class ImagenConectoresYCables(Gtk.Dialog):
 
 def abrir_coords_imagen(id_imagen, solo_xy=True, x="", y="",
                         ancho="", alto="", parent=None,
-                        modo_poligono=False, vertices=None):
+                        modo_poligono=False, vertices=None,
+                        rect_referencia=None, etiqueta_referencia=None):
     """Abre el selector y devuelve dict con x/y[/ancho/alto], o None si
     canceló. En modo_poligono=True devuelve en cambio dict con
     vertices/cerrado (ver CoordenadasImagenSeleccion), independiente de
-    solo_xy."""
+    solo_xy.
+
+    rect_referencia=(x1,y1,x2,y2) en píxeles de la imagen (opcional):
+    el visor arranca con zoom/centrado sobre esa región en vez de sobre
+    la imagen completa, y la dibuja como marco de referencia — pensado
+    para ubicar un equipo dentro de un mueble sin perderse en un plano
+    grande con muchos elementos. etiqueta_referencia es el texto que se
+    muestra sobre ese marco (p.ej. el nombre del mueble)."""
     dlg = CoordenadasImagenSeleccion(
         id_imagen=id_imagen, solo_xy=solo_xy,
         x=x, y=y, ancho=ancho, alto=alto, parent=parent,
-        modo_poligono=modo_poligono, vertices=vertices)
+        modo_poligono=modo_poligono, vertices=vertices,
+        rect_referencia=rect_referencia,
+        etiqueta_referencia=etiqueta_referencia)
     resp = dlg.run()
     resultado = None
     if resp == Gtk.ResponseType.OK:
