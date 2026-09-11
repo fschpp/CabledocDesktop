@@ -122,6 +122,8 @@ class _DialogoTipoEquipo(Gtk.Dialog):
         ("PATCHERA",     _("Patchera (bypass físico A/B, no usa ruteo de matriz)")),
         ("CONVERSOR_BALANCE", _("Conversor de balance (DI box, transformador — punto de conversión legítimo)")),
         ("SUMADOR_CANAL",     _("Sumador/divisor de canal (mono↔estéreo — punto de conversión legítimo)")),
+        ("DISTRIBUIDOR_FRAME", _("Distribuidor de referencia de frame (reparte REF1/REF2 externo a los "
+                                  "demás slots del frame — plan_referencia_virtual_frame.md)")),
     ]
 
     def __init__(self, titulo, nombre="", rol_senal="DISTRIBUIDOR", parent=None):
@@ -198,6 +200,63 @@ class TiposEquipoListado(VentanaListado):
 
 # ─── Tipos de conector ────────────────────────────────────────────────────────
 
+class _DialogoTipoConector(Gtk.Dialog):
+    """Editor de tipo_conector: nombre + el checkbox de `es_referencia_
+    generada` (Fase 7 de plan_desarrollo_hardcodes_idioma.md). Reemplaza
+    a DialogoNombre en este listado — antes `direccion`/
+    `es_referencia_generada` sólo se podían tocar vía el mecanismo de
+    import/conflictos de catálogo (_DialogoConflictosImportacion en
+    catalogo_equipos_ui.py); este diálogo agrega la vía directa.
+
+    `direccion` NO se edita acá (sigue poblada por heurística de nombre +
+    el mecanismo de import; no lo pidió el plan y agregarlo sin más
+    contexto de UX es alcance nuevo).
+
+    IMPORTANTE — `es_entrada_referencia` NO vive acá: una primera versión
+    de este diálogo (2026-09-10, misma sesión) la agregó como checkbox
+    de tipo_conector, simétrica a es_referencia_generada. Es incorrecto:
+    un tipo de conector compartido (ej. "BNC") no garantiza nada sobre si
+    UN conector puntual de un equipo real necesita heredar referencia del
+    frame — depende de la instancia, no del modelo/catálogo. Se corrigió
+    para que sea un checkbox en la ficha "Editar Conector" de cada equipo
+    real (conectores_ui.py, _DialogoConector), igual que fila_patchera/
+    es_armado_correcto/id_tipo_ficha, que ya son todos por-conector."""
+
+    def __init__(self, titulo, nombre="", es_referencia_generada=False,
+                 parent=None):
+        super().__init__(title=titulo, transient_for=parent, modal=True,
+                         destroy_with_parent=True)
+        self.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
+                         _("Aceptar"), Gtk.ResponseType.OK)
+        self.set_default_response(Gtk.ResponseType.OK)
+        self.set_default_size(480, 160)
+
+        g = _grid()
+        _lbl_entry(g, _("Nombre:"), 0)
+        self.e_nombre = Gtk.Entry(text=nombre, activates_default=True,
+                                  hexpand=True)
+        g.attach(self.e_nombre, 1, 0, 2, 1)
+
+        self.chk_referencia_generada = Gtk.CheckButton(
+            label=_("Es referencia generada (fuente incondicional de sync, ej. SPG/wordclock)"))
+        self.chk_referencia_generada.set_active(bool(es_referencia_generada))
+        self.chk_referencia_generada.set_tooltip_text(
+            _("graph_impact.py trata cualquier conector de este tipo como fuente de "
+              "señal sin importar si tiene sus propias entradas cableadas."))
+        g.attach(self.chk_referencia_generada, 0, 1, 3, 1)
+
+        self.get_content_area().add(g)
+        self.show_all()
+
+    @property
+    def nombre(self):
+        return self.e_nombre.get_text().strip()
+
+    @property
+    def es_referencia_generada(self):
+        return self.chk_referencia_generada.get_active()
+
+
 class TiposConectorListado(VentanaListado):
     def __init__(self, parent=None, modo_seleccion=False):
         super().__init__(_("Tipos de Conector"), [_("ID"), _("Nombre")],
@@ -208,17 +267,24 @@ class TiposConectorListado(VentanaListado):
         self._poblar(Modelo.devolver_tipos_conectores())
 
     def nuevo(self):
-        dlg = DialogoNombre(_("Nuevo Tipo de Conector"), parent=self)
-        if dlg.run() == Gtk.ResponseType.OK and dlg.valor:
-            Modelo.agregar_tipo_conector(dlg.valor)
+        dlg = _DialogoTipoConector(_("Nuevo Tipo de Conector"), parent=self)
+        if dlg.run() == Gtk.ResponseType.OK and dlg.nombre:
+            id_ = Modelo.agregar_tipo_conector(dlg.nombre)
+            Modelo.establecer_es_referencia_generada_tipo_conector(
+                id_, dlg.es_referencia_generada)
         dlg.destroy()
 
     def editar(self, id_):
         rows = Modelo.devolver_tipo_conector(id_)
         if not rows: return
-        dlg = DialogoNombre(_("Editar Tipo Conector"), valor=s(rows[0][1]), parent=self)
+        _direccion, es_ref_gen = Modelo.devolver_control_idioma_tipo_conector(id_)
+        dlg = _DialogoTipoConector(
+            _("Editar Tipo Conector"), nombre=s(rows[0][1]),
+            es_referencia_generada=es_ref_gen, parent=self)
         if dlg.run() == Gtk.ResponseType.OK:
-            Modelo.modificar_tipo_conector(id_, dlg.valor)
+            Modelo.modificar_tipo_conector(id_, dlg.nombre)
+            Modelo.establecer_es_referencia_generada_tipo_conector(
+                id_, dlg.es_referencia_generada)
         dlg.destroy()
 
     def eliminar(self, id_):

@@ -207,6 +207,51 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+**Sesión 2026-09-10T06:15 — Feature nueva: "Editar matriz" habilitado para cualquier equipo del Diagrama de Conexiones (antes sólo equipos rol_senal=ENRUTADOR). Diff generado en este sandbox, pendiente que Fede lo aplique/commitee.**
+
+### Current Focus
+- [x] Investigado antes de tocar nada: `_DialogoRuteoMatriz`, `Modelo.guardar_ruteo_matriz()`/`devolver_ruteo_matriz()`/`existe_configuracion_matriz()` y `graph_impact.py` (Análisis de Impacto) YA eran genéricos — la restricción a rol_senal='ENRUTADOR' estaba únicamente en el botón de la UI (`ruteo_interno_diagrama_ui.py`).
+- [x] `_editar_ruteo_matriz_click()`: ya no exige rol_senal/tipo — sólo que el nodo tenga al menos 1 entrada y 1 salida (con mensaje claro si no califica).
+- [x] `_toggle_conexion_interna()`: nueva rama para ver "Conexión interna" en cualquier equipo que YA tenga un ruteo guardado (sin auto-abrir el diálogo de configuración para equipos random — eso sigue siendo exclusivo de la rama ENRUTADOR, a propósito, para no sorprender al usuario).
+- [x] Tooltips de "🔀 Conexión interna" / "✏️ Editar matriz" actualizados.
+- [x] Validado: smoke test aislado del control de flujo (stub sin GTK real) + smoke test funcional contra SQLite sintética (equipo "CAMARA-GENERICA" sin rol_senal ENRUTADOR guarda/lee ruteo sin error, y `GraphImpactAnalyzer` lo lee correctamente) + import real bajo Xvfb.
+- [ ] **Pendiente, a confirmar con Fede si la quiere:** `senal_propagation.py` (motor de "Riesgo de señal", DISTINTO del Análisis de Impacto) sigue gateando el uso del ruteo guardado a `rol == "ENRUTADOR"` — un equipo con matriz configurada por este cambio pero sin ese rol funciona bien en Análisis de Impacto pero el motor de Riesgo de señal lo sigue tratando como sin ruteo interno. Unificarlo implica tocar un motor con datos ya en producción (hay equipos con `matriz_ruteo` residual de un rol_senal viejo que hoy se ignora a propósito) — se dejó afuera hasta confirmar si hace falta.
+
+## Current Focus (sesión anterior)
+
+**Sesión 2026-09-10T04:15 — Parte 2 (UI) de `plan_referencia_virtual_frame.md` entregada, sobre Parte 1 ya mergeada en `main` (PR #25, commit `968fe77`). Diff generado en este sandbox para que Fede corra el smoke test y el commit en su terminal — no se hizo commit ni push acá.**
+
+### Current Focus
+- [x] Clonado `main` real antes de tocar nada (regla del proyecto) — confirmado que Parte 1 (schema + `Modelo.sincronizar_referencia_virtual_frame` + hooks en `agregar_slot`/`modificar_slot`/`eliminar_slot`/`alta_conexion`/`modificacion_conexion`/`eliminar_conexion` + `ROLES_SENAL` con `DISTRIBUIDOR_FRAME`) ya estaba mergeada tal cual el diff que pasó Papi.
+- [x] **Discrepancia detectada y consultada con Papi antes de escribir código:** el plan §5 asumía un checkbox de catálogo para `es_referencia_generada` que en realidad no existe en `main` — `TiposConectorListado` usaba `DialogoNombre` genérico; `direccion`/`es_referencia_generada` sólo eran editables vía el mecanismo de import/conflictos de catálogo. El propio comentario de Parte 1 en `modelo.py` ya prometía `_DialogoTipoConector` como vía de edición, sin que esa clase existiera. Papi eligió: crear `_DialogoTipoConector` nuevo (no extender el import/conflictos).
+- [x] `catalogos_basicos_ui.py`: `_DialogoTipoConector` nuevo (nombre + checkbox `es_referencia_generada` + checkbox `es_entrada_referencia`), reemplaza `DialogoNombre` en `TiposConectorListado.nuevo()`/`.editar()`. `_DialogoTipoEquipo.ROLES` gana `DISTRIBUIDOR_FRAME`.
+- [x] `modelo.py`: `agregar_tipo_conector()` ahora devuelve el `id_tipo_conector` insertado (antes no devolvía nada) — necesario para aplicar los checkboxes justo después del alta en el mismo diálogo.
+- [x] `graph_impact.py`: etiquetado cosmético — `_etiqueta_nombre_cable()` nueva, cambia el nombre mostrado de un cable `REF-VIRTUAL-*` a "Referencia heredada del frame" en `impacto_ui.py`/`escenario_engine.py` (consumen `nombre_cable()` sin cambios). Sin tocar la construcción del grafo, tal como pide el plan.
+- [x] Validado: `ast.parse` + `py_compile` + `pyflakes` (comparado contra `git stash`, cero advertencias nuevas) en los 3 archivos tocados; sandbox con red esta vez, así que se instaló `gir1.2-gtk-3.0`/`python3-gi-cairo`/`xvfb`/`graphqlite` y se corrió import real bajo Xvfb + identidad de reexport (`cabledoc.X is catalogos_basicos_ui.X`) + instanciación directa de `_DialogoTipoConector`/`_DialogoTipoEquipo(DISTRIBUIDOR_FRAME)` sin excepciones (sin invocar `.run()`, que bloquea el loop modal headless); smoke test funcional contra SQLite sintética (alta/lectura de los dos checkboxes, alta de tipo_equipo `DISTRIBUIDOR_FRAME`, `TiposConectorListado`/`TiposEquipoListado` instanciadas, y re-confirmación del flujo end-to-end de Parte 1 — alta de slot dispara la conexión virtual — sin tocarlo) más prueba directa de `_etiqueta_nombre_cable()`.
+- [ ] **Pendiente (decisión explícita de Papi, no de esta entrega):** la `regla_logica` "REF1 IN → REFOUT interno" de PS1 se sigue creando a mano por catálogo, sin alta automática al marcar `rol_senal=DISTRIBUIDOR_FRAME`.
+- [ ] **Pendiente arrastrada:** correr el smoke test contra el `database/db.db` real de Papi. No se pudo ejercitar `GraphImpactAnalyzer.simular_desconexion()` de punta a punta con una conexión `REF-VIRTUAL-*` real en este sandbox (requiere además configurar a mano la `regla_logica` del equipo distribuidor) — recomendado hacerlo una vez en un caso real para confirmar visualmente el "Análisis de impacto" con la etiqueta cosmética nueva.
+
+### Corrección 2026-09-10T05:00 (misma sesión, sobre la entrega de arriba — Papi todavía no había aplicado/commiteado nada)
+Papi mandó una captura de la ficha real "Editar Conector" y marcó que `es_entrada_referencia` estaba mal puesto: **un `tipo_conector` no garantiza nada sobre si un conector puntual de un equipo real tiene que ver con la referencia del frame** — el mismo tipo "BNC" puede estar reusado en equipos sin ninguna relación entre sí.
+- [x] Movido `es_entrada_referencia` de `tipo_conector` → `conector` (atributo de la instancia real, igual que `fila_patchera`/`es_armado_correcto`/`id_tipo_ficha`, que ya eran todos por-conector). `direccion`/`es_referencia_generada` NO se tocan — son Fase 7 de `plan_desarrollo_hardcodes_idioma.md`, preexistentes, con semántica de tipo_conector legítima (detección de fuente SPG/wordclock, dirección IN/OUT del grafo) y usada en otros lugares — moverlas hubiera sido alcance no pedido.
+- [x] `_DialogoTipoConector` (catalogos_basicos_ui.py) pierde el checkbox `es_entrada_referencia`, sólo queda `es_referencia_generada` (ese sí correcto a nivel tipo).
+- [x] Ficha real "Editar Conector" (`_DialogoConector` en `conectores_ui.py`, la de la captura de Papi) gana la sección "Referencia" con el checkbox, mismo patrón visual que Formato eléctrico/Armado que ya tenía esa ficha.
+- [x] **Bug real encontrado en el smoke test de la corrección** (no por dónde vive la columna, hubiera pasado igual con el diseño correcto desde el día 1): `sincronizar_referencia_virtual_frame()` sólo recorría los conectores que EN ESE MOMENTO califican — al destildar el checkbox, la virtual vieja quedaba huérfana para siempre porque el conector ya no aparecía en el scan. Agregado un paso de limpieza que recorre las virtuales existentes del frame (el id del conector va codificado en el propio código del cable) y borra las que ya no califican.
+- [x] Validado con un caso pensado específicamente para el bug original: mismo `tipo_conector` "BNC" en dos equipos sin relación (un módulo con REF IN real + una cámara con VIDEO IN) — confirmado que tildar uno nunca afecta al otro; ciclo completo tildar→crea, destildar→borra, re-tildar→re-crea.
+
+### Corrección 2026-09-10T05:30 (misma sesión, sobre la corrección de arriba — Papi todavía no había aplicado/commiteado nada)
+Papi preguntó si esto no rompía el trabajo de eliminación de hardcodes, porque un usuario podía renombrar el conector "REF OUT INTERNO" (traducirlo, corregir un typo) y romper todo en silencio. **Tenía razón, era un bug real**: `sincronizar_referencia_virtual_frame()` seguía ubicando el conector-fuente comparando `UPPER(nombre)='REF OUT INTERNO'` en tiempo de ejecución — el mismo anti-patrón que el propio proyecto ya había reemplazado una vez con `es_referencia_generada` (comentario "ex REFOUT" en `asegurar_columnas_control_idioma`).
+- [x] Nueva columna `conector.es_salida_referencia_frame` (por conector puntual, mismo criterio que `es_entrada_referencia`), con semilla de migración desde `nombre='REF OUT INTERNO'` para no romper instalaciones existentes.
+- [x] `sincronizar_referencia_virtual_frame()` ya no compara por nombre — filtra por el checkbox.
+- [x] Segundo checkbox "Es la salida de referencia interna del frame" agregado a la sección "Referencia" de `_DialogoConector`.
+- [x] Validado con el caso exacto: base con un conector ya llamado "REF OUT INTERNO" → migración lo marca solo (retrocompatible) → se renombra el conector a cualquier cosa → la distribución de referencia sigue funcionando (antes de este fix, se hubiera borrado en silencio).
+
+### Latest Blockers/Discoveries
+- Ver discrepancia del plan §5 arriba — patrón general a tener en cuenta: cuando un plan describe UI "que ya existe" para una feature análoga, conviene verificarlo en el repo real antes de asumir el patrón, no sólo leer el plan.
+- `agregar_tipo_conector()` no tenía UNIQUE en `tipo_conector.nombre`, así que no se podía recuperar el id recién insertado buscando por nombre sin riesgo de ambigüedad — se optó por hacer que la función devuelva `cur.lastrowid` directamente (cambio aditivo, sin otros call sites que dependieran del valor de retorno anterior).
+
+## Current Focus (sesión anterior)
+
 **Sesión 2026-09-07T19:30 — Fase 0 y Fase 1 de `plan_paneles_vectoriales_v3.md` desarrolladas (catálogo de símbolos de conector + dimensiones físicas + calibración mm/px + render condicional con forma real). Rama `feature/paneles-vectoriales-fase0-1`, creada sobre `main` en `0e1db60` (post Fase 9 de `plan_desarrollo_ubicacion_fisica_planos.md`, ya mergeada). Diff entregado a Papi para aplicar y hacer el smoke test visual en su máquina — no se hizo commit en este sandbox.**
 
 ### Current Focus

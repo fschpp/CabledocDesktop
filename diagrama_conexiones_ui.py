@@ -1293,14 +1293,17 @@ class DiagramaConexiones(ImpactoMixin, RiesgoDiagramaMixin, RiesgoSenalDiagramaM
             "punteadas, su conexión interna:\n"
             "• Módulo patchera: bypass entrada\u2194salida trasera según cables en derivación/inserción frontal.\n"
             "• DDV: distribución de la señal IN hacia todos los OUT con cable.\n"
-            "• MATRIZ: ruteo entrada→salida guardado (la 1ª vez pide asignarlo).")
+            "• MATRIZ: ruteo entrada→salida guardado (la 1ª vez pide asignarlo).\n"
+            "• Cualquier otro equipo: si ya tiene un ruteo guardado (ver «✏️ Editar matriz»), también se muestra.")
         self._btn_conex_interna.connect("activate", lambda _: self._toggle_conexion_interna())
         menu_herr.append(self._btn_conex_interna)
 
         self._btn_editar_matriz = Gtk.MenuItem(label=_("✏️ Editar matriz"))
         self._btn_editar_matriz.set_tooltip_text(
-            "Seleccioná una matriz (ej. KUMO 1616) y hacé clic para editar "
-            "manualmente su ruteo entrada→salida guardado.")
+            "Seleccioná cualquier equipo con al menos una entrada y una "
+            "salida (no hace falta que sea una matriz dedicada, ej. KUMO "
+            "1616) y hacé clic para asignarle o editarle manualmente un "
+            "ruteo entrada→salida.")
         self._btn_editar_matriz.connect("activate", lambda _: self._editar_ruteo_matriz_click())
         menu_herr.append(self._btn_editar_matriz)
 
