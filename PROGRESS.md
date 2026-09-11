@@ -207,6 +207,19 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+**Sesión 2026-09-10T(actual) — 3 mejoras de usabilidad en `planos_ui.py` (mueble/rack/densidad del overlay), pedidas por Fede a partir de dos capturas del editor de mueble y de la vista de plano. Diff generado en este sandbox, sin smoke test (Fede pidió no correrlo, lo prueba él).**
+
+### Current Focus
+- [x] **1) "Ubicar dentro del mueble" ahora enfoca el mueble, no todo el plano.** `CoordenadasImagenSeleccion`/`abrir_coords_imagen` (imagen_conectores_ui.py) ganan `rect_referencia`/`etiqueta_referencia`: si vienen cargados, el visor arranca con zoom/centrado sobre esa región (`_ImagenZoom.zoom_fit_region`, nuevo en pantallas_comunes.py) en vez de la imagen completa, y la dibuja como marco naranja punteado con nombre. El botón "Ajustar" respeta esto vía `_ImagenZoom.zoom_fit_override`. `planos_ui.py._DialogoMueble._ubicar_equipo` calcula el rectángulo del mueble en píxeles del plano y lo pasa como referencia.
+- [x] **2) Doble clic sobre un rack en el plano → abre su Vista gráfica.** `VistaPlanoInteractivo._on_click_overlay` distingue `Gdk.EventType._2BUTTON_PRESS`; si el doble clic cae sobre un rack (mismo hit-testing que el clic simple, extraído a `_buscar_rack_en_punto`), abre `rack_ui.abrir_vista_rack(id_rack=..., parent=self)` directo — mismo atajo que el botón "🖼 Vista gráfica del rack" de `_DialogoRack`.
+- [x] **3) Control de capas en `VistaPlanoInteractivo` para planos densos.** Checkboxes "Mostrar: Áreas de sala / Racks / Muebles / Equipos / Etiquetas de rack-mueble" arriba del visor (`self._capas` + `_on_toggle_capa`). Default: áreas y equipos OCULTOS, racks/muebles/etiquetas VISIBLES; el nombre de sala se sigue dibujando siempre, sin toggle. Los equipos (sueltos y los que cuelgan de un mueble) dejaron de dibujar su nombre de forma permanente — sólo aparece por tooltip al pasar el mouse (`_on_query_tooltip`, ya existente de una Fase 9 anterior). Se agregó hit-testing de equipo-dentro-de-mueble a `_hit_test_overlay` (antes sólo cubría equipos sueltos) y tanto `_hit_test_overlay` como `_buscar_rack_en_punto` ahora respetan `self._capas` — un elemento de capa oculta no es clickeable/hoverable.
+- [x] Sintaxis verificada con `python3 -m py_compile` sobre los 3 archivos tocados (planos_ui.py, imagen_conectores_ui.py, pantallas_comunes.py) — **no** se corrió la app ni un smoke test funcional, a pedido explícito de Fede ("no probar smoketest, pruebo yo").
+- [ ] **Pendiente (a cargo de Fede):** correr la app real y validar las 3 features a ojo — en particular el criterio de default de capas (¿"Áreas de sala" debería arrancar visible en vez de oculto?) y si el toggle "Etiquetas" debería separar nombre-de-rack de nombre-de-mueble en dos checkboxes en vez de uno solo.
+- [ ] No se tocó `equipos_ui.py` (modo `solo_lectura` de `VistaPlanoInteractivo`, usado por "📍 Ver ubicación" de la ficha de Equipo) — la barra de capas nueva también aparece ahí (no está gateada por `solo_lectura`), sin verificar si eso es lo esperado o si convendría ocultarla en ese modo minimalista.
+- [x] **Ajuste pedido tras ver la captura de "Mostrar: ..." en uso:** se sacó la función de clic simple sobre un rack que agregaba texto con el detalle de sus equipos en un panel debajo del visor (`self.lbl_rack_resaltado` + el halo amarillo `self._rack_resaltado`) — quedaba un listado largo y poco útil en racks con muchos equipos/módulos (ver captura de Fede: rack "CONTROL ESTUDIO — SONIDO" listando 30+ líneas). El clic simple sobre un rack ya no hace nada; el doble clic sigue abriendo la Vista gráfica del rack (punto 2, sin cambios) y el nombre al pasar el mouse lo sigue dando el tooltip existente.
+
+## Current Focus (sesión anterior)
+
 **Sesión 2026-09-10T06:15 — Feature nueva: "Editar matriz" habilitado para cualquier equipo del Diagrama de Conexiones (antes sólo equipos rol_senal=ENRUTADOR). Diff generado en este sandbox, pendiente que Fede lo aplique/commitee.**
 
 ### Current Focus
@@ -636,6 +649,15 @@ Zonas sospechosas, merge de ramas, etc.) sigue íntegro más abajo, en sus
 propias secciones.
 
 ## Todo List
+
+### Mejoras de usabilidad en plano de mueble/rack (2026-09-10T(actual)) — EN CURSO
+- [x] Ubicar equipo dentro de mueble: visor enfocado en el mueble (`rect_referencia` en `CoordenadasImagenSeleccion`/`abrir_coords_imagen`, `zoom_fit_region` en `_ImagenZoom`).
+- [x] Doble clic sobre rack en el plano abre Vista gráfica de rack (`rack_ui.abrir_vista_rack`).
+- [x] Toggles de capas (áreas/racks/muebles/equipos/etiquetas) + nombres de equipo sólo por tooltip, en `VistaPlanoInteractivo`.
+- [ ] Validación real de Fede (correr la app, ver si los defaults de capas convencen).
+- [ ] Decidir si "Etiquetas" se separa en dos toggles (rack vs. mueble) si Fede lo pide tras probar.
+
+### Todo List (histórico, entregas previas — sin cambios en esta tanda)
 
 ### Extensión de cable — ajustes post-uso real (2026-08-29T23:42) — EN CURSO
 - [x] `cabledoc.py` — `ConexionesListado.cargar_datos()`: las filas de
@@ -1151,6 +1173,12 @@ propias secciones.
       (hay un plan, implementación no arrancada)
 
 ## Latest Blockers/Discoveries
+
+- **Decisión de diseño sin confirmar con Fede (2026-09-10T(actual)):** el pedido decía "por defecto sólo mostrar nombre de salas, racks y muebles" + "mostrar los labels de salas" + "equipos sólo por hover" — se interpretó como: Áreas de sala (relleno/contorno del polígono) y Equipos arrancan OCULTOS, Racks/Muebles/Etiquetas (nombre de rack y de mueble) arrancan VISIBLES, nombre de sala siempre visible sin toggle. Es una lectura razonable pero no la única posible (podría ser que "Áreas" debiera arrancar visible) — Fede tiene que confirmar al probarlo.
+- **`_hit_test_overlay` no cubría equipos dentro de un mueble** (sólo equipos sueltos) — se detectó al implementar el punto 3 del pedido (nombres de equipo sólo por hover) y se agregó, ya que si no el tooltip nunca iba a funcionar para esos equipos.
+- **Repo clonado en `/home/claude/CabledocDesktop` (`https://github.com/fschpp/CabledocDesktop`, rama `main`) dentro de este sandbox** — no es el mismo workspace que sesiones anteriores (`/home/sa/Desktop/cabledoc`, `/home/claude/cabledoc_latest`); Fede va a tener que aplicar el diff sobre su propio checkout, no hay push hecho.
+
+## Latest Blockers/Discoveries (histórico)
 
 - **BLOQUEADO esperando a Papi (2026-08-29T23:42):** dijo "sigue siendo
   poco intuitivo" después de la 1ª ronda de fixes de usabilidad, sin
