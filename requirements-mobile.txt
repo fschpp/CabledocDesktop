@@ -1,0 +1,13 @@
+# CableDoc Kivy (ui_kivy/) - Dependencias Python
+# Instalar con: pip install -r requirements-mobile.txt
+#
+# En Android/Pydroid 3, kivy suele instalarse desde el gestor de paquetes
+# propio de Pydroid en vez de pip puro — ver la documentación de Pydroid 3
+# si `pip install kivy` falla por falta de toolchain de compilación.
+Kivy>=2.3.0
+Pillow>=10.0.0
+
+# Fase 3.3 (pendiente, ver PROGRESS_INTEGRACION_MOBILE.md): si se confirma
+# soporte de SVG vía svglib+reportlab en Pydroid 3, agregar acá:
+#   svglib>=1.5.0
+#   reportlab>=4.0.0
