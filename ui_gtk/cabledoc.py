@@ -593,6 +593,17 @@ class VentanaPrincipal(Gtk.Window):
 
         # Asegurar que las columnas de equipo existan
         Modelo.asegurar_columnas_equipo()
+        # Integración mobile — Fase 3.4c (blocker post-Fase-3, hallazgo al
+        # correr ui_kivy/main.py de verdad): "auditoría de campo"
+        # (ultima_auditoria_fecha) es una feature portada de mobile a
+        # core/modelo.py que faltaba acá también. GTK no tenía pantalla
+        # propia para marcar auditado hasta ahora, pero
+        # Modelo.devolver_pendientes_equipos() (compartida, usada por el
+        # dashboard de ambos frontends) incluye el conteo "sin_auditar" —
+        # sin esta línea, esa consulta rompería acá con "no such column:
+        # ultima_auditoria_fecha" apenas alguien la corra en una base que
+        # sólo pasó por el arranque de GTK.
+        Modelo.asegurar_columnas_auditoria()
         Modelo.asegurar_tablas_catalogo()
         Modelo.asegurar_tablas_catalogo_frame()
         Modelo.asegurar_tablas_problemas()

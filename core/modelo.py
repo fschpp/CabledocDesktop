@@ -10,6 +10,8 @@ import re
 import base64
 import contextlib
 
+from core.logger_cabledoc import log_error
+
 # plan_integracion_cabledoc_v3.md, Fase 1: estas rutas eran relativas a la
 # carpeta donde vivía modelo.py (raíz del proyecto, junto a database/,
 # imagen/, manuales/, picon/). Al mover modelo.py a core/, esa carpeta pasó
@@ -151,18 +153,98 @@ class Modelo:
         return None
 
     @staticmethod
+    def _svg_ancho_alto_atributos(full_path):
+        """Ancho/alto EXPLÍCITOS del elemento <svg> (atributos width=/
+        height= en px o sin unidad — ignora '%', que no define un tamaño
+        intrínseco). Mismo orden de prioridad que
+        Rsvg.Handle.get_dimensions(): un SVG que declara width/height
+        explícitos usa ésos; el viewBox (_svg_viewbox_size) es sólo el
+        respaldo para cuando no los declara o los declara en %."""
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
+                encabezado = f.read(4096)
+            m_tag = re.search(r"<svg\b[^>]*>", encabezado, re.DOTALL)
+            if not m_tag:
+                return None
+            tag = m_tag.group(0)
+            m_w = re.search(r'\bwidth\s*=\s*["\']([\d.]+)(?:px)?["\']', tag)
+            m_h = re.search(r'\bheight\s*=\s*["\']([\d.]+)(?:px)?["\']', tag)
+            if m_w and m_h:
+                ancho, alto = float(m_w.group(1)), float(m_h.group(1))
+                if ancho > 0 and alto > 0:
+                    return ancho, alto
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def _dimensiones_svg_sin_gi(full_path):
+        """Fase 3.3 (integración mobile): tamaño de un SVG sin depender de
+        gi/Rsvg (no disponible en Android/Pydroid 3 — no es sólo un tema
+        de SVG, gi tampoco existe ahí para rasters, ver
+        _dimensiones_raster_sin_gi). Orden: (1) width/height explícitos
+        del <svg> — cero dependencias, cero conversión de unidades; (2)
+        viewBox (_svg_viewbox_size) — ídem; (3) sólo si ninguno de los
+        dos regex anteriores encontró nada, svglib (opcional, comentada
+        en requirements-mobile.txt) como último recurso. svglib devuelve
+        el tamaño en PUNTOS de reportlab (72/pulgada), no en píxeles —
+        reconvertimos asumiendo que el SVG no declaraba unidades propias
+        (si las hubiera declarado, ya se habría resuelto en (1)/(2)) y
+        por lo tanto sus unidades de usuario son px a 96/pulgada. Sin
+        esta corrección, un viewBox '0 0 200 100' se leía como
+        (150.0, 75.0) en vez de (200, 100) — factor 0.75 que hubiera
+        corrompido en silencio toda coordenada calculada sobre ese
+        símbolo."""
+        tam = Modelo._svg_ancho_alto_atributos(full_path)
+        if tam:
+            return tam
+        tam = Modelo._svg_viewbox_size(full_path)
+        if tam:
+            return tam
+        try:
+            from svglib.svglib import svg2rlg
+            drawing = svg2rlg(full_path)
+            if drawing is not None and drawing.width and drawing.height:
+                factor_pt_a_px = 96.0 / 72.0
+                return (drawing.width * factor_pt_a_px,
+                        drawing.height * factor_pt_a_px)
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def _dimensiones_raster_sin_gi(full_path):
+        """Fase 3.3 (integración mobile): tamaño de un raster (PNG/JPG/...)
+        sin depender de gi/GdkPixbuf, usando Pillow — ya es dependencia de
+        mobile (ver requirements-mobile.txt) y de bajo riesgo: sólo lee
+        el header de la imagen, no la decodifica entera."""
+        from PIL import Image
+        with Image.open(full_path) as img:
+            return img.size
+
+    @staticmethod
     def _dimensiones_imagen(path_archivo):
         """Devuelve (ancho_px, alto_px) de la imagen ubicada en IMG_DIR
         bajo el nombre `path_archivo`. Soporta cualquier raster que
         entienda GdkPixbuf (PNG/JPG/GIF/BMP/...) y SVG (vía Rsvg, leyendo
         el tamaño intrínseco del documento sin rasterizarlo).
 
+        Fase 3.3 (integración mobile): si gi/GdkPixbuf/Rsvg no están
+        disponibles (no es un caso raro — es el caso NORMAL en
+        Android/Pydroid 3, que no tiene PyGObject ni sus typelibs para
+        NINGÚN formato, no sólo SVG) cae a un camino sin GTK: Pillow para
+        rasters, y width/height explícitos > viewBox > svglib (en ese
+        orden) para SVG — ver _dimensiones_raster_sin_gi y
+        _dimensiones_svg_sin_gi. En desktop (gi disponible) el resultado
+        es idéntico a antes de esta fase; el camino sin GTK sólo se
+        ejercita cuando gi realmente falla.
+
         Cachea por (path_archivo, mtime) para no releer el archivo del
         disco en cada conversión — se invalida sola si el archivo cambia.
 
         Levanta DimensionesImagenError si el archivo no existe, no se
-        puede leer, o no están disponibles los bindings de introspección
-        necesarios (gi/GdkPixbuf/Rsvg) en este entorno."""
+        puede leer, o ninguno de los dos caminos (con o sin GTK) logra
+        determinar un tamaño válido."""
         if not path_archivo:
             raise DimensionesImagenError(
                 "No hay imagen asociada: no se puede determinar su "
@@ -184,6 +266,8 @@ class Modelo:
             return cacheado
 
         es_svg = full_path.lower().endswith(".svg")
+        ancho = alto = None
+        error_gi = None
         try:
             import gi
             if es_svg:
@@ -206,13 +290,36 @@ class Modelo:
                 if fmt is None:
                     pixbuf = GdkPixbuf.Pixbuf.new_from_file(full_path)
                     ancho, alto = pixbuf.get_width(), pixbuf.get_height()
-        except DimensionesImagenError:
-            raise
         except Exception as ex:
-            raise DimensionesImagenError(
-                f"No se pudo determinar el tamaño de {path_archivo!r}: "
-                f"{ex}"
-            ) from ex
+            # gi/PyGObject no existe en Android/Pydroid 3 (no es un typo
+            # de versión, el paquete entero no está disponible ahí) — en
+            # desktop este except casi nunca se dispara (gi siempre está),
+            # así que este catch amplio no cambia el comportamiento
+            # existente en GTK, sólo habilita el camino de abajo en mobile.
+            error_gi = ex
+
+        if not ancho or not alto:
+            # Sin gi (mobile) o gi falló por otro motivo: probar el
+            # camino sin GTK antes de rendirse (Fase 3.3, integración
+            # mobile — ver _dimensiones_svg_sin_gi/_dimensiones_raster_sin_gi).
+            try:
+                if es_svg:
+                    tam = Modelo._dimensiones_svg_sin_gi(full_path)
+                else:
+                    tam = Modelo._dimensiones_raster_sin_gi(full_path)
+                if tam:
+                    ancho, alto = tam
+            except Exception as ex_fallback:
+                if error_gi is not None:
+                    raise DimensionesImagenError(
+                        f"No se pudo determinar el tamaño de "
+                        f"{path_archivo!r} ni con GTK ({error_gi}) ni sin "
+                        f"GTK ({ex_fallback})."
+                    ) from ex_fallback
+                raise DimensionesImagenError(
+                    f"No se pudo determinar el tamaño de {path_archivo!r}: "
+                    f"{ex_fallback}"
+                ) from ex_fallback
 
         if not ancho or not alto:
             raise DimensionesImagenError(
@@ -507,15 +614,23 @@ class Modelo:
 
     @staticmethod
     def _query(sql, params=()):
-        with Modelo._conn_ctx() as conn:
-            cur = conn.execute(sql, params)
-            return [list(row) for row in cur.fetchall()]
+        try:
+            with Modelo._conn_ctx() as conn:
+                cur = conn.execute(sql, params)
+                return [list(row) for row in cur.fetchall()]
+        except Exception as ex:
+            log_error(f"Modelo._query: {sql[:120]}", ex)
+            raise
 
     @staticmethod
     def _exec(sql, params=()):
-        with Modelo._conn_ctx() as conn:
-            conn.execute(sql, params)
-            conn.commit()
+        try:
+            with Modelo._conn_ctx() as conn:
+                conn.execute(sql, params)
+                conn.commit()
+        except Exception as ex:
+            log_error(f"Modelo._exec: {sql[:120]}", ex)
+            raise
 
     # ── Equipos ──────────────────────────────────────────────────────────────
     @staticmethod
@@ -542,6 +657,107 @@ class Modelo:
                 conn.execute("ALTER TABLE equipo ADD COLUMN es_equipo_usado INTEGER DEFAULT 0")
             
             conn.commit()
+
+    # ── Auditoría de campo (ultima_auditoria_fecha) ─────────────────────────
+    # Feature exclusiva de mobile (nunca existió en el modelo.py de
+    # desktop/GTK): confirmar en terreno, con el celular en la mano, que el
+    # estado documentado de un equipo/conector/conexión/cable/rack/frame/
+    # slot sigue siendo válido. Portado desde el modelo.py viejo de mobile
+    # (ver historial de git: era el archivo suelto en la raíz del repo
+    # antes de la limpieza de la Fase 3 de la integración) al reemplazarlo
+    # por core/modelo.py — se había perdido en el "armado de core/"
+    # original, sin que nadie lo notara hasta correr ui_kivy/main.py de
+    # verdad (AttributeError: 'Modelo' has no attribute
+    # 'asegurar_columnas_auditoria'). `ui_gtk/` no llama nada de este
+    # bloque — no hace falta que lo haga, sigue siendo puramente opcional
+    # para el frontend que no lo use.
+    #
+    # Único cambio respecto del original: `_conn()` (que el propio
+    # docstring de `_conn_ctx()` documenta como fuga de conexión — un
+    # `with Modelo._conn() as conn:` en Python NO cierra la conexión, sólo
+    # hace commit/rollback) reemplazado por `_conn_ctx()` en los dos
+    # lugares que lo usaban, para no reintroducir ese bug ya conocido y
+    # corregido en el resto de este archivo. Comportamiento externo
+    # idéntico en todo lo demás.
+    TABLAS_AUDITABLES = {
+        "equipo":   "id_equipo",
+        "conector": "id_conector",
+        "conexion": "id_conexion",
+        "cable":    "id_cable",
+        "rack":     "id_rack",
+        "frame":    "id_frame",
+        "slot":     "id_slot",
+    }
+
+    @staticmethod
+    def asegurar_columnas_auditoria():
+        """Agrega la columna ultima_auditoria_fecha a todas las tablas
+        auditables que todavía no la tengan (idempotente, se llama al
+        arrancar la app)."""
+        with Modelo._conn_ctx() as conn:
+            for tabla in Modelo.TABLAS_AUDITABLES:
+                cursor = conn.execute(f"PRAGMA table_info({tabla})")
+                columnas = [col[1] for col in cursor.fetchall()]
+                if "ultima_auditoria_fecha" not in columnas:
+                    conn.execute(
+                        f"ALTER TABLE {tabla} ADD COLUMN ultima_auditoria_fecha TEXT")
+            conn.commit()
+
+    @staticmethod
+    def marcar_auditado(tabla, pk_col, pk_val):
+        """Confirma que el estado observado de un registro es válido ahora
+        mismo: graba la fecha/hora actual en ultima_auditoria_fecha."""
+        if tabla not in Modelo.TABLAS_AUDITABLES:
+            raise ValueError(f"Tabla no auditable: {tabla}")
+        import datetime
+        ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        Modelo._exec(
+            f"UPDATE {tabla} SET ultima_auditoria_fecha=? WHERE {pk_col}=?",
+            (ahora, pk_val))
+        return ahora
+
+    @staticmethod
+    def devolver_fecha_ultima_auditoria(tabla, pk_col, pk_val):
+        if not pk_val or tabla not in Modelo.TABLAS_AUDITABLES:
+            return ""
+        rows = Modelo._query(
+            f"SELECT ultima_auditoria_fecha FROM {tabla} WHERE {pk_col}=?",
+            (pk_val,))
+        return rows[0][0] if rows and rows[0][0] else ""
+
+    @staticmethod
+    def marcar_auditadas_conexiones_de_equipo(id_equipo, fecha=None):
+        """Marca como auditadas (misma fecha) todas las conexiones cuyo
+        conector pertenece al equipo dado. Devuelve (fecha, cantidad)."""
+        import datetime
+        fecha = fecha or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with Modelo._conn_ctx() as conn:
+            cur = conn.execute(
+                "UPDATE conexion SET ultima_auditoria_fecha=? "
+                "WHERE id_conector IN "
+                "(SELECT id_conector FROM conector WHERE id_equipo=?)",
+                (fecha, id_equipo))
+            conn.commit()
+            cantidad = cur.rowcount
+        return fecha, cantidad
+
+    @staticmethod
+    def devolver_pendientes_auditoria():
+        """Cantidad de registros nunca auditados, por tabla auditable."""
+        resultado = {}
+        for tabla in Modelo.TABLAS_AUDITABLES:
+            try:
+                filtro = " WHERE id_equipo != 0" if tabla == "equipo" else ""
+                sep = " AND" if filtro else " WHERE"
+                resultado[tabla] = Modelo._query(
+                    f"SELECT COUNT(*) FROM {tabla}{filtro}"
+                    f"{sep} (ultima_auditoria_fecha IS NULL "
+                    f"OR ultima_auditoria_fecha = '')"
+                )[0][0]
+            except Exception:
+                resultado[tabla] = 0
+        return resultado
+
 
     # ── Riesgo de falla (IRF) ────────────────────────────────────────────────
     @staticmethod
@@ -4226,10 +4442,32 @@ class Modelo:
             "  WHERE c.id_equipo=e.id_equipo AND c.id_imagen IS NOT NULL"
             ")"
         )[0][0]
+        # sin_auditar/sin_manual/sin_configuraciones: portados del
+        # modelo.py viejo de mobile (integración mobile, hallazgo al
+        # correr ui_kivy/main.py de verdad — PanelPendientesEquipos.
+        # actualizar() ya esperaba estas 3 claves y no estaban). Requieren
+        # asegurar_columnas_auditoria()/asegurar_columnas_equipo() ya
+        # corridas (ambos frontends las corren al arrancar) — si no, esta
+        # consulta rompe con "no such column".
+        sin_auditar = Modelo._query(
+            "SELECT COUNT(*) FROM equipo WHERE id_equipo != 0 "
+            "AND (ultima_auditoria_fecha IS NULL OR ultima_auditoria_fecha = '')"
+        )[0][0]
+        sin_manual = Modelo._query(
+            "SELECT COUNT(*) FROM equipo WHERE id_equipo != 0 "
+            "AND (path_manual IS NULL OR TRIM(path_manual) = '')"
+        )[0][0]
+        sin_configuraciones = Modelo._query(
+            "SELECT COUNT(*) FROM equipo WHERE id_equipo != 0 "
+            "AND (configuraciones IS NULL OR TRIM(configuraciones) = '')"
+        )[0][0]
         return {
             "sin_conectores":    sin_conectores,
             "sin_imagen":        sin_imagen,
             "sin_img_conectores": sin_img_conectores,
+            "sin_auditar":        sin_auditar,
+            "sin_manual":         sin_manual,
+            "sin_configuraciones": sin_configuraciones,
         }
 
     @staticmethod

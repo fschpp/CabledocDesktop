@@ -42,7 +42,7 @@ from widgets_base import (
     VisorImagenZoom, dibujar_marcador_cuadrado, mostrar_info, mostrar_error,
     grid_formulario, fila_etiqueta, fila_entry, s, _,
     ALTO_BOTON, ALTO_ENTRY, FUENTE_NORMAL, FUENTE_CHICA, fila_cerrar_arriba,
-    barra_superior_dialogo,
+    barra_superior_dialogo, crear_textura_simbolo, dibujar_simbolo_conector_kivy,
 )
 from core.modelo import Modelo, IMG_DIR
 
@@ -393,6 +393,15 @@ class ImagenConectoresYCables(Popup):
         self._filas_widgets = []
         self._col_w = dp(120)  # ancho fijo por columna de la tabla
 
+        # Fase 3.4 (integración mobile): estado de símbolos con forma
+        # real, mismo patrón que _preparar_simbolos_conector de
+        # ui_gtk/imagen_conectores_ui.py. Inicializado acá (no sólo en
+        # _preparar_simbolos_conector) para que _dibujar_overlay nunca
+        # falle con AttributeError si se llama antes de la primera carga.
+        self._simbolos_activos = False
+        self._texturas_por_tipo = {}
+        self._mm_por_pixel = None
+
         # En desktop era imagen 62% + tabla 38% lado a lado. Con 6
         # columnas de tabla, 38% de 360dp (~137dp) es inviable: se apila
         # (imagen arriba, tabla con scroll horizontal+vertical abajo,
@@ -465,7 +474,7 @@ class ImagenConectoresYCables(Popup):
         cons = Modelo._query(
             "SELECT c.id_conector, c.nombre, "
             "       c.coordenada_x_en_imagen, c.coordenada_y_en_imagen, "
-            "       i.path_archivo "
+            "       i.path_archivo, c.id_tipo_ficha, i.id_imagen "
             "FROM conector c "
             "LEFT JOIN imagen i ON i.id_imagen = c.id_imagen "
             "WHERE c.id_equipo = ? ORDER BY c.nombre",
@@ -475,7 +484,7 @@ class ImagenConectoresYCables(Popup):
         # marcadores. Mismo patrón que imagen_conectores_ui.py en desktop.
         cons = [
             (r[0], r[1], *Modelo._px_punto_o_crudo(r[4] or None, r[2], r[3]),
-             r[4])
+             r[4], r[5], r[6])
             for r in cons
         ]
 
@@ -501,6 +510,7 @@ class ImagenConectoresYCables(Popup):
             cx_map.setdefault(str(row[0]), []).append(row[1:])
 
         path_img = None
+        id_img_actual = None
         idx_color = 0
         num = 1
 
@@ -510,8 +520,10 @@ class ImagenConectoresYCables(Popup):
             x_str = s(r[2]).strip() if r[2] is not None else ""
             y_str = s(r[3]).strip() if r[3] is not None else ""
             path = s(r[4]).strip() if r[4] else ""
+            id_tipo_ficha = r[5] if len(r) > 5 else None
             if path and path_img is None:
                 path_img = path
+                id_img_actual = r[6] if len(r) > 6 else None
 
             color = PALETA[idx_color % len(PALETA)]
             cxs = cx_map.get(id_con, [])
@@ -531,7 +543,7 @@ class ImagenConectoresYCables(Popup):
                         "x": ix, "y": iy, "rgb": color, "num": num,
                         "cable": cable_str, "con_local": con_local,
                         "eq_b": eq_b, "tipo_b": tipo_b, "con_b": con_b,
-                        "id_eq_b": id_eq_b,
+                        "id_eq_b": id_eq_b, "id_tipo_ficha": id_tipo_ficha,
                     })
                     fila_color = (*color, 0.25)
                     self._agregar_fila([str(num), con_local, cable_str, eq_b,
@@ -546,7 +558,47 @@ class ImagenConectoresYCables(Popup):
         if path_img:
             ruta = _ruta_imagen(path_img)
             self.visor.set_imagen(ruta)
+            self._preparar_simbolos_conector(id_img_actual)
             Clock.schedule_once(lambda *_a: self.visor._zoom_fit(), 0.3)
+
+    def _preparar_simbolos_conector(self, id_imagen):
+        """Precalcula (una sola vez por carga) los símbolos con forma real
+        y la calibración de escala necesarios para dibujarlos — Fase 3.4
+        de la integración mobile, réplica de
+        ui_gtk/imagen_conectores_ui.py._preparar_simbolos_conector. Regla
+        de activación idéntica a desktop (§4 del plan de paneles
+        vectoriales): sólo si el fondo es SVG — ver
+        VisorImagenZoom.es_svg/crear_textura_imagen_svg (Fase 3.4) y
+        Modelo._dimensiones_svg_sin_gi (Fase 3.3) para cómo se resuelve
+        eso sin gi/Rsvg. Si algo falla acá, se deja todo desactivado y
+        _dibujar_overlay cae al marcador cuadrado genérico de siempre,
+        sin excepciones visibles para el usuario."""
+        self._simbolos_activos = False
+        self._texturas_por_tipo = {}
+        self._mm_por_pixel = None
+        if not self.visor.es_svg or self.visor.textura is None:
+            return
+        ancho_px = self.visor.textura.width
+        if not ancho_px:
+            return
+        try:
+            self._mm_por_pixel = Modelo.resolver_mm_por_pixel(
+                "equipo", self.id_equipo, id_imagen, ancho_px)
+        except Exception:
+            self._mm_por_pixel = None
+        tipos = {m["id_tipo_ficha"] for m in self._marcadores
+                 if m.get("id_tipo_ficha")}
+        if not tipos:
+            return
+        try:
+            simbolos = Modelo.obtener_simbolos_conector(list(tipos))
+        except Exception:
+            simbolos = {}
+        for id_tipo, (frag, viewbox, tamano_rel, color) in simbolos.items():
+            textura = crear_textura_simbolo(frag, viewbox, color)
+            if textura is not None:
+                self._texturas_por_tipo[id_tipo] = (textura, tamano_rel or 1.0)
+        self._simbolos_activos = bool(self._texturas_por_tipo)
 
     def _agregar_fila(self, valores, color, id_eq_b, idx_marcador):
         fila = _FilaTablaSimple(
@@ -560,12 +612,38 @@ class ImagenConectoresYCables(Popup):
     def _dibujar_overlay(self, cw):
         z = self.visor.zoom
         M = self.MARCADOR * z
+        from kivy.graphics import Color, Rectangle
         for i, m in enumerate(self._marcadores):
             wx, wy = self.visor.i2w(m["x"], m["y"])
             resaltado = (i == self._resaltado)
-            dibujar_marcador_cuadrado(cw, wx, wy, M, m["rgb"],
-                                     0.40 if resaltado else 0.15, resaltado)
-            from kivy.graphics import Color, Rectangle
+
+            # Fase 3.4 (integración mobile): símbolo con forma real si el
+            # fondo es SVG y hay un símbolo cargado para este tipo de
+            # ficha — mismo criterio que ui_gtk/imagen_conectores_ui.py.
+            # Si no se pudo dibujar (sin activar, sin textura para este
+            # tipo, o cualquier fallo), se cae al marcador cuadrado
+            # genérico de siempre — comportamiento sin cambios.
+            dibujado = False
+            if self._simbolos_activos:
+                info = self._texturas_por_tipo.get(m.get("id_tipo_ficha"))
+                if info is not None:
+                    textura, tamano_rel = info
+                    radio_img_px = Modelo.calcular_radio_simbolo_px(
+                        tamano_rel, self._mm_por_pixel,
+                        radio_default_px=self.MARCADOR / 2)
+                    radio_px = radio_img_px * z
+                    dibujado = dibujar_simbolo_conector_kivy(
+                        cw, textura, wx, wy, radio_px)
+                    if dibujado and resaltado:
+                        from kivy.graphics import Line
+                        with cw.canvas:
+                            Color(1, 0.85, 0, 0.9)
+                            Line(circle=(wx, wy, radio_px + 3), width=2)
+
+            if not dibujado:
+                dibujar_marcador_cuadrado(cw, wx, wy, M, m["rgb"],
+                                         0.40 if resaltado else 0.15, resaltado)
+
             ns = str(m["num"])
             lbl_n = Label(text=ns, font_size=max(10, 13 * z), bold=True,
                          size=(M, M), pos=(wx - M / 2, wy - M / 2),

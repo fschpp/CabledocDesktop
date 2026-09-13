@@ -5,9 +5,27 @@
 # propio de Pydroid en vez de pip puro — ver la documentación de Pydroid 3
 # si `pip install kivy` falla por falta de toolchain de compilación.
 Kivy>=2.3.0
+# Pillow ya no es sólo para íconos/generar_iconos.py: desde Fase 3.3, es el
+# fallback de core/modelo.py para medir dimensiones de imágenes rasters
+# (PNG/JPG/...) cuando gi/GdkPixbuf no está disponible — el caso NORMAL en
+# Android/Pydroid 3, no una excepción. Sin Pillow instalado, cualquier
+# conector/equipo/slot con imagen raster asociada no puede leer/escribir
+# su posición en mobile.
 Pillow>=10.0.0
 
-# Fase 3.3 (pendiente, ver PROGRESS_INTEGRACION_MOBILE.md): si se confirma
-# soporte de SVG vía svglib+reportlab en Pydroid 3, agregar acá:
+# Fase 3.3: soporte de SVG sin gi/Rsvg. La mayoría de los símbolos (los
+# que declaran width/height o viewBox, que es el caso típico de un SVG
+# exportado de una herramienta vectorial) se resuelven con regex puro,
+# sin ninguna dependencia adicional — ver
+# Modelo._dimensiones_svg_sin_gi/_svg_ancho_alto_atributos/_svg_viewbox_size
+# en core/modelo.py. svglib+reportlab son sólo el ÚLTIMO recurso, para
+# el caso raro de un SVG sin viewBox ni width/height explícitos (p.ej.
+# sólo width="100%"/height="100%"), y son opcionales: si no están
+# instaladas, ese caso raro sigue fallando con DimensionesImagenError en
+# vez de romper el resto de la migración de coordenadas. PENDIENTE:
+# confirmar en una prueba chica en Pydroid 3 real que reportlab (que
+# arrastra su propio tooling de fuentes/PDF) instala limpio antes de
+# sumarlas acá de forma incondicional — no asumir que sí sólo porque
+# funcionó en este sandbox de escritorio.
 #   svglib>=1.5.0
 #   reportlab>=4.0.0

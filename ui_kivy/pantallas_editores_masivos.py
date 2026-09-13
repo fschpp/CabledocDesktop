@@ -34,7 +34,7 @@ from widgets_base import (
     VisorImagenZoom, mostrar_info, mostrar_error,
     confirmar, s, _,
     ALTO_BOTON, ALTO_ENTRY, FUENTE_NORMAL, FUENTE_CHICA, fila_cerrar_arriba,
-    barra_superior_dialogo,
+    barra_superior_dialogo, crear_textura_simbolo, dibujar_simbolo_conector_kivy,
 )
 from pantallas_avanzadas import PALETA, _ruta_imagen, _ruta_desde_id_imagen
 from core.modelo import Modelo, IMG_DIR
@@ -141,6 +141,18 @@ class EditorMasivoConectoresImagen(Popup):
         self._sel_id      = None
         self._img_id_actual = ""
 
+        # Fase 3.4b (integración mobile): mismo estado y mismo criterio de
+        # activación que ImagenConectoresYCables en pantallas_avanzadas.py
+        # (réplica de EditorMasivoConectoresBase._preparar_simbolos_conector
+        # de ui_gtk/editor_masivo_conectores_ui.py). "equipo" es la misma
+        # _TABLA_DIMENSIONES que usa EditorMasivoConectoresImagen en GTK
+        # (EditorMasivoConectoresCatalogo, para moldes de equipo_catalogo,
+        # no tiene equivalente en mobile todavía).
+        self._TABLA_DIMENSIONES = "equipo"
+        self._simbolos_activos = False
+        self._texturas_por_tipo = {}
+        self._mm_por_pixel = None
+
         # ── Layout ──────────────────────────────────────────────────────────
         # En desktop: imagen 62% + tabla 38% lado a lado. En 360dp de
         # ancho eso deja la tabla en ~137dp (4 columnas ilegibles), así
@@ -226,7 +238,8 @@ class EditorMasivoConectoresImagen(Popup):
         cons = Modelo._query(
             "SELECT c.id_conector, c.nombre, COALESCE(tc.nombre,''), "
             "c.id_imagen, COALESCE(i.path_archivo,''), "
-            "c.coordenada_x_en_imagen, c.coordenada_y_en_imagen "
+            "c.coordenada_x_en_imagen, c.coordenada_y_en_imagen, "
+            "c.id_tipo_ficha "
             "FROM conector c "
             "LEFT JOIN tipo_conector tc "
             "  ON tc.id_tipo_conector=c.id_tipo_conector "
@@ -238,7 +251,7 @@ class EditorMasivoConectoresImagen(Popup):
         # marcadores existentes. Mismo patrón que
         # editor_masivo_conectores_ui.py en desktop.
         cons = [
-            (*r[:5], *Modelo._px_punto_o_crudo(r[4] or None, r[5], r[6]))
+            (*r[:5], *Modelo._px_punto_o_crudo(r[4] or None, r[5], r[6]), r[7])
             for r in cons
         ]
 
@@ -260,10 +273,11 @@ class EditorMasivoConectoresImagen(Popup):
             path   = s(r[4]).strip()
             x      = str(r[5]) if r[5] is not None else ""
             y      = str(r[6]) if r[6] is not None else ""
+            id_tipo_ficha = r[7] if len(r) > 7 else None
             hex_c  = _color_hex(i)
             self._conectores.append({
                 "id": id_con, "nombre": nombre, "tipo": tipo,
-                "hex": hex_c, "idx": i,
+                "hex": hex_c, "idx": i, "id_tipo_ficha": id_tipo_ficha,
             })
             self._pendientes[id_con] = {
                 "x": x, "y": y, "id_imagen": id_img,
@@ -278,7 +292,47 @@ class EditorMasivoConectoresImagen(Popup):
             if ruta:
                 self._visor.set_imagen(ruta)
                 Clock.schedule_once(lambda *_: self._visor._zoom_fit(), 0.1)
+            id_imagen_pred = next(
+                (r[3] for r in cons if s(r[4]).strip() == img_pred and r[3]),
+                None)
+            self._preparar_simbolos_conector(id_imagen_pred)
             self._actualizar_overlay()
+
+    def _preparar_simbolos_conector(self, id_imagen):
+        """Precalcula (una sola vez por carga o por cambio de imagen) los
+        símbolos con forma real y la calibración de escala — Fase 3.4b de
+        la integración mobile, réplica de
+        EditorMasivoConectoresBase._preparar_simbolos_conector de
+        ui_gtk/editor_masivo_conectores_ui.py. Regla de activación
+        idéntica a desktop (§4 del plan): sólo si el fondo es SVG. Si
+        algo falla acá, se deja todo desactivado y _dibujar_overlay cae
+        al círculo genérico de siempre, sin excepciones visibles."""
+        self._simbolos_activos = False
+        self._texturas_por_tipo = {}
+        self._mm_por_pixel = None
+        if not self._visor.es_svg or self._visor.textura is None:
+            return
+        ancho_px = self._visor.textura.width
+        if not ancho_px:
+            return
+        try:
+            self._mm_por_pixel = Modelo.resolver_mm_por_pixel(
+                self._TABLA_DIMENSIONES, self._id_equipo, id_imagen, ancho_px)
+        except Exception:
+            self._mm_por_pixel = None
+        tipos = {c["id_tipo_ficha"] for c in self._conectores
+                 if c.get("id_tipo_ficha")}
+        if not tipos:
+            return
+        try:
+            simbolos = Modelo.obtener_simbolos_conector(list(tipos))
+        except Exception:
+            simbolos = {}
+        for id_tipo, (frag, viewbox, tamano_rel, color) in simbolos.items():
+            textura = crear_textura_simbolo(frag, viewbox, color)
+            if textura is not None:
+                self._texturas_por_tipo[id_tipo] = (textura, tamano_rel or 1.0)
+        self._simbolos_activos = bool(self._texturas_por_tipo)
 
     # ── Tabla ─────────────────────────────────────────────────────────────────
 
@@ -414,6 +468,7 @@ class EditorMasivoConectoresImagen(Popup):
             if ruta:
                 self._visor.set_imagen(ruta)
                 Clock.schedule_once(lambda *_: self._visor._zoom_fit(), 0.1)
+            self._preparar_simbolos_conector(id_)
             self._actualizar_overlay()
 
         ImagenesListado(modo_seleccion=True,
@@ -449,21 +504,42 @@ class EditorMasivoConectoresImagen(Popup):
             rgb = _hex_to_rgb(c["hex"])
             es_sel = (id_con == self._sel_id)
 
-            with canvas_widget.canvas:
-                # Sombra
-                Color(0, 0, 0, 0.35)
-                Ellipse(pos=(wx - R + 2, wy - R - 2), size=(R*2, R*2))
-                # Círculo relleno
-                Color(*rgb, 1)
-                Ellipse(pos=(wx - R, wy - R), size=(R*2, R*2))
-                # Borde blanco (más grueso si seleccionado)
-                Color(1, 1, 1, 1)
-                Line(circle=(wx, wy, R),
-                     width=2.5 if es_sel else 1.2)
-                # Borde naranja si seleccionado
-                if es_sel:
-                    Color(1.0, 0.65, 0.0, 1)
-                    Line(circle=(wx, wy, R + 3), width=1.5)
+            # Fase 3.4b (integración mobile): símbolo con forma real si el
+            # fondo es SVG y hay un símbolo cargado para este tipo de
+            # ficha — mismo criterio que EditorMasivoConectoresBase en
+            # GTK. Si no se pudo dibujar, se cae al círculo genérico de
+            # siempre (comportamiento sin cambios).
+            dibujado = False
+            if self._simbolos_activos:
+                info = self._texturas_por_tipo.get(c.get("id_tipo_ficha"))
+                if info is not None:
+                    textura, tamano_rel = info
+                    radio_img_px = Modelo.calcular_radio_simbolo_px(
+                        tamano_rel, self._mm_por_pixel, radio_default_px=self.R)
+                    radio_px = radio_img_px * z
+                    dibujado = dibujar_simbolo_conector_kivy(
+                        canvas_widget, textura, wx, wy, radio_px)
+                    if dibujado and es_sel:
+                        with canvas_widget.canvas:
+                            Color(1.0, 0.65, 0.0, 1)
+                            Line(circle=(wx, wy, radio_px + 3), width=1.5)
+
+            if not dibujado:
+                with canvas_widget.canvas:
+                    # Sombra
+                    Color(0, 0, 0, 0.35)
+                    Ellipse(pos=(wx - R + 2, wy - R - 2), size=(R*2, R*2))
+                    # Círculo relleno
+                    Color(*rgb, 1)
+                    Ellipse(pos=(wx - R, wy - R), size=(R*2, R*2))
+                    # Borde blanco (más grueso si seleccionado)
+                    Color(1, 1, 1, 1)
+                    Line(circle=(wx, wy, R),
+                         width=2.5 if es_sel else 1.2)
+                    # Borde naranja si seleccionado
+                    if es_sel:
+                        Color(1.0, 0.65, 0.0, 1)
+                        Line(circle=(wx, wy, R + 3), width=1.5)
 
             _draw_text_centered_on_canvas(
                 canvas_widget.canvas,
