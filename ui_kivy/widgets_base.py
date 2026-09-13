@@ -1634,6 +1634,7 @@ class VisorImagenZoom(BoxLayout):
         super().__init__(orientation="vertical", spacing=0, **kwargs)
         self.zoom = 1.0
         self.textura = None
+        self.es_svg = False
         self.overlay_fn = None
 
         hbz = BoxLayout(size_hint_y=None, height=ALTO_BOTON, spacing=dp(4),
@@ -1686,14 +1687,25 @@ class VisorImagenZoom(BoxLayout):
 
     # ── público ──
     def set_imagen(self, ruta_archivo):
-        """ruta_archivo: path absoluto al archivo de imagen, o None."""
+        """ruta_archivo: path absoluto al archivo de imagen, o None.
+        Fase 3.4: si es un .svg, se rasteriza con crear_textura_imagen_svg
+        (kivy.core.image.Image no soporta SVG en absoluto) y se marca
+        self.es_svg=True — es la misma señal que usan las pantallas que
+        llaman a esta clase para decidir si activar los símbolos de
+        conector con forma real (regla §4 del plan: sólo si el fondo es
+        SVG, igual que en desktop)."""
         self.textura = None
+        self.es_svg = False
         if ruta_archivo and os.path.exists(ruta_archivo):
-            try:
-                from kivy.core.image import Image as CoreImage
-                self.textura = CoreImage(ruta_archivo).texture
-            except Exception:
-                self.textura = None
+            if ruta_archivo.lower().endswith(".svg"):
+                self.textura = crear_textura_imagen_svg(ruta_archivo)
+                self.es_svg = self.textura is not None
+            else:
+                try:
+                    from kivy.core.image import Image as CoreImage
+                    self.textura = CoreImage(ruta_archivo).texture
+                except Exception:
+                    self.textura = None
         self.canvas_widget.set_textura(self.textura)
         self._lbl_sin_imagen.opacity = 0 if self.textura else 1
         self._update_size()
@@ -1769,3 +1781,174 @@ def dibujar_marcador_cuadrado(canvas_widget, cx, cy, lado, color_rgb,
             width=grosor * (1.4 if resaltado else 1.0))
         Color(1, 1, 1, 0.9)
         Line(rectangle=(cx - hl, cy - hl, lado, lado), width=1.2)
+
+
+# ── Símbolos de conector con forma real (Fase 3.4, integración mobile) ─────
+#
+#  Equivalente Kivy de _crear_handle_simbolo/_dibujar_simbolo_conector de
+#  ui_gtk/pantallas_comunes.py. Ahí se dibuja el símbolo vectorialmente con
+#  Rsvg+Cairo en cada frame; acá no hay Rsvg (gi no existe en Android/Pydroid
+#  3 — ver core/modelo.py._dimensiones_svg_sin_gi para el mismo problema
+#  aplicado a dimensiones en vez de a render), así que en cambio se
+#  RASTERIZA el símbolo una sola vez a una textura (con svglib+reportlab,
+#  igual que el fallback de dimensiones) y esa textura se reescala como
+#  cualquier imagen de Kivy en cada frame — mismo patrón que ya usa este
+#  archivo para el número de marcador (Rectangle(texture=lbl_n.texture,...)
+#  en pantallas_avanzadas.py). Toda la lógica de negocio (qué símbolo
+#  corresponde a qué tipo_ficha, mm_por_pixel, radio final en px) es
+#  100% compartida con desktop vía core/modelo.py — acá sólo se resuelve
+#  el render, igual que _crear_handle_simbolo/_dibujar_simbolo_conector
+#  sólo resuelven el render del lado GTK.
+
+_CACHE_TEXTURA_SIMBOLO = {}
+
+
+def crear_textura_simbolo(svg_fragmento, viewbox="0 0 24 24", color=None,
+                           resolucion_px=128):
+    """Rasteriza `svg_fragmento` (sólo el contenido interno, sin el tag
+    <svg> exterior — mismo formato que guarda catalogo_simbolo_conector y
+    que espera _crear_handle_simbolo del lado GTK) a una Texture de Kivy
+    cuadrada de `resolucion_px` de lado. Se rasteriza UNA sola vez por
+    combinación (fragmento, viewbox, color, resolución) — la textura
+    resultante se reescala sin volver a rasterizar cada vez que cambia el
+    zoom o el radio del símbolo (constraste con el lado GTK, que sí
+    re-renderiza vectorialmente en cada frame; aceptable acá porque los
+    símbolos son íconos chicos, no arte a resolución arbitraria).
+
+    Nunca levanta excepción: devuelve None ante cualquier fallo (fragmento
+    inválido, svglib/reportlab no instaladas, etc.) — el llamador debe caer
+    al marcador genérico en ese caso, nunca romper el render de todo el
+    panel por un símbolo puntual corrupto (mismo contrato que
+    _crear_handle_simbolo)."""
+    if not svg_fragmento:
+        return None
+    clave = (svg_fragmento, viewbox, color, resolucion_px)
+    if clave in _CACHE_TEXTURA_SIMBOLO:
+        return _CACHE_TEXTURA_SIMBOLO[clave]
+    textura = None
+    try:
+        import xml.etree.ElementTree as ET
+        trazo = color or "currentColor"
+        svg_completo = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{viewbox}" '
+            f'stroke="{trazo}" fill="none" stroke-width="1.5" '
+            f'stroke-linecap="round" stroke-linejoin="round">'
+            f'{svg_fragmento}</svg>'
+        )
+        ET.fromstring(svg_completo)  # validar XML antes de gastar en rasterizar
+
+        from io import BytesIO
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPM
+        from kivy.core.image import Image as _CoreImage
+
+        drawing = svg2rlg(BytesIO(svg_completo.encode("utf-8")))
+        if drawing is None or not drawing.width or not drawing.height:
+            return None
+        escala = resolucion_px / max(drawing.width, drawing.height)
+        drawing.width *= escala
+        drawing.height *= escala
+        drawing.scale(escala, escala)
+
+        buf = BytesIO()
+        renderPM.drawToFile(drawing, buf, fmt="PNG", bg=0x000000, configPIL={
+            "transparent": (0, 0, 0)})
+        buf.seek(0)
+        textura = _CoreImage(buf, ext="png").texture
+    except Exception:
+        textura = None
+    _CACHE_TEXTURA_SIMBOLO[clave] = textura
+    return textura
+
+
+def dibujar_simbolo_conector_kivy(canvas_widget, textura, wx, wy, radio_px):
+    """Dibuja `textura` (ya creada con crear_textura_simbolo) centrada en
+    (wx, wy) — coordenadas locales del widget, ya convertidas con i2w — con
+    diámetro 2*radio_px. Devuelve True si pudo dibujar, o False si algo
+    falló o no hay textura (el llamador cae al marcador genérico). Mismo
+    contrato que _dibujar_simbolo_conector del lado GTK."""
+    if textura is None or not radio_px or radio_px <= 0:
+        return False
+    try:
+        diam = radio_px * 2.0
+        with canvas_widget.canvas:
+            Color(1, 1, 1, 1)
+            Rectangle(texture=textura, pos=(wx - radio_px, wy - radio_px),
+                     size=(diam, diam))
+        return True
+    except Exception:
+        return False
+
+
+# ── Imagen de fondo SVG (Fase 3.4, integración mobile) ─────────────────────
+#
+#  kivy.core.image.Image (usado por VisorImagenZoom.set_imagen) NO soporta
+#  SVG en absoluto — a diferencia de GdkPixbuf en GTK, que sí. Sin esto, la
+#  regla de activación de los símbolos con forma real (§4 del plan: "sólo
+#  si el fondo es SVG") nunca podría cumplirse en mobile, porque la imagen
+#  de fondo ni siquiera se llegaría a mostrar. Mismo enfoque que
+#  crear_textura_simbolo (rasterizar una vez con svglib+reportlab a una
+#  Texture de Kivy), pero para el documento COMPLETO en vez de un
+#  fragmento chico, y reutilizando Modelo._dimensiones_svg_sin_gi (Fase
+#  3.3) para el tamaño intrínseco en vez de duplicar esa lógica acá.
+
+_CACHE_TEXTURA_IMAGEN_SVG = {}
+
+
+def crear_textura_imagen_svg(ruta_archivo, resolucion_max_px=1600):
+    """Rasteriza un SVG completo (imagen de fondo de equipo/frame, no un
+    símbolo de conector — ver crear_textura_simbolo para eso) a una
+    Texture de Kivy. Usa Modelo._dimensiones_svg_sin_gi para el tamaño
+    intrínseco real en px (mismo criterio de prioridad que ya validó la
+    Fase 3.3: width/height explícitos > viewBox > svglib) y sólo achica
+    si excede resolucion_max_px de lado más largo — nunca agranda más
+    allá de la resolución nativa del documento. Cachea por (ruta, mtime,
+    resolucion_max_px), se invalida sola si el archivo cambia. Nunca
+    levanta excepción: devuelve None ante cualquier fallo (archivo
+    corrupto, svglib/reportlab no instaladas, etc.) — el llamador debe
+    caer al comportamiento de "sin imagen" existente, igual que ya hace
+    VisorImagenZoom.set_imagen con cualquier otro raster ilegible."""
+    try:
+        mtime = os.path.getmtime(ruta_archivo)
+    except OSError:
+        return None
+    clave = (ruta_archivo, mtime, resolucion_max_px)
+    if clave in _CACHE_TEXTURA_IMAGEN_SVG:
+        return _CACHE_TEXTURA_IMAGEN_SVG[clave]
+    textura = None
+    try:
+        from core.modelo import Modelo
+        tam = Modelo._dimensiones_svg_sin_gi(ruta_archivo)
+        if not tam or not tam[0] or not tam[1]:
+            raise ValueError("SVG sin tamaño intrínseco resoluble")
+        ancho_px, alto_px = tam
+        escala_final = min(1.0, resolucion_max_px / max(ancho_px, alto_px))
+
+        from io import BytesIO
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPM
+        from kivy.core.image import Image as _CoreImage
+
+        drawing = svg2rlg(ruta_archivo)
+        if drawing is None or not drawing.width or not drawing.height:
+            raise ValueError("svg2rlg no pudo interpretar el archivo")
+        # svg2rlg puede resolver un ancho/alto propio distinto al de
+        # _dimensiones_svg_sin_gi (svglib trabaja en puntos reportlab,
+        # 72/pulgada — ver el hallazgo documentado en Fase 3.3). No
+        # importa acá: se ignora la escala nativa de svglib y se fuerza
+        # el tamaño final a ancho_px/alto_px (ya en px reales,
+        # eventualmente reducidos por escala_final), en vez de intentar
+        # reconciliar dos sistemas de unidades distintos.
+        escala_svglib = (ancho_px * escala_final) / drawing.width
+        drawing.width *= escala_svglib
+        drawing.height *= escala_svglib
+        drawing.scale(escala_svglib, escala_svglib)
+
+        buf = BytesIO()
+        renderPM.drawToFile(drawing, buf, fmt="PNG", bg=0xFFFFFF)
+        buf.seek(0)
+        textura = _CoreImage(buf, ext="png").texture
+    except Exception:
+        textura = None
+    _CACHE_TEXTURA_IMAGEN_SVG[clave] = textura
+    return textura
