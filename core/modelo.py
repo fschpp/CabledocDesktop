@@ -992,6 +992,82 @@ class Modelo:
             "ORDER BY ve.nombre"
         )
 
+    # ── Listado de equipos en tarjetas (Fase 3.4c, integración mobile) ──────
+    # devolver_equipos_tarjetas/devolver_ubicaciones_equipos: portadas del
+    # modelo.py viejo de mobile — mismo gap que la auditoría de campo
+    # (nunca se portaron a core/modelo.py al armar el backend compartido,
+    # recién visibles al abrir la pantalla de Equipos en mobile de
+    # verdad). devolver_todos_los_equipos() de arriba es la versión de
+    # desktop (usa VISTA_EQUIPOS, formato lista/tabla); ésta es la versión
+    # de mobile (formato tarjeta con foto picon + contadores), no un
+    # duplicado — cada frontend tiene su propio listado con columnas
+    # distintas para su propia UI. Verificado contra data/schema_db.sql
+    # actual: todas las tablas/columnas referenciadas (posicion_en_rack.
+    # unidades_de_rack_equipo, equiponoraqueable_por_sala, equipo.picon,
+    # equipo.ultima_auditoria_fecha, cable.es_cable_conexion_interna)
+    # existen con esos nombres exactos, sin cambios desde el fork.
+    @staticmethod
+    def devolver_equipos_tarjetas():
+        """Datos para el listado de Equipos en tarjetas (fotos picon +
+        resumen). Cols: id, nombre, marca, modelo, tipo, picon,
+        n_conectores, n_conexiones, n_patcheras, auditado (0/1)."""
+        return Modelo._query(
+            "SELECT eq.id_equipo, eq.nombre, COALESCE(m.nombre,''), "
+            "COALESCE(eq.modelo,''), COALESCE(te.nombre,''), "
+            "COALESCE(eq.picon,''), "
+            "(SELECT COUNT(*) FROM conector c "
+            " WHERE c.id_equipo=eq.id_equipo) AS n_con, "
+            "(SELECT COUNT(*) FROM conexion cx "
+            " JOIN conector c2 ON c2.id_conector=cx.id_conector "
+            " WHERE c2.id_equipo=eq.id_equipo) AS n_cx, "
+            "(SELECT COUNT(DISTINCT e2.id_equipo) FROM conector c1 "
+            " JOIN conexion cx1 ON cx1.id_conector=c1.id_conector "
+            " JOIN conexion cx2 ON cx2.id_cable=cx1.id_cable "
+            "   AND cx2.id_conector!=cx1.id_conector "
+            " JOIN conector c2b ON c2b.id_conector=cx2.id_conector "
+            " JOIN equipo e2 ON e2.id_equipo=c2b.id_equipo "
+            " JOIN tipo_equipo te2 ON te2.id_tipo_equipo=e2.id_tipo_equipo "
+            " WHERE c1.id_equipo=eq.id_equipo "
+            " AND te2.nombre='MODULO PATCHERA') AS n_patch, "
+            "CASE WHEN eq.ultima_auditoria_fecha IS NOT NULL "
+            "AND eq.ultima_auditoria_fecha!='' THEN 1 ELSE 0 END AS auditado "
+            "FROM equipo eq "
+            "LEFT JOIN marca m ON m.id_marca = eq.id_marca "
+            "LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = eq.id_tipo_equipo "
+            "WHERE eq.id_equipo != 0 "
+            "ORDER BY eq.nombre"
+        )
+
+    @staticmethod
+    def devolver_ubicaciones_equipos():
+        """id_equipo (str) -> 'Rack · Unidad N' (o nombre de Sala si está
+        suelto). Tres consultas en bloque (rack directo, rack vía frame/
+        slot, sala suelta) en vez de una por equipo — evita N+1 con
+        cientos de equipos en el listado."""
+        ubic = {}
+        for id_eq, rack_nom, ur in Modelo._query(
+                "SELECT pr.id_equipo, r.nombre, pr.unidades_de_rack_equipo "
+                "FROM posicion_en_rack pr "
+                "JOIN rack r ON r.id_rack=pr.id_rack "
+                "WHERE pr.id_equipo IS NOT NULL AND pr.id_equipo!=0"):
+            rack_nom = _n(rack_nom) or ""
+            texto = f"{rack_nom} · Unidad {ur}" if ur else rack_nom
+            if texto:
+                ubic[str(id_eq)] = texto
+        for id_eq, rack_nom in Modelo._query(
+                "SELECT sl.id_equipo, r.nombre "
+                "FROM slot sl "
+                "JOIN posicion_en_rack pr ON pr.id_frame = sl.id_frame "
+                "JOIN rack r ON r.id_rack = pr.id_rack "
+                "WHERE sl.id_equipo IS NOT NULL AND sl.id_equipo!=0"):
+            ubic.setdefault(str(id_eq), _n(rack_nom) or "")
+        for id_eq, sala_nom in Modelo._query(
+                "SELECT en.id_equipo, s.nombre "
+                "FROM equiponoraqueable_por_sala en "
+                "JOIN sala s ON s.id_sala=en.id_sala"):
+            ubic.setdefault(str(id_eq), _n(sala_nom) or "")
+        return ubic
+
     @staticmethod
     def devolver_id_todos_los_equipos():
         return Modelo._query("SELECT id_equipo FROM equipo")
@@ -4393,6 +4469,29 @@ class Modelo:
             "WHERE c.es_cable_conexion_interna = 0 "
             "GROUP BY c.id_cable "
             "ORDER BY c.codigo"
+        )
+
+    @staticmethod
+    def devolver_cables_de_equipo(id_equipo):
+        """Cables que tienen al menos una conexión con el equipo dado.
+        Portada del modelo.py viejo de mobile (mismo gap que
+        devolver_equipos_tarjetas/devolver_ubicaciones_equipos —
+        integración mobile, hallazgo al abrir la pantalla de Equipos en
+        mobile de verdad)."""
+        return Modelo._query(
+            "SELECT c.id_cable, c.codigo, c.longitud, "
+            "COALESCE(c.estado, 'VERIFICADO') AS estado, "
+            "(SELECT COUNT(*) FROM conexion cx2 WHERE cx2.id_cable=c.id_cable) "
+            "AS n_conexiones "
+            "FROM cable c "
+            "WHERE c.es_cable_conexion_interna = 0 "
+            "AND EXISTS ("
+            "  SELECT 1 FROM conexion cx "
+            "  JOIN conector cn ON cn.id_conector = cx.id_conector "
+            "  WHERE cx.id_cable = c.id_cable AND cn.id_equipo = ?"
+            ") "
+            "ORDER BY c.codigo",
+            (id_equipo,),
         )
 
     @staticmethod
