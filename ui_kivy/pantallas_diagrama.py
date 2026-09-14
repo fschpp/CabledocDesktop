@@ -85,7 +85,7 @@ from widgets_base import (
 )
 from tema import BotonIcono
 from core.modelo import Modelo
-from pantallas_diagnostico import PopupDiagnostico, abrir_historial_diagnosticos
+from pantallas_diagnostico import PanelDiagnostico, abrir_historial_diagnosticos
 
 try:
     from core.logger_cabledoc import log_debug
@@ -1235,6 +1235,8 @@ class DiagramaConexiones(Popup):
         # El botón "Cerrar" va en la barra superior, fuera del canvas, para
         # que nunca quede tapando el minimapa.
         canvas_cont = FloatLayout()
+        self._canvas_cont = canvas_cont   # ver _diag_abrir_puerto: acá se
+                                          # superpone PanelDiagnostico
         self._canvas = _CanvasDiagrama(popup_ref=self)
         canvas_cont.add_widget(self._canvas)
 
@@ -1899,11 +1901,11 @@ class DiagramaConexiones(Popup):
     def _diag_abrir_puerto(self, id_conector) -> None:
         """Dispara desde _CanvasDiagrama.on_touch_down al tocar un
         puerto con el modo diagnóstico activo — equivalente a
-        _diag_on_press (GTK). Si ya hay una sesión en curso (el Popup
-        sigue abierto — en Kivy no hace falta ningún ajuste equivalente
-        a set_modal(False), un Popup ya no bloquea el resto de la
-        ventana), un toque en OTRO puerto no abre una segunda sesión: se
-        ignora, mismo criterio que GTK."""
+        _diag_on_press (GTK). Si ya hay una sesión en curso (la tarjeta
+        de PanelDiagnostico sigue abierta, superpuesta sobre el canvas —
+        ya no es un Popup, ver pantallas_diagnostico.py), un toque en
+        OTRO puerto no abre una segunda sesión: se ignora, mismo
+        criterio que GTK."""
         if self._diag_dialogo_activo:
             return
         fila = Modelo._query(
@@ -1912,14 +1914,13 @@ class DiagramaConexiones(Popup):
             (id_conector,))
         titulo = f"{s(fila[0][1])} / {s(fila[0][0])}" if fila else str(id_conector)
         self._diag_dialogo_activo = True
-        popup = PopupDiagnostico(id_conector, titulo, diagrama=self)
-        popup.bind(on_dismiss=lambda *_a: setattr(
-            self, "_diag_dialogo_activo", False))
-        popup.open()
+        panel = PanelDiagnostico(id_conector, titulo, diagrama=self,
+                                 contenedor=self._canvas_cont)
+        panel.on_cerrar = lambda: setattr(self, "_diag_dialogo_activo", False)
 
     def _centrar_en_equipo(self, id_equipo) -> None:
         """Centra pan+zoom del canvas en el equipo dado. Usado por
-        PopupDiagnostico._panear_a_equipo a medida que el asistente va
+        PanelDiagnostico._panear_a_equipo a medida que el asistente va
         sugiriendo nuevos puntos para revisar — equivalente a
         `_panear_a_equipo`/`_centrar_en_nodo` en GTK. Mismo mecanismo de
         dos ramas que ya usa `_on_buscar` en esta clase: busca primero
