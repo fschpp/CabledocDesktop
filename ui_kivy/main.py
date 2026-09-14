@@ -135,6 +135,9 @@ from pantallas_salas import (
 )
 from pantallas_vistas import VistaRack, PatcherasVista
 from pantallas_diagrama import abrir_diagrama_conexiones
+from pantallas_diagnostico import (
+    abrir_diagnostico_elegir, abrir_historial_diagnosticos,
+)
 from pantallas_editores_masivos import (
     abrir_editor_masivo_conectores,
     abrir_editor_masivo_slots,
@@ -478,6 +481,10 @@ def _abrir_menu_completo():
             (_("Vista de patcheras…"), abrir_patcheras_elegir),
             (_("Diagrama de conexiones…"),
              lambda: abrir_diagrama_conexiones()),
+        ]),
+        (_("Diagnóstico"), [
+            (_("🩺 Diagnosticar falla…"), abrir_diagnostico_elegir),
+            (_("📋 Historial de diagnósticos…"), abrir_historial_diagnosticos),
         ]),
         (_("Preferencias"), [
             (_("Seleccionar idioma…"), lambda: DialogoIdioma().open()),
