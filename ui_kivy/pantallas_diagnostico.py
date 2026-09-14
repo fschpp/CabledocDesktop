@@ -8,25 +8,56 @@ reutiliza sin ningún cambio core/diagnostico_falla.py
 GTK/Kivy. La bisección real vive ahí; este archivo sólo la envuelve en
 pantallas táctiles.
 
-Entrada distinta a GTK, a propósito: en GTK el asistente arranca con un
-clic sobre un puerto de DiagramaConexiones. Acá NO depende de que exista
-el diagrama de conexiones en mobile ni de que el usuario esté parado en
-él (aunque sí existe, ver pantallas_diagrama.py) — se elige el "conector
-síntoma" con el mismo selector en dos pasos (equipo -> conector) que ya
-usan abrir_imagen_conectores_elegir/abrir_patcheras_elegir en main.py.
-Esto era justamente lo que hacía de Diagnóstico el candidato más simple
-para arrancar el roadmap (ver "Orden sugerido" en el roadmap): sin
-dibujo custom que portar, sin depender de otras fases mobile pendientes.
+CORRECCIÓN DE ARQUITECTURA (post primera entrega de este ítem): la
+primera versión abría el asistente desde un selector independiente
+equipo → conector (abrir_diagnostico_elegir), fuera del diagrama. Eso
+estaba mal: el diagnóstico parte de un conector síntoma concreto y va
+sugiriendo puntos VECINOS de esa misma cadena de señal para ir
+descartando por bisección — no tiene sentido elegir el síntoma "a
+ciegas" desde un listado cuando lo natural es tocarlo directamente en
+el lugar donde ya se lo está mirando: el diagrama de conexiones. GTK
+nunca tuvo un selector aparte por esta misma razón (ver diagnostico_ui.py:
+el asistente arranca con un clic sobre un puerto de DiagramaConexiones,
+modo activable con un toggle del propio diagrama).
+
+Arquitectura corregida, ahora igual a GTK: `abrir_diagnostico_elegir` se
+eliminó. El punto de entrada es `pantallas_diagrama.DiagramaConexiones`
+— el botón toggle "🩺 Diagnóstico" de su barra de herramientas activa un
+modo en el que tocar un puerto (IN u OUT, ya dibujado — sólo visible
+cuando el nodo no está en modo "Solo nombre") abre directamente
+`PopupDiagnostico` para ESE conector, vía
+`DiagramaConexiones._diag_abrir_puerto()` (ver pantallas_diagrama.py).
+Este archivo ya no decide cuándo/cómo se elige el síntoma, sólo expone
+`PopupDiagnostico` para que el diagrama lo instancie.
+
+`PopupDiagnostico` recibe ahora `diagrama=` (la instancia de
+DiagramaConexiones, no sólo el Popup) para poder panear el canvas hacia
+cada equipo que se va sugiriendo a medida que avanza la bisección — igual
+que `_panear_a_equipo` en GTK (`_DialogoDiagnostico`). Si se instancia
+sin `diagrama` (no debería pasar desde el flujo normal, pero no se exige
+por si algún día hace falta un caso de prueba aislado) simplemente no
+panea nada.
+
+Ya no aplica, con el fix, la limitación original de "no depende de que
+exista el diagrama": ahora SÍ depende, a propósito — es su lugar
+correcto, igual que en GTK.
 
 No portado de GTK (fuera de alcance de este ítem, no bloquea el resto —
 se puede agregar después sin tocar el motor):
-  - Paneo automático al equipo sugerido (_panear_a_equipo en GTK): sólo
-    tiene sentido si el asistente vive encima del diagrama.
   - Convivencia con Vista Previa/Escenario/Impacto: esos mixins de
-    diagrama todavía no existen en mobile (ítems 2-4 del roadmap).
+    diagrama todavía no existen en mobile (ítems 2-4 del roadmap), así
+    que no hay con qué excluirse todavía — ver comentario en
+    `DiagramaConexiones._diag_activar` (pantallas_diagrama.py) para
+    cuándo agregar la exclusión mutua el día que esos modos existan.
   - Diálogo no-modal: en Kivy los Popup ya no bloquean la ventana
     completa como Gtk.Dialog.run(), así que no hace falta ningún ajuste
-    equivalente a set_modal(False).
+    equivalente a set_modal(False) — el diagrama sigue paneable/zoomable
+    detrás del Popup igual que en GTK con el diálogo no-modal.
+  - "Prontuario" filtrado por equipo/cable (abrir_historial_diagnosticos
+    con id_equipo/id_cable, como en equipos_ui.py/cables_conexiones_ui.py
+    de GTK, llamado desde la ficha de cada entidad): la función ya
+    soporta esos filtros, sólo falta agregar el botón en las pantallas
+    de ficha de equipo/cable de mobile cuando se ataque ese ítem.
 """
 
 from kivy.uix.boxlayout import BoxLayout
@@ -38,31 +69,10 @@ from kivy.metrics import dp
 
 from widgets_base import (
     ListadoPopup, ComboBuscable, barra_superior_dialogo, fila_botones_pill,
-    mostrar_info, s, _, FUENTE_NORMAL, FUENTE_CHICA, FUENTE_TITULO,
+    mostrar_info, _, FUENTE_NORMAL, FUENTE_CHICA, FUENTE_TITULO,
 )
 from core.modelo import Modelo, DB_PATH
 from core.diagnostico_falla import MotorDiagnostico, SesionDiagnostico
-
-
-# ─────────────────────────────────────────────────────────────────────────
-# Punto de entrada: elegir equipo -> conector síntoma, después abrir el
-# wizard. Mismo patrón de dos ListadoPopup encadenados que ya usa
-# abrir_patcheras_elegir (main.py).
-# ─────────────────────────────────────────────────────────────────────────
-def abrir_diagnostico_elegir(*_a):
-    from pantallas_equipos import EquiposListado
-
-    def _con_equipo(id_equipo, nombre_equipo, _f):
-        from pantallas_conectores import ConectoresListado
-
-        def _con_conector(id_conector, nombre_conector, _f2):
-            titulo = f"{s(nombre_equipo)} / {s(nombre_conector)}"
-            PopupDiagnostico(id_conector, titulo).open()
-
-        ConectoresListado(id_equipo, modo_seleccion=True,
-                          on_seleccionar=_con_conector).open()
-
-    EquiposListado(modo_seleccion=True, on_seleccionar=_con_equipo).open()
 
 
 def abrir_historial_diagnosticos(*_a, id_cable=None, id_equipo=None):
@@ -89,7 +99,17 @@ def _label_wrap(texto, **kw):
 # empezar; (2) bisección Sí/No/No sé/Atrás hasta convergencia.
 # ─────────────────────────────────────────────────────────────────────────
 class PopupDiagnostico(Popup):
-    def __init__(self, id_conector_sintoma, titulo_sintoma, **kwargs):
+    def __init__(self, id_conector_sintoma, titulo_sintoma, diagrama=None,
+                **kwargs):
+        """diagrama: la instancia de DiagramaConexiones (no sólo el Popup)
+        que abrió este asistente — hace falta acceso real a
+        `_centrar_en_equipo` para poder panear el canvas hacia el equipo
+        de cada punto que se va proponiendo (ver _render_pregunta más
+        abajo), mismo motivo que GTK guarda `self._diagrama` en
+        `_DialogoDiagnostico`. Puede quedar en None (no panea nada) si
+        algún día hace falta instanciar este Popup fuera del flujo normal
+        (p. ej. un test aislado)."""
+        self._diagrama = diagrama
         self._id_conector_sintoma = str(id_conector_sintoma)
         self._titulo_sintoma = titulo_sintoma
         self._motor = MotorDiagnostico(DB_PATH)
@@ -218,8 +238,20 @@ class PopupDiagnostico(Popup):
              "estilo": "primario", "on_release": _elegir},
         ]))
 
+    def _panear_a_equipo(self, id_equipo) -> None:
+        """Centra el diagrama en el equipo del punto que se acaba de
+        proponer para revisar — mismo motivo y mismo nombre que
+        `_panear_a_equipo` en GTK (_DialogoDiagnostico): antes había que
+        ir a buscarlo a mano en un diagrama grande cada vez que el
+        asistente sugería un punto nuevo. Reutiliza el pan+zoom que ya
+        expone `DiagramaConexiones._centrar_en_equipo` (mismo mecanismo
+        que usa el buscador del propio diagrama)."""
+        if self._diagrama is not None:
+            self._diagrama._centrar_en_equipo(id_equipo)
+
     def _render_pregunta(self, paso, manual: bool) -> None:
         self._limpiar_area()
+        self._panear_a_equipo(paso.id_equipo)
         restantes = self._sesion.hi - self._sesion.lo
         self._area.add_widget(_label_wrap(
             _("¿Hay señal en «{} / {}»?").format(
