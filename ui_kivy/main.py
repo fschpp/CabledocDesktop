@@ -135,6 +135,11 @@ from pantallas_salas import (
 )
 from pantallas_vistas import VistaRack, PatcherasVista
 from pantallas_diagrama import abrir_diagrama_conexiones
+# El asistente de diagnóstico ("🩺 Diagnóstico") ya no se abre desde un
+# selector del menú global — vive dentro de DiagramaConexiones (tocar un
+# puerto con el modo activo), igual que en GTK. abrir_historial_diagnosticos
+# se movió con él, a la barra de herramientas del propio diagrama (botón
+# "📋 Historial") — ver pantallas_diagrama.py / pantallas_diagnostico.py.
 from pantallas_editores_masivos import (
     abrir_editor_masivo_conectores,
     abrir_editor_masivo_slots,

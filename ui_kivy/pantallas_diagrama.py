@@ -27,6 +27,11 @@ Lo que sí está implementado:
     en la vista global (sin raíz), para que sea legible en pantalla chica
   - Buscar (filtro de texto)
   - Export PNG
+  - Diagnóstico de fallas (toggle "🩺 Diagnóstico" + tocar un puerto —
+    ver DiagramaConexiones._diag_activar/_diag_abrir_puerto, equivalente
+    a DiagnosticoMixin de GTK). Corregido para vivir acá adentro después
+    de una primera entrega que lo abría desde un selector externo
+    equipo→conector — ver pantallas_diagnostico.py.
 
 Vista global (sin equipo raíz) — virtualización por viewport
 --------------------------------------------------------------
@@ -80,6 +85,7 @@ from widgets_base import (
 )
 from tema import BotonIcono
 from core.modelo import Modelo
+from pantallas_diagnostico import PopupDiagnostico, abrir_historial_diagnosticos
 
 try:
     from core.logger_cabledoc import log_debug
@@ -364,6 +370,36 @@ class _CanvasDiagrama(StencilView):
             if (nodo["x"] <= wx <= nodo["x"] + nodo["ancho"] and
                     nodo["y"] <= wy <= nodo["y"] + nodo["alto"]):
                 return nodo
+        return None
+
+    def _hit_port(self, wx, wy):
+        """Análogo a `_esc_puerto_bajo_cursor` (GTK): devuelve
+        (id_conector, lado, id_nodo) si (wx, wy) cae sobre (o cerca de) un
+        puerto YA DIBUJADO, o None. Sólo tiene sentido buscar puertos
+        cuando el nodo no está en modo "Solo nombre" — ahí `_draw_node`
+        corta antes de dibujarlos (ver arriba), así que tampoco deberían
+        poder tocarse: lo que no se ve, no se toca.
+
+        Tolerancia en unidades de mundo, convertida desde un radio de
+        toque cómodo en dp de pantalla (dividido por el zoom actual) para
+        que "tocar cerca del puerto" se sienta igual de generoso esté
+        lejos o cerca en el zoom — igual de holgado que el círculo visual
+        (PORT_R) sería demasiado ajustado para un dedo."""
+        if self._popup._solo_nombre:
+            return None
+        tol = max(PORT_R * 2, dp(16) / max(self._zoom, 0.05))
+        tipo_h = 10
+        for nodo in reversed(list(self._nodos.values())):
+            top = nodo["y"] + nodo["alto"]
+            body_top_y = top - HDR_H - tipo_h
+            for lado, lst, px in (
+                ("in", nodo.get("in", []), nodo["x"]),
+                ("out", nodo.get("out", []), nodo["x"] + nodo["ancho"]),
+            ):
+                for idx, (cid, _cnm, _i) in enumerate(lst):
+                    py = body_top_y - PORT_PAD - idx * PORT_H - PORT_H / 2
+                    if abs(wx - px) <= tol and abs(wy - py) <= tol:
+                        return cid, lado, nodo["id"]
         return None
 
     def _port_pos(self, nodo, con_id, side):
@@ -777,6 +813,22 @@ class _CanvasDiagrama(StencilView):
             return True
 
         wx, wy = self._s2w(touch.x, touch.y)
+
+        # Modo diagnóstico (ver DiagramaConexiones._diag_activar): sólo
+        # intercepta el toque cuando cae justo sobre un puerto — igual
+        # que _diag_on_press en GTK, cualquier otro toque (paneo, arrastre
+        # de nodo, minimapa) sigue andando igual que si el modo estuviera
+        # apagado. Va antes de _hit_node porque un puerto vive sobre el
+        # borde de un nodo: si se dejara pasar a la lógica de abajo, el
+        # nodo se seleccionaría/arrastraría en vez de abrir el asistente.
+        if getattr(self._popup, "_diag_modo", False) \
+                and not self._popup._diag_dialogo_activo:
+            hit_puerto = self._hit_port(wx, wy)
+            if hit_puerto:
+                id_conector, _lado, _id_nodo = hit_puerto
+                self._popup._diag_abrir_puerto(id_conector)
+                return True
+
         hit = self._hit_node(wx, wy)
 
         if hit:
@@ -1083,6 +1135,14 @@ class DiagramaConexiones(Popup):
         # ── Conexión interna (Módulo Patchera) — sólo modo equipo ──────────
         self._interna = None     # None | {"nodo_id","segmentos","muertos"}
 
+        # ── Diagnóstico de fallas — ver DiagnosticoMixin (GTK) ──────────────
+        # El asistente vive DENTRO del diagrama, activado tocando un
+        # puerto con el modo prendido (ver _CanvasDiagrama._hit_port /
+        # on_touch_down) — no hay selector externo equipo→conector, ver
+        # pantallas_diagnostico.py para el porqué.
+        self._diag_modo = False
+        self._diag_dialogo_activo = False   # ver _diag_abrir_puerto
+
         # ── Layout ──────────────────────────────────────────────────────────
         root = BoxLayout(orientation="vertical", spacing=0)
 
@@ -1137,6 +1197,16 @@ class DiagramaConexiones(Popup):
             disabled=self._id_inicio is None)
         self._btn_interna.bind(on_press=self._toggle_conexion_interna)
         tb_inner.add_widget(self._btn_interna)
+
+        self._btn_diag = ToggleButton(text=_("🩺 Diagnóstico"), size_hint_x=None,
+                                      width=dp(130), font_size=FUENTE_CHICA)
+        self._btn_diag.bind(on_press=self._toggle_diag)
+        tb_inner.add_widget(self._btn_diag)
+
+        btn_diag_hist = Button(text=_("📋 Historial"), size_hint_x=None,
+                               width=dp(110), font_size=FUENTE_CHICA)
+        btn_diag_hist.bind(on_release=lambda *_a: abrir_historial_diagnosticos())
+        tb_inner.add_widget(btn_diag_hist)
 
         tb_inner.add_widget(Label(text=_("Zoom:"), size_hint_x=None,
                                   width=dp(44), font_size=FUENTE_CHICA))
@@ -1777,6 +1847,108 @@ class DiagramaConexiones(Popup):
         self._interna = resultado
         self._lbl_status.text = _("Conexión interna: {}").format(nodo["nombre"])
         self._canvas._redraw()
+
+    # ── Diagnóstico de fallas ────────────────────────────────────────────
+    # Equivalente a DiagnosticoMixin (GTK, diagnostico_ui.py): el asistente
+    # se dispara tocando un puerto del diagrama con el modo activo, no
+    # desde un selector aparte — ver el docstring de pantallas_diagnostico.py
+    # para el porqué de la corrección.
+
+    def _toggle_diag(self, btn):
+        if btn.state == "down":
+            self._diag_activar()
+        else:
+            self._diag_desactivar()
+
+    def _diag_activar(self) -> None:
+        """Prende el modo diagnóstico: tocar un puerto abre el asistente
+        para ese conector (ver _CanvasDiagrama._hit_port/on_touch_down).
+
+        Exclusión mutua pendiente: en GTK, activar Diagnóstico apaga
+        Escenario/Impacto (modos "pesados" que también consumen el
+        toque sobre el diagrama) — ver DiagnosticoMixin._diag_activar.
+        Acá todavía no aplica porque esos mixins no están portados a
+        mobile (roadmap, ítems 2 y 4/5): el día que se porten, agregar
+        acá la misma desactivación cruzada antes de prender este modo.
+        "Conexión interna" no compite: es un panel de sólo lectura, no
+        intercepta toques sobre puertos.
+        """
+        self._diag_modo = True
+        if self._btn_diag.state != "down":
+            self._btn_diag.state = "down"
+        # Igual que "Conexión interna" (ver _toggle_conexion_interna
+        # arriba): los puertos sólo se dibujan — y por lo tanto sólo se
+        # pueden tocar — con "Solo nombre" apagado. Si el diagrama estaba
+        # en modo compacto (default en la vista global), se expande acá
+        # mismo para que el modo recién activado sea usable de entrada,
+        # en vez de un botón que no hace nada hasta que el usuario
+        # también apague "Solo nombre" a mano.
+        if self._solo_nombre:
+            self._solo_nombre = False
+            self._btn_solo.state = "normal"
+            for nd in self._canvas._nodos.values():
+                n_rows = max(len(nd["in"]), len(nd["out"]), 1)
+                nd["alto"] = HDR_H + PORT_PAD * 2 + 10 + n_rows * PORT_H
+        self._canvas._redraw()
+
+    def _diag_desactivar(self) -> None:
+        self._diag_modo = False
+        if self._btn_diag.state != "normal":
+            self._btn_diag.state = "normal"
+
+    def _diag_abrir_puerto(self, id_conector) -> None:
+        """Dispara desde _CanvasDiagrama.on_touch_down al tocar un
+        puerto con el modo diagnóstico activo — equivalente a
+        _diag_on_press (GTK). Si ya hay una sesión en curso (el Popup
+        sigue abierto — en Kivy no hace falta ningún ajuste equivalente
+        a set_modal(False), un Popup ya no bloquea el resto de la
+        ventana), un toque en OTRO puerto no abre una segunda sesión: se
+        ignora, mismo criterio que GTK."""
+        if self._diag_dialogo_activo:
+            return
+        fila = Modelo._query(
+            "SELECT c.nombre, e.nombre FROM conector c JOIN equipo e "
+            "ON e.id_equipo = c.id_equipo WHERE c.id_conector=?",
+            (id_conector,))
+        titulo = f"{s(fila[0][1])} / {s(fila[0][0])}" if fila else str(id_conector)
+        self._diag_dialogo_activo = True
+        popup = PopupDiagnostico(id_conector, titulo, diagrama=self)
+        popup.bind(on_dismiss=lambda *_a: setattr(
+            self, "_diag_dialogo_activo", False))
+        popup.open()
+
+    def _centrar_en_equipo(self, id_equipo) -> None:
+        """Centra pan+zoom del canvas en el equipo dado. Usado por
+        PopupDiagnostico._panear_a_equipo a medida que el asistente va
+        sugiriendo nuevos puntos para revisar — equivalente a
+        `_panear_a_equipo`/`_centrar_en_nodo` en GTK. Mismo mecanismo de
+        dos ramas que ya usa `_on_buscar` en esta clase: busca primero
+        entre los nodos ya cargados/dibujados (rápido, caso típico); si
+        el equipo sugerido todavía no está activo (vista global, fuera
+        del tope de MAX_NODOS_GLOBAL), cae a la posición aproximada del
+        índice global en vez de no hacer nada."""
+        id_equipo = str(id_equipo)
+        nd = self._canvas._nodos.get(id_equipo)
+        if nd is not None:
+            cx = nd["x"] + nd["ancho"] / 2
+            cy = nd["y"] + nd["alto"] / 2
+            self._lbl_sel.text = f"{nd['nombre']}  [{nd['tipo']}]"
+        else:
+            info = self._indice.get(id_equipo)
+            if info is None:
+                return
+            cx = info["x"] + NODE_W / 2
+            cy = info["y"] + HDR_H / 2
+            self._lbl_sel.text = f"{info['nombre']}  [{info['tipo']}]"
+
+        self._canvas._sel_id = id_equipo
+        W, H = self._canvas.size
+        z = self._canvas._zoom or 1.0
+        self._canvas._pan_x = W / 2 - cx * z
+        self._canvas._pan_y = H / 2 - cy * z
+        self._canvas._redraw()
+        if self._id_inicio is None:
+            self._viewport_cambio(inmediato=True)
 
     def _expandir(self):
         if self._id_inicio is None:
