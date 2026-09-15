@@ -68,6 +68,70 @@ def _draw_text_centered_on_canvas(canvas, texto, cx, cy, size=9,
                   size=(tw, th))
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  _DialogoMedicion — herramienta "Medir en la imagen" (Fase 1 de
+#  ubicación física en planos, port de ui_gtk/editor_masivo_conectores_ui.py
+#  §3.4 de plan_paneles_vectoriales_v3.md)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _DialogoMedicion(Popup):
+    """Se abre después de que el usuario tocó dos puntos de referencia
+    sobre la imagen (dos toques en modo "Medir en la imagen"). Pide
+    cuánto mide esa distancia en la realidad, en mm, y con eso el
+    llamador calcula `imagen.mm_por_pixel = mm_reales / distancia_px`
+    (fuente 1 de la cascada de calibración — gana siempre sobre
+    ancho_mm del equipo y sobre el fallback genérico).
+
+    Equivalente a _DialogoMedicion de editor_masivo_conectores_ui.py
+    (GTK). on_aceptar(mm_reales) se llama solo si el usuario confirma
+    con un valor > 0.
+    """
+
+    def __init__(self, distancia_px, on_aceptar=None, **kwargs):
+        self._on_aceptar = on_aceptar
+
+        box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(14))
+        lbl_info = Label(
+            text=_("Distancia marcada: {px:.1f} px (píxeles nativos de "
+                   "la imagen, no de pantalla).\n"
+                   "¿Cuánto mide esa distancia en la realidad, en mm?")
+                .format(px=distancia_px),
+            size_hint_y=None, height=dp(70), font_size=FUENTE_CHICA,
+            halign="left", valign="top")
+        lbl_info.bind(size=lambda w, *_a: setattr(w, "text_size", w.size))
+        box.add_widget(lbl_info)
+
+        hbox = BoxLayout(size_hint_y=None, height=ALTO_ENTRY, spacing=dp(6))
+        hbox.add_widget(Label(text=_("Milímetros:"), size_hint_x=None,
+                              width=dp(90), font_size=FUENTE_NORMAL))
+        self.e_mm = TextInput(text="", multiline=False, input_filter="float",
+                              font_size=FUENTE_NORMAL)
+        hbox.add_widget(self.e_mm)
+        box.add_widget(hbox)
+
+        hb_btn = BoxLayout(size_hint_y=None, height=ALTO_BOTON, spacing=dp(8))
+        btn_cancelar = Button(text=_("Cancelar"), font_size=FUENTE_NORMAL)
+        btn_aceptar = Button(text=_("Aceptar"), font_size=FUENTE_NORMAL)
+        hb_btn.add_widget(btn_cancelar)
+        hb_btn.add_widget(btn_aceptar)
+        box.add_widget(hb_btn)
+
+        super().__init__(title=_("Medir en la imagen"), content=box,
+                         size_hint=(0.9, None), height=dp(230), **kwargs)
+        btn_cancelar.bind(on_release=lambda *_a: self.dismiss())
+        btn_aceptar.bind(on_release=self._aceptar)
+        self.e_mm.bind(on_text_validate=self._aceptar)
+
+    def _aceptar(self, *_a):
+        try:
+            v = float(self.e_mm.text.strip() or "0")
+        except ValueError:
+            v = 0
+        self.dismiss()
+        if v > 0 and self._on_aceptar:
+            self._on_aceptar(v)
+
+
 class _FilaConector(ButtonBehavior, BoxLayout):
     """Fila cliqueable para la tabla de conectores/slots.
 
@@ -152,6 +216,13 @@ class EditorMasivoConectoresImagen(Popup):
         self._simbolos_activos = False
         self._texturas_por_tipo = {}
         self._mm_por_pixel = None
+        # Herramienta "Medir en la imagen" (Fase 1 — ubicación física en
+        # planos), port de _toggle_medir/_on_clic_medir de
+        # ui_gtk/editor_masivo_conectores_ui.py. Sin clic derecho en
+        # mobile: cancelar la medición en curso es un botón aparte en
+        # vez de un segundo tipo de toque.
+        self._modo_medir = False
+        self._medir_p1 = None
 
         # ── Layout ──────────────────────────────────────────────────────────
         # En desktop: imagen 62% + tabla 38% lado a lado. En 360dp de
@@ -213,6 +284,20 @@ class EditorMasivoConectoresImagen(Popup):
         btn_row.add_widget(btn_quitar)
         btn_row.add_widget(btn_todos)
         root.add_widget(btn_row)
+
+        # Herramienta "Medir en la imagen" — calibra mm_por_pixel de esta
+        # imagen para que los símbolos de conector salgan a su tamaño
+        # físico real en vez del tamaño genérico.
+        self._btn_medir = Button(text=_("📏 Medir en la imagen…"),
+                                 size_hint_y=None, height=ALTO_BOTON,
+                                 font_size=FUENTE_CHICA)
+        self._btn_medir.bind(on_release=lambda *_a: self._toggle_medir())
+        root.add_widget(self._btn_medir)
+
+        self._lbl_medir_estado = Label(
+            text="", size_hint_y=None, height=0, font_size=sp(10),
+            color=(0.65, 0.65, 0.65, 1))
+        root.add_widget(self._lbl_medir_estado)
 
         btn_guardar = Button(text=_("Guardar cambios"),
                              size_hint_y=None, height=ALTO_BOTON,
@@ -399,14 +484,19 @@ class EditorMasivoConectoresImagen(Popup):
     # ── Interacción imagen ────────────────────────────────────────────────────
 
     def _on_press_img(self, lx, ly):
-        if not self._sel_id:
-            return
         ix, iy = self._visor.w2i(lx, ly)
         if self._visor.textura:
             W = self._visor.textura.width
             H = self._visor.textura.height
             ix = max(0, min(W, int(ix)))
             iy = max(0, min(H, int(iy)))
+
+        if self._modo_medir:
+            self._on_clic_medir(ix, iy)
+            return
+
+        if not self._sel_id:
+            return
 
         # id_imagen de la imagen activa
         img_nombre = self._e_img.text.strip()
@@ -438,6 +528,65 @@ class EditorMasivoConectoresImagen(Popup):
                 if fila:
                     fila.set_color((0.25, 0.45, 0.85, 0.6))
                 return
+
+    # ── Herramienta "Medir en la imagen" ────────────────────────────────────────
+
+    def _toggle_medir(self):
+        """Activa/desactiva el modo "Medir en la imagen". Mientras está
+        activo, los toques en la imagen no colocan conectores — se usan
+        para marcar los dos extremos del segmento a medir."""
+        self._modo_medir = not self._modo_medir
+        self._medir_p1 = None
+        if self._modo_medir:
+            self._btn_medir.text = _("✕ Cancelar medición")
+            self._lbl_medir_estado.text = _("Tocá el primer punto de referencia…")
+            self._lbl_medir_estado.height = dp(18)
+        else:
+            self._btn_medir.text = _("📏 Medir en la imagen…")
+            self._lbl_medir_estado.text = ""
+            self._lbl_medir_estado.height = 0
+        self._actualizar_overlay()
+
+    def _on_clic_medir(self, ix, iy):
+        if self._medir_p1 is None:
+            self._medir_p1 = (ix, iy)
+            self._lbl_medir_estado.text = _("Tocá el segundo punto de referencia…")
+            self._actualizar_overlay()
+            return
+
+        x1, y1 = self._medir_p1
+        self._medir_p1 = None
+        distancia_px = math.hypot(ix - x1, iy - y1)
+        self._actualizar_overlay()
+        if distancia_px < 1:
+            self._lbl_medir_estado.text = _("Tocá el primer punto de referencia…")
+            return
+
+        # Igual que en GTK: apagar el modo medición apenas se dispara el
+        # diálogo, sin esperar la respuesta (cancelar el diálogo también
+        # sale del modo, no reintenta con el mismo primer punto).
+        self._modo_medir = False
+        self._btn_medir.text = _("📏 Medir en la imagen…")
+        self._lbl_medir_estado.text = ""
+        self._lbl_medir_estado.height = 0
+
+        def _con_mm(mm_reales):
+            img_nombre = self._e_img.text.strip()
+            rows = Modelo._query(
+                "SELECT id_imagen FROM imagen WHERE path_archivo=?",
+                (img_nombre,))
+            id_img = str(rows[0][0]) if rows else self._img_id_actual
+            if not id_img:
+                mostrar_error(_(
+                    "No se pudo determinar la imagen actual — elegí una "
+                    "imagen guardada antes de calibrar."))
+                return
+
+            Modelo.actualizar_mm_por_pixel_imagen(id_img, mm_reales / distancia_px)
+            self._preparar_simbolos_conector(id_img)
+            self._actualizar_overlay()
+
+        _DialogoMedicion(distancia_px, on_aceptar=_con_mm).open()
 
     def _quitar_sel(self):
         if not self._sel_id:
@@ -547,6 +696,16 @@ class EditorMasivoConectoresImagen(Popup):
                 wx, wy - R - 8,
                 size=max(7, int(9 * z)),
                 color=(1, 1, 1, 0.9))
+
+        # Primer punto marcado de la herramienta "Medir en la imagen",
+        # a la espera del segundo toque.
+        if self._modo_medir and self._medir_p1:
+            wx, wy = canvas_widget.i2w(*self._medir_p1, z)
+            with canvas_widget.canvas:
+                Color(1, 0.15, 0.15, 0.9)
+                Ellipse(pos=(wx - 5, wy - 5), size=(10, 10))
+                Color(1, 1, 1, 1)
+                Line(circle=(wx, wy, 5), width=1.5)
 
     # ── Guardar ───────────────────────────────────────────────────────────────
 
