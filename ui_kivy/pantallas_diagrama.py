@@ -39,6 +39,13 @@ Lo que sí está implementado:
     — ver pantallas_escenario.py para el detalle de qué se portó 1:1
     (el overlay dibujado sobre el diagrama) y qué se adaptó a widgets
     reales (el panel de resumen en texto, antes texto Cairo).
+  - Colorear por señal (toggle "📡 Señal" + "🎨 Leyenda" — ver
+    DiagramaConexiones._senal_color_puerto, equivalente a
+    SenalDiagramaMixin de GTK). Fase 5.4 del roadmap — a diferencia de
+    Diagnóstico/Escenario, NO es un modo exclusivo: no intercepta
+    toques, sólo cambia el color de los puertos en _draw_node() y
+    muestra un panel de leyenda opcional (pantallas_senal.py), así que
+    convive con cualquier otro modo activo sin exclusión mutua.
 
 Vista global (sin equipo raíz) — virtualización por viewport
 --------------------------------------------------------------
@@ -99,6 +106,7 @@ from pantallas_escenario import (
     _esc_tipos_compatibles, C_FALLADO, C_IMPACTADO, C_RECUPERADO,
     C_CORTADO, C_VIRTUAL,
 )
+from pantallas_senal import cargar_cache_senal, PanelLeyendaSenal
 
 try:
     from core.logger_cabledoc import log_debug
@@ -911,28 +919,30 @@ class _CanvasDiagrama(StencilView):
         for idx, (cid, cnm, _) in enumerate(nodo.get("in", [])):
             py = body_top_y - PORT_PAD * z - idx * PORT_H * z - PORT_H * z / 2
             px = sx
-            Color(*C_PORT_IN, 1)
+            Color(*self._popup._senal_color_puerto(cid, C_PORT_IN), 1)
             r = PORT_R * z
             Ellipse(pos=(px - r, py - r), size=(r * 2, r * 2))
             Color(0, 0, 0, 1)
             Line(circle=(px, py, r), width=0.8)
             if z >= 0.5:
                 self._draw_text_left(
-                    cnm, px + r + 3 * z, py,
+                    cnm + self._popup._senal_texto_puerto_extra(cid),
+                    px + r + 3 * z, py,
                     size=max(7, int(8 * z)), color=(*C_TXT_PORT, 1))
 
         # Puertos OUT (derecha)
         for idx, (cid, cnm, _) in enumerate(nodo.get("out", [])):
             py = body_top_y - PORT_PAD * z - idx * PORT_H * z - PORT_H * z / 2
             px = sx + sw
-            Color(*C_PORT_OUT, 1)
+            Color(*self._popup._senal_color_puerto(cid, C_PORT_OUT), 1)
             r = PORT_R * z
             Ellipse(pos=(px - r, py - r), size=(r * 2, r * 2))
             Color(0, 0, 0, 1)
             Line(circle=(px, py, r), width=0.8)
             if z >= 0.5:
                 self._draw_text_right(
-                    cnm, px - r - 3 * z, py,
+                    cnm + self._popup._senal_texto_puerto_extra(cid),
+                    px - r - 3 * z, py,
                     size=max(7, int(8 * z)), color=(*C_TXT_PORT, 1))
 
     def _calc_conn_colors(self):
@@ -1396,6 +1406,18 @@ class DiagramaConexiones(Popup):
         self._esc_senales_cache_dict = {}
         self._esc_panel = None           # PanelEscenario | None, ver _esc_actualizar_panel
 
+        # ── Colorear por señal — Fase 5.4 del roadmap, equivalente a
+        # SenalDiagramaMixin (GTK, ui_gtk/senal_diagrama_ui.py). Sin
+        # motor propio: reutiliza senal_en_conector (vía Modelo._query,
+        # ver pantallas_senal.cargar_cache_senal) y, para el estado
+        # "caído", el mismo _esc_senales_cache_dict que ya expone
+        # Escenario (Fase 5.3) — ver _senal_conectores_caidos.
+        self._senal_color_activo = False   # toggle "📡 Señal"
+        self._senal_leyenda_activa = False  # toggle "🎨 Leyenda"
+        self._senal_cache = {}             # id_conector(str) -> (id_senal, nombre, formato, origen)
+        self._senal_color_por_id = {}      # id_senal(str) -> (r,g,b)
+        self._senal_panel = None           # PanelLeyendaSenal | None
+
         # ── Layout ──────────────────────────────────────────────────────────
         root = BoxLayout(orientation="vertical", spacing=0)
 
@@ -1497,6 +1519,17 @@ class DiagramaConexiones(Popup):
                                    width=dp(110), font_size=FUENTE_CHICA)
         btn_esc_descartar.bind(on_release=self._esc_on_descartar)
         tb_inner.add_widget(btn_esc_descartar)
+
+        # ── Colorear por señal (Fase 5.4) ────────────────────────────────
+        self._btn_senal_color = ToggleButton(text=_("📡 Señal"), size_hint_x=None,
+                                             width=dp(90), font_size=FUENTE_CHICA)
+        self._btn_senal_color.bind(on_press=self._senal_on_toggle_color)
+        tb_inner.add_widget(self._btn_senal_color)
+
+        self._btn_senal_leyenda = ToggleButton(text=_("🎨 Leyenda"), size_hint_x=None,
+                                               width=dp(100), font_size=FUENTE_CHICA)
+        self._btn_senal_leyenda.bind(on_press=self._senal_on_toggle_leyenda)
+        tb_inner.add_widget(self._btn_senal_leyenda)
 
         tb_inner.add_widget(Label(text=_("Zoom:"), size_hint_x=None,
                                   width=dp(44), font_size=FUENTE_CHICA))
@@ -2051,6 +2084,13 @@ class DiagramaConexiones(Popup):
     def _recargar(self):
         self._limpiar_conexion_interna()
         self._cargar(self._id_inicio)
+        # Fase 5.4: la caché de señal (colores + leyenda) puede haber
+        # quedado desactualizada si "Aplicar" (Escenario) acaba de crear/
+        # desconectar cables — mismo criterio que el resto de _recargar,
+        # releer en vez de intentar parchear el diff a mano.
+        if self._senal_color_activo or self._senal_leyenda_activa:
+            self._senal_cargar_cache()
+            self._senal_actualizar_panel()
 
     # ── Conexión interna (Módulo Patchera) ─────────────────────────────────
 
@@ -2419,6 +2459,12 @@ class DiagramaConexiones(Popup):
             self._esc_senales_cache_dict = self._esc_senales_caidas()
         self._canvas._redraw()
         self._esc_actualizar_panel()
+        # Fase 5.4: la leyenda de señal tacha las señales "caídas" según
+        # el mismo _esc_senales_cache_dict que se acaba de recalcular
+        # arriba — refrescarla acá para que no quede desactualizada
+        # mientras se edita el escenario con la leyenda abierta.
+        if self._senal_leyenda_activa:
+            self._senal_actualizar_panel()
 
     def _esc_senales_caidas(self) -> dict:
         """plan_estado_senal_y_linaje.md, Función 1 — mismo helper que
@@ -2464,6 +2510,112 @@ class DiagramaConexiones(Popup):
                 esc, self._esc_resultado, self._esc_senales_cache_dict)
         else:
             self._esc_panel.mostrar_hint()
+
+    # ── Colorear por señal (Fase 5.4 del roadmap) ────────────────────────
+    # Equivalente a SenalDiagramaMixin (GTK, ui_gtk/senal_diagrama_ui.py).
+    # A diferencia de Diagnóstico/Escenario, esto NO intercepta toques ni
+    # es un "modo" exclusivo — es puramente un cambio de color en
+    # _CanvasDiagrama._draw_node() (ver ese método) más un panel de
+    # leyenda opcional, así que puede convivir con cualquier otro modo
+    # activo (de hecho, mientras Escenario esté simulando una falla, la
+    # leyenda tacha automáticamente las señales que ese análisis marca
+    # como caídas — ver _senal_conectores_caidos).
+
+    def _senal_on_toggle_color(self, btn) -> None:
+        self._senal_color_activo = btn.state == "down"
+        if self._senal_color_activo:
+            self._senal_cargar_cache()   # traer el último dato al activar
+        self._canvas._redraw()
+
+    def _senal_on_toggle_leyenda(self, btn) -> None:
+        """Muestra/oculta el panel de leyenda. Sirve tanto si "📡 Señal"
+        está prendido como apagado (para saber de antemano qué colores
+        va a usar antes de activarlo) — igual que GTK."""
+        self._senal_leyenda_activa = btn.state == "down"
+        if self._senal_leyenda_activa:
+            self._senal_cargar_cache()   # no mostrar una leyenda vieja
+        self._senal_actualizar_panel()
+
+    def _senal_on_cerrar_panel(self) -> None:
+        """Callback del botón "✕" real de PanelLeyendaSenal — equivalente
+        a la rama de _senal_on_press (GTK) que apagaba el toggle del
+        menú al cerrar el panel a mano."""
+        self._senal_leyenda_activa = False
+        if self._btn_senal_leyenda.state != "normal":
+            self._btn_senal_leyenda.state = "normal"
+        self._senal_actualizar_panel()
+
+    def _senal_cargar_cache(self) -> None:
+        self._senal_cache, self._senal_color_por_id = cargar_cache_senal()
+
+    def _senal_actualizar_panel(self) -> None:
+        if not self._senal_leyenda_activa:
+            if self._senal_panel is not None:
+                self._senal_panel.quitar()
+                self._senal_panel = None
+            return
+        if self._senal_panel is None:
+            self._senal_panel = PanelLeyendaSenal(
+                contenedor=self._canvas_cont, on_cerrar=self._senal_on_cerrar_panel)
+        self._senal_panel.actualizar(
+            self._senal_cache, self._senal_color_por_id,
+            self._senal_conectores_caidos())
+
+    # ── Integración con _draw_node ("colorear puerto") ────────────────────
+    def _senal_color_puerto(self, id_conector, color_defecto) -> tuple:
+        """Devuelve el color (r,g,b) que debe usar ese puerto: el color
+        de señal si "📡 Señal" está activo y el conector tiene señal
+        cargada, o color_defecto tal cual (no-op, seguro de llamar
+        siempre) — idéntico criterio que _senal_color_puerto (GTK).
+        Si el conector quedó "caído" por una simulación activa
+        (Escenario, por ahora — Impacto/Riesgo cuando se porten), se
+        ignora el color de señal: no tiene sentido mostrar el color
+        distintivo de una señal que, en este análisis, dejó de estar
+        presente ahí."""
+        if not self._senal_color_activo:
+            return color_defecto
+        if self._senal_puerto_caido(id_conector):
+            return color_defecto
+        info = self._senal_cache.get(str(id_conector))
+        if not info:
+            return color_defecto
+        id_senal = info[0]
+        return self._senal_color_por_id.get(id_senal, color_defecto)
+
+    def _senal_texto_puerto_extra(self, id_conector) -> str:
+        """Adaptación móvil de _senal_tooltip_puerto (GTK, sólo hover):
+        un dispositivo táctil no tiene hover, así que en vez de perder
+        el dato se agrega al lado del nombre del puerto en el propio
+        diagrama (ver _CanvasDiagrama._draw_node) — visible todo el
+        tiempo en vez de sólo al pasar el mouse."""
+        if not self._senal_color_activo:
+            return ""
+        info = self._senal_cache.get(str(id_conector))
+        if not info:
+            return ""
+        _id_senal, nombre_senal, _fmt, _origen = info
+        prefijo = "❌" if self._senal_puerto_caido(id_conector) else "📡"
+        return f" · {prefijo} {nombre_senal}"
+
+    # ── Función 1 (plan_estado_senal_y_linaje.md): estado vivo/caído ─────
+    def _senal_conectores_caidos(self) -> dict:
+        """Unión de conectores marcados "caídos" por CUALQUIER simulación
+        activa en este momento sobre este mismo DiagramaConexiones —
+        idéntico contrato flojo que GTK (getattr con default {}): este
+        método no necesita saber los detalles de cada motor, sólo que
+        expone un dict {id_conector: {...}} con esa forma. Impacto/
+        Riesgo (roadmap, ítem 5, todavía sin portar) ya están en la
+        lista para cuando existan en mobile, sin tener que tocar este
+        método de nuevo."""
+        caidos = {}
+        for attr in ("_imp_senales_cache_dict",
+                     "_riesgo_senales_cache_dict",
+                     "_esc_senales_cache_dict"):
+            caidos.update(getattr(self, attr, None) or {})
+        return caidos
+
+    def _senal_puerto_caido(self, id_conector) -> bool:
+        return str(id_conector) in self._senal_conectores_caidos()
 
     def _centrar_en_equipo(self, id_equipo) -> None:
         """Centra pan+zoom del canvas en el equipo dado. Usado por
