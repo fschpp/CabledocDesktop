@@ -32,6 +32,13 @@ Lo que sí está implementado:
     a DiagnosticoMixin de GTK). Corregido para vivir acá adentro después
     de una primera entrega que lo abría desde un selector externo
     equipo→conector — ver pantallas_diagnostico.py.
+  - Modo Escenario (toggle "🧪 Escenario" + tocar equipos/cables, más
+    "🔗 Reconectar" para arrastrar una conexión virtual puerto a puerto —
+    ver DiagramaConexiones._esc_activar_modo, equivalente a
+    EscenarioMixin de GTK). Fase 5.3 del roadmap de paridad de pantallas
+    — ver pantallas_escenario.py para el detalle de qué se portó 1:1
+    (el overlay dibujado sobre el diagrama) y qué se adaptó a widgets
+    reales (el panel de resumen en texto, antes texto Cairo).
 
 Vista global (sin equipo raíz) — virtualización por viewport
 --------------------------------------------------------------
@@ -84,8 +91,14 @@ from widgets_base import (
     ALTO_BOTON, ALTO_ENTRY, FUENTE_NORMAL, FUENTE_CHICA,
 )
 from tema import BotonIcono
-from core.modelo import Modelo
+from core.modelo import Modelo, DB_PATH
+from core.escenario_engine import Escenario
 from pantallas_diagnostico import PanelDiagnostico, abrir_historial_diagnosticos
+from pantallas_escenario import (
+    PopupNombreEscenario, EscenariosListado, PanelEscenario,
+    _esc_tipos_compatibles, C_FALLADO, C_IMPACTADO, C_RECUPERADO,
+    C_CORTADO, C_VIRTUAL,
+)
 
 try:
     from core.logger_cabledoc import log_debug
@@ -165,6 +178,17 @@ def _abreviar_tex(texto, max_chars=28):
     if len(texto) <= max_chars:
         return texto
     return texto[:max_chars - 1] + "…"
+
+
+def _dist_seg(px, py, x1, y1, x2, y2):
+    """Distancia de un punto a un segmento — equivalente a
+    impacto_ui._imp_dist_seg (GTK), usado por _CanvasDiagrama._esc_hit_cable
+    para el hit-test de "tocar un cable" del Modo Escenario."""
+    dx, dy = x2 - x1, y2 - y1
+    if dx == 0 and dy == 0:
+        return math.hypot(px - x1, py - y1)
+    t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
+    return math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
 
 
 # ─── Acceso a datos en bloque (sin N+1) ──────────────────────────────────────
@@ -520,6 +544,9 @@ class _CanvasDiagrama(StencilView):
             # ── Conexión interna (Módulo Patchera), si está activa ─────────
             self._draw_conexion_interna()
 
+            # ── Modo Escenario (Fase 5.3) ────────────────────────────────
+            self._draw_escenario_overlay()
+
             # ── Etiquetas de cable (por encima de nodos y conexiones) ──────
             for texto, lx, ly, size in self._pending_labels:
                 self._draw_text_cable(texto, lx, ly, size)
@@ -575,6 +602,164 @@ class _CanvasDiagrama(StencilView):
         if hacia_x >= cx:
             return nodo["x"] + nodo["ancho"], cy
         return nodo["x"], cy
+
+    # ── Modo Escenario — hit-testing y dibujo del overlay ───────────────────
+    # Equivalente a EscenarioMixin (GTK, escenario_ui.py). Ver
+    # pantallas_escenario.py para el detalle de qué se portó 1:1 (este
+    # overlay) y qué se adaptó a widgets reales (PanelEscenario).
+
+    def _esc_hit_cable(self, wx, wy, tol=None):
+        """Análogo a impacto_ui._imp_cable_bajo_cursor (GTK): distancia
+        del punto al segmento borde-a-borde de cada conexión (mismo
+        criterio simplificado que ya usa GTK para este hit-test, sin
+        importar si la línea se dibuja recta o en Bézier puerto a
+        puerto — ver _draw_conn). Tolerancia en unidades de mundo,
+        convertida desde un radio de toque cómodo en dp (mismo criterio
+        que _hit_port)."""
+        if tol is None:
+            tol = max(10.0, dp(14) / max(self._zoom, 0.05))
+        mejor_id, mejor_d = None, tol
+        for conn in self._conns:
+            src = self._nodos.get(conn["src_eq"])
+            dst = self._nodos.get(conn["dst_eq"])
+            if not src or not dst:
+                continue
+            x0 = src["x"] + src["ancho"]; y0 = src["y"] + src["alto"] / 2
+            x1 = dst["x"];                y1 = dst["y"] + dst["alto"] / 2
+            d = _dist_seg(wx, wy, x0, y0, x1, y1)
+            if d < mejor_d:
+                mejor_d, mejor_id = d, conn["id"]
+        return mejor_id
+
+    def _esc_puerto_pos_por_id(self, id_conector):
+        """Análogo a EscenarioMixin._esc_puerto_pos_por_id (GTK): posición
+        mundo del puerto de un conector, buscando entre los nodos
+        actualmente cargados (self._nodos — sólo los visibles en modo
+        global, ver docstring del módulo). None si el conector no
+        pertenece a ningún nodo activo."""
+        id_conector = str(id_conector)
+        for nodo in self._nodos.values():
+            for cid, _cnm, _t in nodo.get("in", []):
+                if cid == id_conector:
+                    return self._port_pos(nodo, cid, "in")
+            for cid, _cnm, _t in nodo.get("out", []):
+                if cid == id_conector:
+                    return self._port_pos(nodo, cid, "out")
+        return None
+
+    def _draw_cruz(self, cx, cy, size, color, width):
+        Color(*color, 0.85)
+        Line(points=[cx - size, cy - size, cx + size, cy + size], width=width)
+        Line(points=[cx + size, cy - size, cx - size, cy + size], width=width)
+
+    def _pintar_nodo_resaltado(self, nodo, color, relleno, borde, grosor,
+                               expandir):
+        """Rectángulo de relleno translúcido (opcional) + borde alrededor
+        de un nodo — usado para resaltar equipos fallados/impactados/
+        recuperados, mismo criterio geométrico que _esc_draw_overlay
+        (GTK): borde expandido `expandir` px por fuera del cuerpo del
+        nodo, para que se note incluso con el nodo ya seleccionado."""
+        sx, sy = self._w2s(nodo["x"], nodo["y"])
+        sw, sh = nodo["ancho"] * self._zoom, nodo["alto"] * self._zoom
+        if relleno is not None:
+            Color(*color, relleno)
+            Rectangle(pos=(sx, sy), size=(sw, sh))
+        Color(*color, borde)
+        Line(rectangle=(sx - expandir, sy - expandir,
+                        sw + 2 * expandir, sh + 2 * expandir), width=grosor)
+
+    def _draw_escenario_overlay(self):
+        """Insertar al final de _redraw(), después de
+        _draw_conexion_interna() — equivalente a
+        EscenarioMixin._esc_on_draw_overlay (GTK), sin la parte de texto
+        (ver PanelEscenario, pantallas_escenario.py, actualizado desde
+        DiagramaConexiones._esc_actualizar_panel)."""
+        popup = self._popup
+        esc = getattr(popup, "_esc_actual", None)
+        tiene_cambios = bool(esc and esc.cambios)
+        wire_en_progreso = bool(getattr(popup, "_esc_wire_from", None))
+        if not getattr(popup, "_esc_modo", False) and not tiene_cambios:
+            return
+
+        z = self._zoom
+        r = getattr(popup, "_esc_resultado", None)
+
+        if esc:
+            cortados  = {c.id_cable for c in esc.cambios
+                        if c.tipo == "desconexion_cable"}
+            fallados  = {c.id_equipo for c in esc.cambios
+                        if c.tipo == "falla_equipo"}
+            virtuales = [c for c in esc.cambios if c.tipo == "conexion_virtual"]
+
+            # Cables cortados — misma línea borde-a-borde que _esc_hit_cable,
+            # con una cruz en el medio (mismo criterio geométrico que GTK,
+            # independiente de cómo se dibuje la conexión real).
+            for conn in self._conns:
+                if conn["id"] not in cortados:
+                    continue
+                src = self._nodos.get(conn["src_eq"])
+                dst = self._nodos.get(conn["dst_eq"])
+                if not src or not dst:
+                    continue
+                wx0 = src["x"] + src["ancho"]; wy0 = src["y"] + src["alto"] / 2
+                wx1 = dst["x"];                wy1 = dst["y"] + dst["alto"] / 2
+                x0, y0 = self._w2s(wx0, wy0)
+                x1, y1 = self._w2s(wx1, wy1)
+                Color(*C_CORTADO, 0.85)
+                Line(points=[x0, y0, x1, y1], width=max(1.5, 4.0 * z))
+                self._draw_cruz((x0 + x1) / 2, (y0 + y1) / 2, max(6, 11 * z),
+                                C_CORTADO, max(1.5, 3.5 * z))
+
+            # Conexiones virtuales propuestas (punteado, puerto a puerto)
+            for c in virtuales:
+                pa = self._esc_puerto_pos_por_id(c.id_conector_a)
+                pb = self._esc_puerto_pos_por_id(c.id_conector_b)
+                if not pa or not pb:
+                    continue
+                x0, y0 = self._w2s(*pa)
+                x1, y1 = self._w2s(*pb)
+                Color(*C_VIRTUAL, 0.95)
+                Line(points=[x0, y0, x1, y1], width=max(1.5, 2.5 * z),
+                    dash_length=max(4, 6 * z), dash_offset=max(3, 4 * z))
+
+            # Nodos fallados (marcados a mano)
+            for eq_id in fallados:
+                nodo = self._nodos.get(eq_id)
+                if not nodo:
+                    continue
+                self._pintar_nodo_resaltado(
+                    nodo, C_FALLADO, relleno=0.28, borde=0.90,
+                    grosor=max(1.5, 3.5 * z), expandir=2 * z)
+
+            # Nodos impactados / recuperados (consecuencia calculada)
+            if r:
+                for eq_id in r.equipos_impactados:
+                    if eq_id in fallados:
+                        continue
+                    nodo = self._nodos.get(eq_id)
+                    if not nodo:
+                        continue
+                    self._pintar_nodo_resaltado(
+                        nodo, C_IMPACTADO, relleno=0.20, borde=0.75,
+                        grosor=max(1.2, 2.5 * z), expandir=2 * z)
+                for eq_id in r.equipos_recuperados:
+                    nodo = self._nodos.get(eq_id)
+                    if not nodo:
+                        continue
+                    self._pintar_nodo_resaltado(
+                        nodo, C_RECUPERADO, relleno=None, borde=0.85,
+                        grosor=max(1.5, 3.0 * z), expandir=3 * z)
+
+        # Cable virtual en construcción (arrastre puerto→puerto)
+        if wire_en_progreso:
+            cid, _lado, _nodo_id = popup._esc_wire_from
+            p0 = self._esc_puerto_pos_por_id(cid)
+            if p0:
+                x0, y0 = self._w2s(*p0)
+                x1, y1 = self._w2s(popup._esc_wire_mx, popup._esc_wire_my)
+                Color(*C_VIRTUAL, 0.9)
+                Line(points=[x0, y0, x1, y1], width=max(1.2, 2.0 * z),
+                    dash_length=max(3, 5 * z), dash_offset=max(2, 3 * z))
 
     def _draw_conn(self, conn, conn_colors, solo_nombre):
         src = self._nodos.get(conn["src_eq"])
@@ -829,6 +1014,32 @@ class _CanvasDiagrama(StencilView):
                 self._popup._diag_abrir_puerto(id_conector)
                 return True
 
+        # Modo Escenario (ver DiagramaConexiones._esc_activar_modo,
+        # equivalente a EscenarioMixin GTK): con el modo activo, tocar un
+        # EQUIPO lo marca como fallado y tocar un CABLE lo marca como
+        # cortado; con el sub-modo "🔗 Reconectar" activo, el toque arranca
+        # el arrastre puerto→puerto en vez de eso. Mismo criterio de
+        # prioridad que el bloque de Diagnóstico de arriba: intercepta
+        # ANTES de la lógica normal de selección/arrastre de nodo.
+        if getattr(self._popup, "_esc_modo", False):
+            if getattr(self._popup, "_esc_reconectar_activo", False):
+                hit_puerto = self._hit_port(wx, wy)
+                if hit_puerto:
+                    cid, _lado, id_nodo = hit_puerto
+                    self._popup._esc_wire_from = (cid, _lado, id_nodo)
+                    self._popup._esc_wire_mx, self._popup._esc_wire_my = wx, wy
+                    self._redraw()
+                return True
+            hit_esc = self._hit_node(wx, wy)
+            if hit_esc:
+                self._popup._esc_toggle_falla_equipo(hit_esc["id"])
+                return True
+            cable_id = self._esc_hit_cable(wx, wy)
+            if cable_id is not None:
+                self._popup._esc_toggle_desconexion_cable(cable_id)
+                return True
+            return True  # toque en vacío: mantiene el modo activo (sin pan)
+
         hit = self._hit_node(wx, wy)
 
         if hit:
@@ -884,6 +1095,16 @@ class _CanvasDiagrama(StencilView):
         if touch.grab_current is not self:
             return False
 
+        # Modo Escenario, sub-modo "🔗 Reconectar" — arrastre puerto→puerto
+        # en progreso (ver on_touch_down): actualiza el extremo suelto de
+        # la línea punteada, dibujada por _draw_escenario_overlay.
+        if (getattr(self._popup, "_esc_reconectar_activo", False)
+                and getattr(self._popup, "_esc_wire_from", None)):
+            self._popup._esc_wire_mx, self._popup._esc_wire_my = \
+                self._s2w(touch.x, touch.y)
+            self._redraw()
+            return True
+
         # Pinch zoom
         if touch.uid in self._pinch_touches:
             self._pinch_touches[touch.uid] = (touch.x, touch.y)
@@ -933,6 +1154,23 @@ class _CanvasDiagrama(StencilView):
         habia_pinch = self._pinch_dist0 is not None
         if len(self._pinch_touches) < 2:
             self._pinch_dist0 = None
+
+        # Modo Escenario, sub-modo "🔗 Reconectar" — soltar el dedo sobre
+        # otro puerto agrega la conexión virtual; soltar en cualquier otro
+        # lugar cancela el arrastre. Igual que _esc_on_release (GTK).
+        if (getattr(self._popup, "_esc_reconectar_activo", False)
+                and getattr(self._popup, "_esc_wire_from", None)):
+            wx, wy = self._s2w(touch.x, touch.y)
+            origen_cid, _lado, _nodo = self._popup._esc_wire_from
+            self._popup._esc_wire_from = None
+            hit_puerto = self._hit_port(wx, wy)
+            if hit_puerto:
+                destino_cid, _dl, _dn = hit_puerto
+                if str(destino_cid) != str(origen_cid):
+                    self._popup._esc_agregar_conexion_virtual(
+                        origen_cid, destino_cid)
+            self._redraw()
+            return True
 
         if touch.uid == self._drag_pend_uid:
             if self._drag_armado and self._drag_id:
@@ -1143,6 +1381,21 @@ class DiagramaConexiones(Popup):
         self._diag_modo = False
         self._diag_dialogo_activo = False   # ver _diag_abrir_puerto
 
+        # ── Modo Escenario — Fase 5.3 del roadmap, equivalente a
+        # EscenarioMixin (GTK, escenario_ui.py). Motor sin cambios
+        # (core/escenario_engine.py); UI async en pantallas_escenario.py
+        # (ver ese archivo para el detalle de qué se portó 1:1 y qué se
+        # adaptó a widgets reales).
+        self._esc_db_path = DB_PATH
+        self._esc_actual = None          # Escenario | None
+        self._esc_resultado = None       # ResultadoEscenario | None
+        self._esc_modo = False           # modo edición activo
+        self._esc_reconectar_activo = False   # sub-modo: arrastrar puerto→puerto
+        self._esc_wire_from = None       # (id_conector, lado, id_nodo) | None
+        self._esc_wire_mx = self._esc_wire_my = 0.0
+        self._esc_senales_cache_dict = {}
+        self._esc_panel = None           # PanelEscenario | None, ver _esc_actualizar_panel
+
         # ── Layout ──────────────────────────────────────────────────────────
         root = BoxLayout(orientation="vertical", spacing=0)
 
@@ -1207,6 +1460,43 @@ class DiagramaConexiones(Popup):
                                width=dp(110), font_size=FUENTE_CHICA)
         btn_diag_hist.bind(on_release=lambda *_a: abrir_historial_diagnosticos())
         tb_inner.add_widget(btn_diag_hist)
+
+        # ── Modo Escenario (Fase 5.3) ────────────────────────────────────
+        self._btn_esc_modo = ToggleButton(text=_("🧪 Escenario"), size_hint_x=None,
+                                          width=dp(120), font_size=FUENTE_CHICA)
+        self._btn_esc_modo.bind(on_press=self._esc_on_toggle_modo)
+        tb_inner.add_widget(self._btn_esc_modo)
+
+        self._btn_esc_reconectar = ToggleButton(
+            text=_("🔗 Reconectar"), size_hint_x=None, width=dp(130),
+            font_size=FUENTE_CHICA)
+        self._btn_esc_reconectar.bind(on_press=self._esc_on_toggle_reconectar)
+        tb_inner.add_widget(self._btn_esc_reconectar)
+
+        btn_esc_nuevo = Button(text=_("🆕 Esc."), size_hint_x=None, width=dp(80),
+                               font_size=FUENTE_CHICA)
+        btn_esc_nuevo.bind(on_release=self._esc_on_nuevo)
+        tb_inner.add_widget(btn_esc_nuevo)
+
+        btn_esc_abrir = Button(text=_("📂 Abrir"), size_hint_x=None, width=dp(90),
+                               font_size=FUENTE_CHICA)
+        btn_esc_abrir.bind(on_release=self._esc_on_abrir)
+        tb_inner.add_widget(btn_esc_abrir)
+
+        btn_esc_guardar = Button(text=_("💾 Guardar"), size_hint_x=None,
+                                 width=dp(100), font_size=FUENTE_CHICA)
+        btn_esc_guardar.bind(on_release=self._esc_on_guardar)
+        tb_inner.add_widget(btn_esc_guardar)
+
+        btn_esc_aplicar = Button(text=_("▶ Aplicar"), size_hint_x=None,
+                                 width=dp(100), font_size=FUENTE_CHICA)
+        btn_esc_aplicar.bind(on_release=self._esc_on_aplicar)
+        tb_inner.add_widget(btn_esc_aplicar)
+
+        btn_esc_descartar = Button(text=_("🗑 Descartar"), size_hint_x=None,
+                                   width=dp(110), font_size=FUENTE_CHICA)
+        btn_esc_descartar.bind(on_release=self._esc_on_descartar)
+        tb_inner.add_widget(btn_esc_descartar)
 
         tb_inner.add_widget(Label(text=_("Zoom:"), size_hint_x=None,
                                   width=dp(44), font_size=FUENTE_CHICA))
@@ -1866,15 +2156,16 @@ class DiagramaConexiones(Popup):
         """Prende el modo diagnóstico: tocar un puerto abre el asistente
         para ese conector (ver _CanvasDiagrama._hit_port/on_touch_down).
 
-        Exclusión mutua pendiente: en GTK, activar Diagnóstico apaga
-        Escenario/Impacto (modos "pesados" que también consumen el
-        toque sobre el diagrama) — ver DiagnosticoMixin._diag_activar.
-        Acá todavía no aplica porque esos mixins no están portados a
-        mobile (roadmap, ítems 2 y 4/5): el día que se porten, agregar
-        acá la misma desactivación cruzada antes de prender este modo.
-        "Conexión interna" no compite: es un panel de sólo lectura, no
-        intercepta toques sobre puertos.
+        Exclusión mutua: activar Diagnóstico apaga Modo Escenario si
+        estaba activo (Fase 5.3, ya portado — ver _esc_activar_modo, que
+        hace la desactivación simétrica) — compiten por el mismo gesto
+        de toque sobre el diagrama. Señal/Riesgo (roadmap, ítems 4-5)
+        todavía no existen en mobile: agregar acá la misma exclusión el
+        día que se porten. "Conexión interna" no compite: es un panel de
+        sólo lectura, no intercepta toques sobre puertos.
         """
+        if getattr(self, "_esc_modo", False):
+            self._esc_desactivar_modo()
         self._diag_modo = True
         if self._btn_diag.state != "down":
             self._btn_diag.state = "down"
@@ -1917,6 +2208,262 @@ class DiagramaConexiones(Popup):
         panel = PanelDiagnostico(id_conector, titulo, diagrama=self,
                                  contenedor=self._canvas_cont)
         panel.on_cerrar = lambda: setattr(self, "_diag_dialogo_activo", False)
+
+    # ── Modo Escenario (Fase 5.3 del roadmap) ────────────────────────────
+    # Equivalente a EscenarioMixin (GTK, escenario_ui.py). Ver
+    # pantallas_escenario.py (docstring del módulo) para las decisiones
+    # de diseño de esta entrega.
+
+    def _esc_on_toggle_modo(self, btn) -> None:
+        if btn.state == "down":
+            self._esc_activar_modo()
+        else:
+            self._esc_desactivar_modo()
+
+    def _esc_on_toggle_reconectar(self, btn) -> None:
+        self._esc_reconectar_activo = btn.state == "down"
+        self._esc_wire_from = None
+        if self._esc_reconectar_activo and not self._esc_modo:
+            self._esc_activar_modo()
+        self._canvas._redraw()
+
+    def _esc_activar_modo(self) -> None:
+        """Equivalente a EscenarioMixin._esc_activar_modo (GTK). Ver
+        _diag_activar para la exclusión mutua simétrica con Diagnóstico."""
+        if self._diag_modo:
+            self._diag_desactivar()
+        if self._esc_actual is None:
+            self._esc_actual = Escenario(self._esc_db_path)  # en memoria, sin guardar
+        if not self._esc_actual.asegurar_grafo():
+            mostrar_error(_(
+                "No se pudo construir el grafo de señal — revisá que la "
+                "base tenga equipos y conexiones cargadas."))
+            self._esc_actual = None
+            if self._btn_esc_modo.state != "normal":
+                self._btn_esc_modo.state = "normal"
+            return
+        self._esc_recalcular()
+        self._esc_modo = True
+        if self._btn_esc_modo.state != "down":
+            self._btn_esc_modo.state = "down"
+        # Igual que "Conexión interna"/Diagnóstico (ver _toggle_conexion_
+        # interna/_diag_activar): los puertos (necesarios para "🔗
+        # Reconectar") sólo se dibujan — y por lo tanto sólo se pueden
+        # tocar — con "Solo nombre" apagado.
+        if self._solo_nombre:
+            self._solo_nombre = False
+            self._btn_solo.state = "normal"
+            for nd in self._canvas._nodos.values():
+                n_rows = max(len(nd["in"]), len(nd["out"]), 1)
+                nd["alto"] = HDR_H + PORT_PAD * 2 + 10 + n_rows * PORT_H
+        self._canvas._redraw()
+        self._esc_actualizar_panel()
+
+    def _esc_desactivar_modo(self) -> None:
+        self._esc_modo = False
+        self._esc_reconectar_activo = False
+        self._esc_wire_from = None
+        if self._btn_esc_modo.state != "normal":
+            self._btn_esc_modo.state = "normal"
+        if self._btn_esc_reconectar.state != "normal":
+            self._btn_esc_reconectar.state = "normal"
+        self._canvas._redraw()
+        self._esc_actualizar_panel()
+
+    # ── Botones de acción (nuevo / abrir / guardar / aplicar / descartar) ──
+    def _esc_on_nuevo(self, *_a) -> None:
+        def _crear(nombre, descripcion):
+            self._esc_actual = Escenario.crear_nuevo(
+                self._esc_db_path, nombre, descripcion)
+            self._esc_resultado = None
+            self._esc_senales_cache_dict = {}
+            self._esc_activar_modo()
+
+        if (self._esc_actual and self._esc_actual.cambios
+                and self._esc_actual.id_escenario is None):
+            confirmar(_(
+                "Hay cambios sin guardar en el escenario actual — "
+                "¿descartarlos y empezar uno nuevo?"),
+                on_si=lambda: PopupNombreEscenario(on_aceptar=_crear).open())
+            return
+        PopupNombreEscenario(on_aceptar=_crear).open()
+
+    def _esc_on_abrir(self, *_a) -> None:
+        def _abrir(id_esc):
+            self._esc_actual = Escenario(self._esc_db_path, id_escenario=id_esc)
+            self._esc_activar_modo()
+        EscenariosListado(on_abrir=_abrir).open()
+
+    def _esc_on_guardar(self, *_a) -> None:
+        esc = self._esc_actual
+        if esc is None or not esc.cambios:
+            mostrar_info(_(
+                "Activá el modo escenario y marcá al menos un cambio "
+                "antes de guardar."))
+            return
+        if esc.id_escenario is not None:
+            mostrar_info(_(
+                "Ya está guardado como «{}» — los cambios se guardan "
+                "solos a medida que los hacés.").format(esc.nombre))
+            return
+
+        def _guardar(nombre, descripcion):
+            esc.guardar_como(nombre, descripcion)
+            mostrar_info(_("Escenario «{}» guardado.").format(nombre))
+            self._esc_actualizar_panel()
+
+        PopupNombreEscenario(on_aceptar=_guardar).open()
+
+    def _esc_on_descartar(self, *_a) -> None:
+        esc = self._esc_actual
+        if not esc or not esc.cambios:
+            return
+
+        def _hacer():
+            esc.vaciar()
+            self._esc_resultado = None
+            self._esc_senales_cache_dict = {}
+            self._canvas._redraw()
+            self._esc_actualizar_panel()
+
+        confirmar(_("¿Descartar todos los cambios de este escenario?"),
+                 on_si=_hacer)
+
+    def _esc_on_aplicar(self, *_a) -> None:
+        esc = self._esc_actual
+        if not esc or not esc.cambios:
+            mostrar_info(_("No hay cambios en el escenario actual para aplicar."))
+            return
+        resumen = esc.resumen_aplicar()
+        if not resumen["cables_a_desconectar"] and not resumen["reconexiones"]:
+            mostrar_info(_(
+                "Este escenario sólo tiene fallas de equipo simuladas, que "
+                "no tienen una operación real equivalente — no hay nada "
+                "para aplicar a la infraestructura."))
+            return
+
+        def _hacer():
+            try:
+                resultado = esc.aplicar_a_infraestructura()
+            except Exception as exc:
+                mostrar_error(_("Error al aplicar los cambios:\n{}").format(exc))
+                return
+            self._esc_desactivar_modo()
+            self._esc_resultado = None
+            self._esc_senales_cache_dict = {}
+            self._recargar()
+            mostrar_info(_(
+                "Aplicado: {} cable(s) desconectado(s), {} cable(s) "
+                "nuevo(s) creado(s).").format(
+                    len(resultado["cables_desconectados"]),
+                    len(resultado["cables_creados"])))
+
+        partes = [_("¿Aplicar estos cambios a la infraestructura real?"), ""]
+        if resumen["cables_a_desconectar"]:
+            partes.append(_(
+                "Se DESCONECTAN estos cables (quedan de alta, sin extremos):"))
+            for _cid, nombre in resumen["cables_a_desconectar"]:
+                partes.append(f"  • {nombre}")
+        if resumen["reconexiones"]:
+            if len(partes) > 2:
+                partes.append("")
+            partes.append(_(
+                "Se CREAN estas conexiones nuevas (cable nuevo automático):"))
+            for a, b in resumen["reconexiones"]:
+                partes.append(_("  • conector {} → {}").format(a, b))
+        confirmar("\n".join(partes), on_si=_hacer)
+
+    # ── Edición por clic (equipo / cable) — llamado desde _CanvasDiagrama.
+    # on_touch_down/up (ver ese archivo) ──────────────────────────────────
+    def _esc_toggle_falla_equipo(self, id_equipo: str) -> None:
+        esc = self._esc_actual
+        existente = esc.cambio_en_equipo(id_equipo)
+        if existente:
+            esc.quitar_cambio(existente)
+        else:
+            esc.agregar_falla_equipo(id_equipo)
+        self._esc_recalcular()
+
+    def _esc_toggle_desconexion_cable(self, id_cable: str) -> None:
+        esc = self._esc_actual
+        existente = esc.cambio_en_cable(id_cable)
+        if existente:
+            esc.quitar_cambio(existente)
+        else:
+            esc.agregar_desconexion_cable(id_cable)
+        self._esc_recalcular()
+
+    def _esc_agregar_conexion_virtual(self, id_a: str, id_b: str) -> None:
+        esc = self._esc_actual
+        analyzer = esc.analyzer
+        tipo_a = analyzer._conector_tipo.get(str(id_a), "") \
+            if analyzer.esta_construido() else ""
+        tipo_b = analyzer._conector_tipo.get(str(id_b), "") \
+            if analyzer.esta_construido() else ""
+        esc.agregar_conexion_virtual(id_a, id_b)
+        self._esc_recalcular()
+        if tipo_a and tipo_b and not _esc_tipos_compatibles(tipo_a, tipo_b):
+            mostrar_info(_(
+                "Aviso: conector tipo «{}» → «{}» no es la combinación "
+                "esperada (entrada↔salida). Se agregó igual — revisá la "
+                "compatibilidad física antes de aplicar."
+            ).format(tipo_a, tipo_b))
+
+    def _esc_recalcular(self) -> None:
+        esc = self._esc_actual
+        if esc is None:
+            self._esc_resultado = None
+            self._esc_senales_cache_dict = {}
+        else:
+            self._esc_resultado = esc.evaluar()
+            self._esc_senales_cache_dict = self._esc_senales_caidas()
+        self._canvas._redraw()
+        self._esc_actualizar_panel()
+
+    def _esc_senales_caidas(self) -> dict:
+        """plan_estado_senal_y_linaje.md, Función 1 — mismo helper que
+        usa GTK (EscenarioMixin._esc_senales_caidas), reutilizando el
+        analyzer de la propia Escenario (acá no hay un mixin de Impacto
+        aparte del que reusar, a diferencia de GTK)."""
+        r = self._esc_resultado
+        if not r or not (r.equipos_impactados or r.equipos_fallados
+                         or r.causas_regla):
+            return {}
+        try:
+            from core.senal_estado import senales_caidas_por_equipos
+            conectores_adicionales = set(r.conectores_regla_caida)
+            if r.cables_cortados:
+                analyzer = self._esc_actual.analyzer
+                for cable_id in r.cables_cortados:
+                    src_con, dst_con = analyzer.conectores_del_cable(cable_id)
+                    conectores_adicionales |= {src_con, dst_con}
+            return senales_caidas_por_equipos(
+                self._esc_db_path, r.equipos_impactados,
+                equipos_adicionales=r.equipos_fallados,
+                conectores_adicionales=conectores_adicionales)
+        except Exception:
+            return {}
+
+    def _esc_actualizar_panel(self) -> None:
+        """Muestra/oculta/actualiza PanelEscenario según el estado actual
+        — equivalente a la rama final de EscenarioMixin._esc_on_draw_
+        overlay (GTK) que decide entre _esc_draw_hint/_esc_draw_panel,
+        pero acá maneja un widget real en vez de texto dibujado a mano
+        (ver pantallas_escenario.py)."""
+        esc = self._esc_actual
+        tiene_cambios = bool(esc and esc.cambios)
+        if not self._esc_modo and not tiene_cambios:
+            if self._esc_panel is not None:
+                self._esc_panel.quitar()
+                self._esc_panel = None
+            return
+        if self._esc_panel is None:
+            self._esc_panel = PanelEscenario(contenedor=self._canvas_cont)
+        if tiene_cambios:
+            self._esc_panel.mostrar_resultado(
+                esc, self._esc_resultado, self._esc_senales_cache_dict)
+        else:
+            self._esc_panel.mostrar_hint()
 
     def _centrar_en_equipo(self, id_equipo) -> None:
         """Centra pan+zoom del canvas en el equipo dado. Usado por
