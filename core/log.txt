@@ -1,0 +1,2177 @@
+[12:50:43.701] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[12:50:43.701] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[12:50:44.172] [inmersivo] === CableDocApp.build() ===
+[2026-09-13 12:50:44] (CableDocApp.build)
+Traceback (most recent call last):
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 905, in build
+    return PantallaPrincipal()
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 564, in __init__
+    Modelo.asegurar_columnas_auditoria()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'Modelo' has no attribute 'asegurar_columnas_auditoria'. Did you mean: 'asegurar_columnas_equipo'?
+
+[2026-09-13 12:50:44] (No capturado)
+Traceback (most recent call last):
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 985, in <module>
+    CableDocApp().run()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/app.py", line 955, in run
+    self._run_prepare()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/app.py", line 925, in _run_prepare
+    root = self.build()
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 905, in build
+    return PantallaPrincipal()
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 564, in __init__
+    Modelo.asegurar_columnas_auditoria()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'Modelo' has no attribute 'asegurar_columnas_auditoria'. Did you mean: 'asegurar_columnas_equipo'?
+
+[13:51:56.950] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[13:51:56.950] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[13:51:57.256] [inmersivo] === CableDocApp.build() ===
+[13:51:57.303] [inmersivo] === CableDocApp.on_start() ===
+[13:51:57.303] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[13:51:57.303] [inmersivo] platform != 'android' -> no hago nada
+[13:51:57.365] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[13:51:57.365] [inmersivo] platform != 'android' -> no hago nada
+[13:51:57.395] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f9136e3e440>, 360, 800))) platform='linux'
+[13:51:57.395] [inmersivo] platform != 'android' -> no hago nada
+[13:51:57.968] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[13:51:57.968] [inmersivo] platform != 'android' -> no hago nada
+[13:51:58.967] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[13:51:58.968] [inmersivo] platform != 'android' -> no hago nada
+[13:54:33.308] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[13:54:33.308] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[13:54:33.568] [inmersivo] === CableDocApp.build() ===
+[13:54:33.607] [inmersivo] === CableDocApp.on_start() ===
+[13:54:33.607] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[13:54:33.607] [inmersivo] platform != 'android' -> no hago nada
+[13:54:33.667] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[13:54:33.667] [inmersivo] platform != 'android' -> no hago nada
+[13:54:33.698] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7fde78292440>, 360, 800))) platform='linux'
+[13:54:33.698] [inmersivo] platform != 'android' -> no hago nada
+[13:54:34.335] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[13:54:34.335] [inmersivo] platform != 'android' -> no hago nada
+[13:54:35.334] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[13:54:35.335] [inmersivo] platform != 'android' -> no hago nada
+[14:14:57.596] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[14:14:57.596] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[14:14:57.939] [inmersivo] === CableDocApp.build() ===
+[14:14:57.985] [inmersivo] === CableDocApp.on_start() ===
+[14:14:57.985] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[14:14:57.985] [inmersivo] platform != 'android' -> no hago nada
+[14:14:58.050] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[14:14:58.050] [inmersivo] platform != 'android' -> no hago nada
+[14:14:58.082] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f21f4c76440>, 360, 800))) platform='linux'
+[14:14:58.082] [inmersivo] platform != 'android' -> no hago nada
+[14:14:58.631] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[14:14:58.631] [inmersivo] platform != 'android' -> no hago nada
+[14:14:59.624] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[14:14:59.624] [inmersivo] platform != 'android' -> no hago nada
+[14:17:54.453] [busqueda_global] _construir_arbol: 2 nodos, 0 salas, 0 cables, 8 ms (consultas SQL, bulk fetch)
+[14:17:54.453] [busqueda_global] recargar(): armado de nodos en 8 ms
+[14:17:54.455] [busqueda_global] _rebuild: filtro='' clear_widgets(0)=0ms visibilidad=0ms render=1ms (2 filas creadas, 0 matches, tope=False) total=1ms
+[15:21:50.341] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[15:21:50.341] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[15:21:50.623] [inmersivo] === CableDocApp.build() ===
+[15:21:50.701] [inmersivo] === CableDocApp.on_start() ===
+[15:21:50.702] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[15:21:50.702] [inmersivo] platform != 'android' -> no hago nada
+[15:21:50.762] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[15:21:50.762] [inmersivo] platform != 'android' -> no hago nada
+[15:21:50.793] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7fd5d577e440>, 360, 800))) platform='linux'
+[15:21:50.793] [inmersivo] platform != 'android' -> no hago nada
+[15:21:51.366] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[15:21:51.367] [inmersivo] platform != 'android' -> no hago nada
+[15:21:52.357] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[15:21:52.358] [inmersivo] platform != 'android' -> no hago nada
+[15:21:55.599] [busqueda_global] _construir_arbol: 3957 nodos, 5 salas, 515 cables, 33 ms (consultas SQL, bulk fetch)
+[15:21:55.599] [busqueda_global] recargar(): armado de nodos en 33 ms
+[15:21:55.606] [busqueda_global] _rebuild: filtro='' clear_widgets(0)=0ms visibilidad=1ms render=6ms (8 filas creadas, 0 matches, tope=False) total=7ms
+[18:54:03.296] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[18:54:03.296] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[18:54:03.754] [inmersivo] === CableDocApp.build() ===
+[18:54:03.845] [inmersivo] === CableDocApp.on_start() ===
+[18:54:03.845] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[18:54:03.845] [inmersivo] platform != 'android' -> no hago nada
+[18:54:03.925] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[18:54:03.925] [inmersivo] platform != 'android' -> no hago nada
+[18:54:03.959] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f207a8ca440>, 360, 800))) platform='linux'
+[18:54:03.959] [inmersivo] platform != 'android' -> no hago nada
+[18:54:04.344] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[18:54:04.344] [inmersivo] platform != 'android' -> no hago nada
+[18:54:05.340] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[18:54:05.340] [inmersivo] platform != 'android' -> no hago nada
+[2026-09-13 18:54:05] (No capturado)
+Traceback (most recent call last):
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 985, in <module>
+    CableDocApp().run()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/app.py", line 956, in run
+    runTouchApp()
+    ~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 574, in runTouchApp
+    EventLoop.mainloop()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 339, in mainloop
+    self.idle()
+    ~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 383, in idle
+    self.dispatch_input()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 334, in dispatch_input
+    post_dispatch_input(*pop(0))
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 302, in post_dispatch_input
+    wid.dispatch('on_touch_up', me)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "kivy/_event.pyx", line 731, in kivy._event.EventDispatcher.dispatch
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/uix/behaviors/button.py", line 179, in on_touch_up
+    self.dispatch('on_release')
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "kivy/_event.pyx", line 727, in kivy._event.EventDispatcher.dispatch
+  File "kivy/_event.pyx", line 1307, in kivy._event.EventObservers.dispatch
+  File "kivy/_event.pyx", line 1231, in kivy._event.EventObservers._dispatch
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 515, in <lambda>
+    boton.bind(on_release=lambda *_a: callback())
+                                      ~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 328, in abrir_equipos
+    EquiposListado().open()
+    ~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/pantallas_equipos.py", line 521, in __init__
+    self.cargar_datos()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/pantallas_equipos.py", line 619, in cargar_datos
+    self._filas_completas = Modelo.devolver_equipos_tarjetas()
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'Modelo' has no attribute 'devolver_equipos_tarjetas'. Did you mean: 'devolver_equipos_patchera'?
+
+[19:08:18.168] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[19:08:18.168] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[19:08:18.515] [inmersivo] === CableDocApp.build() ===
+[19:08:18.604] [inmersivo] === CableDocApp.on_start() ===
+[19:08:18.604] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[19:08:18.604] [inmersivo] platform != 'android' -> no hago nada
+[19:08:18.695] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[19:08:18.695] [inmersivo] platform != 'android' -> no hago nada
+[19:08:18.734] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f1e1ef0a440>, 360, 800))) platform='linux'
+[19:08:18.734] [inmersivo] platform != 'android' -> no hago nada
+[19:08:19.192] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[19:08:19.193] [inmersivo] platform != 'android' -> no hago nada
+[19:08:20.197] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[19:08:20.197] [inmersivo] platform != 'android' -> no hago nada
+[19:08:43.580] [busqueda_global] _construir_arbol: 3957 nodos, 5 salas, 515 cables, 65 ms (consultas SQL, bulk fetch)
+[19:08:43.581] [busqueda_global] recargar(): armado de nodos en 66 ms
+[19:08:43.589] [busqueda_global] _rebuild: filtro='' clear_widgets(0)=0ms visibilidad=1ms render=7ms (8 filas creadas, 0 matches, tope=False) total=8ms
+[19:09:32.844] DIAGRAMA· render: 0.0 ms — 0 nodos, 0 conexiones
+[19:09:32.845] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[19:09:32.846] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[19:09:33.072] DIAGRAMA· ids_equipos (global): 4.2 ms
+[19:09:33.075] DIAGRAMA· query_equipos_bulk: 2.2 ms — n=348
+[19:09:33.077] DIAGRAMA· query_posiciones_bulk: 2.8 ms — n=348
+[19:09:33.083] DIAGRAMA· query_conexiones_bulk (grafo completo): 5.6 ms
+[19:09:33.083] DIAGRAMA· layout (columnas, indice completo): 0.1 ms
+[19:09:33.087] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:33.089] DIAGRAMA· _cargar total: 21.4 ms — modo=global
+[19:09:33.096] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:09:33.098] DIAGRAMA· query_conectores_bulk (activos): 1.8 ms — n=50
+[19:09:33.106] DIAGRAMA· render: 7.4 ms — 50 nodos, 33 conexiones
+[19:09:33.856] DIAGRAMA· render: 5.7 ms — 50 nodos, 33 conexiones
+[19:09:33.880] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[19:09:33.899] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[19:09:33.919] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[19:09:33.941] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[19:09:33.962] DIAGRAMA· render: 5.5 ms — 50 nodos, 33 conexiones
+[19:09:33.983] DIAGRAMA· render: 5.2 ms — 50 nodos, 33 conexiones
+[19:09:34.003] DIAGRAMA· render: 5.0 ms — 50 nodos, 33 conexiones
+[19:09:34.023] DIAGRAMA· render: 5.6 ms — 50 nodos, 33 conexiones
+[19:09:34.045] DIAGRAMA· render: 5.6 ms — 50 nodos, 33 conexiones
+[19:09:34.071] DIAGRAMA· render: 5.6 ms — 50 nodos, 33 conexiones
+[19:09:34.138] DIAGRAMA· render: 49.8 ms — 50 nodos, 33 conexiones
+[19:09:34.160] DIAGRAMA· render: 6.3 ms — 50 nodos, 33 conexiones
+[19:09:34.181] DIAGRAMA· render: 5.2 ms — 50 nodos, 33 conexiones
+[19:09:34.239] DIAGRAMA· render: 35.8 ms — 50 nodos, 33 conexiones
+[19:09:34.382] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:09:34.384] DIAGRAMA· query_conectores_bulk (activos): 1.9 ms — n=25
+[19:09:34.451] DIAGRAMA· render: 66.1 ms — 25 nodos, 24 conexiones
+[19:09:34.739] DIAGRAMA· render: 13.6 ms — 25 nodos, 24 conexiones
+[19:09:34.758] DIAGRAMA· render: 3.8 ms — 25 nodos, 24 conexiones
+[19:09:34.781] DIAGRAMA· render: 3.5 ms — 25 nodos, 24 conexiones
+[19:09:34.803] DIAGRAMA· render: 4.9 ms — 25 nodos, 24 conexiones
+[19:09:34.826] DIAGRAMA· render: 5.9 ms — 25 nodos, 24 conexiones
+[19:09:34.849] DIAGRAMA· render: 3.6 ms — 25 nodos, 24 conexiones
+[19:09:34.867] DIAGRAMA· render: 3.5 ms — 25 nodos, 24 conexiones
+[19:09:34.885] DIAGRAMA· render: 3.7 ms — 25 nodos, 24 conexiones
+[19:09:34.904] DIAGRAMA· render: 4.2 ms — 25 nodos, 24 conexiones
+[19:09:34.920] DIAGRAMA· render: 3.4 ms — 25 nodos, 24 conexiones
+[19:09:34.938] DIAGRAMA· render: 5.3 ms — 25 nodos, 24 conexiones
+[19:09:34.953] DIAGRAMA· render: 3.5 ms — 25 nodos, 24 conexiones
+[19:09:34.971] DIAGRAMA· render: 4.1 ms — 25 nodos, 24 conexiones
+[19:09:34.987] DIAGRAMA· render: 3.6 ms — 25 nodos, 24 conexiones
+[19:09:35.005] DIAGRAMA· render: 4.2 ms — 25 nodos, 24 conexiones
+[19:09:35.178] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:09:35.183] DIAGRAMA· query_conectores_bulk (activos): 4.0 ms — n=25
+[19:09:35.191] DIAGRAMA· render: 7.7 ms — 25 nodos, 25 conexiones
+[19:09:35.634] DIAGRAMA· render: 4.5 ms — 25 nodos, 25 conexiones
+[19:09:35.650] DIAGRAMA· render: 3.3 ms — 25 nodos, 25 conexiones
+[19:09:35.671] DIAGRAMA· render: 6.0 ms — 25 nodos, 25 conexiones
+[19:09:35.689] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[19:09:35.710] DIAGRAMA· render: 5.4 ms — 25 nodos, 25 conexiones
+[19:09:35.729] DIAGRAMA· render: 5.3 ms — 25 nodos, 25 conexiones
+[19:09:35.748] DIAGRAMA· render: 4.3 ms — 25 nodos, 25 conexiones
+[19:09:35.771] DIAGRAMA· render: 5.4 ms — 25 nodos, 25 conexiones
+[19:09:35.791] DIAGRAMA· render: 3.6 ms — 25 nodos, 25 conexiones
+[19:09:35.810] DIAGRAMA· render: 3.9 ms — 25 nodos, 25 conexiones
+[19:09:35.828] DIAGRAMA· render: 5.1 ms — 25 nodos, 25 conexiones
+[19:09:35.847] DIAGRAMA· render: 4.7 ms — 25 nodos, 25 conexiones
+[19:09:35.908] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[19:09:35.925] DIAGRAMA· render: 3.2 ms — 25 nodos, 25 conexiones
+[19:09:35.944] DIAGRAMA· render: 4.8 ms — 25 nodos, 25 conexiones
+[19:09:35.964] DIAGRAMA· render: 5.5 ms — 25 nodos, 25 conexiones
+[19:09:36.133] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:09:36.926] DIAGRAMA· render: 49.3 ms — 25 nodos, 25 conexiones
+[19:09:36.946] DIAGRAMA· render: 4.3 ms — 25 nodos, 25 conexiones
+[19:09:36.964] DIAGRAMA· render: 5.9 ms — 25 nodos, 25 conexiones
+[19:09:36.982] DIAGRAMA· render: 3.8 ms — 25 nodos, 25 conexiones
+[19:09:37.000] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[19:09:37.021] DIAGRAMA· render: 3.6 ms — 25 nodos, 25 conexiones
+[19:09:37.041] DIAGRAMA· render: 3.8 ms — 25 nodos, 25 conexiones
+[19:09:37.060] DIAGRAMA· render: 5.4 ms — 25 nodos, 25 conexiones
+[19:09:37.081] DIAGRAMA· render: 6.2 ms — 25 nodos, 25 conexiones
+[19:09:37.098] DIAGRAMA· render: 4.3 ms — 25 nodos, 25 conexiones
+[19:09:37.117] DIAGRAMA· render: 4.7 ms — 25 nodos, 25 conexiones
+[19:09:37.137] DIAGRAMA· render: 5.2 ms — 25 nodos, 25 conexiones
+[19:09:37.157] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[19:09:37.181] DIAGRAMA· render: 4.2 ms — 25 nodos, 25 conexiones
+[19:09:37.200] DIAGRAMA· render: 3.9 ms — 25 nodos, 25 conexiones
+[19:09:37.382] DIAGRAMA· recalcular_visibles (filtro viewport): 0.8 ms — indice=347
+[19:09:37.386] DIAGRAMA· query_conectores_bulk (activos): 4.2 ms — n=4
+[19:09:37.393] DIAGRAMA· render: 6.2 ms — 4 nodos, 3 conexiones
+[19:09:42.671] DIAGRAMA· render: 1.4 ms — 4 nodos, 3 conexiones
+[19:09:42.682] DIAGRAMA· render: 0.7 ms — 4 nodos, 3 conexiones
+[19:09:42.693] DIAGRAMA· render: 0.7 ms — 4 nodos, 3 conexiones
+[19:09:42.707] DIAGRAMA· render: 1.2 ms — 4 nodos, 3 conexiones
+[19:09:42.719] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:42.732] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:42.746] DIAGRAMA· render: 1.1 ms — 4 nodos, 3 conexiones
+[19:09:42.761] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:42.773] DIAGRAMA· render: 1.0 ms — 4 nodos, 3 conexiones
+[19:09:42.785] DIAGRAMA· render: 0.9 ms — 4 nodos, 3 conexiones
+[19:09:42.802] DIAGRAMA· render: 1.1 ms — 4 nodos, 3 conexiones
+[19:09:42.818] DIAGRAMA· render: 0.6 ms — 4 nodos, 3 conexiones
+[19:09:42.837] DIAGRAMA· render: 1.0 ms — 4 nodos, 3 conexiones
+[19:09:42.851] DIAGRAMA· render: 0.6 ms — 4 nodos, 3 conexiones
+[19:09:42.869] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:42.885] DIAGRAMA· render: 0.6 ms — 4 nodos, 3 conexiones
+[19:09:42.903] DIAGRAMA· render: 0.9 ms — 4 nodos, 3 conexiones
+[19:09:43.078] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:09:43.302] DIAGRAMA· render: 0.9 ms — 4 nodos, 3 conexiones
+[19:09:43.314] DIAGRAMA· render: 1.0 ms — 4 nodos, 3 conexiones
+[19:09:43.326] DIAGRAMA· render: 0.9 ms — 4 nodos, 3 conexiones
+[19:09:43.342] DIAGRAMA· render: 1.3 ms — 4 nodos, 3 conexiones
+[19:09:43.356] DIAGRAMA· render: 2.0 ms — 4 nodos, 3 conexiones
+[19:09:43.370] DIAGRAMA· render: 1.6 ms — 4 nodos, 3 conexiones
+[19:09:43.382] DIAGRAMA· render: 0.7 ms — 4 nodos, 3 conexiones
+[19:09:43.395] DIAGRAMA· render: 1.2 ms — 4 nodos, 3 conexiones
+[19:09:43.408] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:43.419] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:43.439] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:43.452] DIAGRAMA· render: 0.8 ms — 4 nodos, 3 conexiones
+[19:09:43.508] DIAGRAMA· render: 0.7 ms — 4 nodos, 3 conexiones
+[19:09:43.520] DIAGRAMA· render: 1.0 ms — 4 nodos, 3 conexiones
+[19:09:43.534] DIAGRAMA· render: 2.0 ms — 4 nodos, 3 conexiones
+[19:09:43.548] DIAGRAMA· render: 0.7 ms — 4 nodos, 3 conexiones
+[19:09:43.721] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[19:09:43.721] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[19:09:43.721] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[19:09:44.090] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:44.102] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:44.112] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:44.132] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[19:09:44.197] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[19:09:44.208] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:44.222] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[19:09:44.238] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[19:09:44.252] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:44.262] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:44.276] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:44.286] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:44.303] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:44.320] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:44.337] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:44.354] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:44.530] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[19:09:45.187] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:45.210] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:45.221] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:45.233] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[19:09:45.267] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:45.301] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:45.484] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[19:09:45.596] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:45.611] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:45.623] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:45.636] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:45.648] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:45.661] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:45.710] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:45.895] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[19:09:46.019] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:46.031] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:46.038] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:46.071] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:46.118] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[19:09:46.303] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[19:09:46.501] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:46.512] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:46.520] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[19:09:46.536] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[19:09:46.556] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[19:09:46.729] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[19:09:47.465] [busqueda_global] _construir_arbol: 3957 nodos, 5 salas, 515 cables, 24 ms (consultas SQL, bulk fetch)
+[19:09:47.466] [busqueda_global] recargar(): armado de nodos en 25 ms
+[19:09:47.478] [busqueda_global] _rebuild: filtro='' clear_widgets(0)=0ms visibilidad=1ms render=10ms (8 filas creadas, 0 matches, tope=False) total=11ms
+[21:38:48.954] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[21:38:48.954] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[21:38:49.362] [inmersivo] === CableDocApp.build() ===
+[21:38:49.456] [inmersivo] === CableDocApp.on_start() ===
+[21:38:49.456] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[21:38:49.456] [inmersivo] platform != 'android' -> no hago nada
+[21:38:49.542] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[21:38:49.543] [inmersivo] platform != 'android' -> no hago nada
+[21:38:49.580] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f3fb43365d0>, 360, 800))) platform='linux'
+[21:38:49.581] [inmersivo] platform != 'android' -> no hago nada
+[21:38:49.977] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[21:38:49.977] [inmersivo] platform != 'android' -> no hago nada
+[21:38:50.977] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[21:38:50.977] [inmersivo] platform != 'android' -> no hago nada
+[21:39:29.325] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[21:39:29.327] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[21:39:29.328] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[21:39:29.567] DIAGRAMA· ids_equipos (global): 11.7 ms
+[21:39:29.571] DIAGRAMA· query_equipos_bulk: 2.8 ms — n=348
+[21:39:29.573] DIAGRAMA· query_posiciones_bulk: 2.2 ms — n=348
+[21:39:29.579] DIAGRAMA· query_conexiones_bulk (grafo completo): 6.0 ms
+[21:39:29.579] DIAGRAMA· layout (columnas, indice completo): 0.2 ms
+[21:39:29.582] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[21:39:29.585] DIAGRAMA· _cargar total: 29.5 ms — modo=global
+[21:39:29.589] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[21:39:29.591] DIAGRAMA· query_conectores_bulk (activos): 1.8 ms — n=50
+[21:39:29.599] DIAGRAMA· render: 7.0 ms — 50 nodos, 33 conexiones
+[21:39:30.947] DIAGRAMA· render: 4.4 ms — 50 nodos, 33 conexiones
+[21:39:31.038] DIAGRAMA· render: 13.7 ms — 50 nodos, 33 conexiones
+[21:39:31.114] DIAGRAMA· render: 12.3 ms — 50 nodos, 33 conexiones
+[21:39:31.203] DIAGRAMA· render: 14.6 ms — 50 nodos, 33 conexiones
+[21:39:31.274] DIAGRAMA· render: 7.0 ms — 50 nodos, 33 conexiones
+[21:39:31.449] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:31.453] DIAGRAMA· query_conectores_bulk (activos): 3.9 ms — n=3
+[21:39:31.460] DIAGRAMA· render: 5.5 ms — 3 nodos, 2 conexiones
+[21:39:31.566] DIAGRAMA· render: 1.7 ms — 3 nodos, 2 conexiones
+[21:39:31.615] DIAGRAMA· render: 1.5 ms — 3 nodos, 2 conexiones
+[21:39:31.660] DIAGRAMA· render: 1.8 ms — 3 nodos, 2 conexiones
+[21:39:31.709] DIAGRAMA· render: 0.7 ms — 3 nodos, 2 conexiones
+[21:39:31.893] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[21:39:32.688] DIAGRAMA· render: 1.4 ms — 3 nodos, 2 conexiones
+[21:39:32.979] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:33.192] DIAGRAMA· render: 1.4 ms — 3 nodos, 2 conexiones
+[21:39:33.238] DIAGRAMA· render: 1.4 ms — 3 nodos, 2 conexiones
+[21:39:33.303] DIAGRAMA· render: 1.3 ms — 3 nodos, 2 conexiones
+[21:39:33.481] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:39:33.656] DIAGRAMA· render: 1.5 ms — 3 nodos, 2 conexiones
+[21:39:33.836] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:35.967] DIAGRAMA· render: 1.4 ms — 3 nodos, 2 conexiones
+[21:39:36.049] DIAGRAMA· render: 1.6 ms — 3 nodos, 2 conexiones
+[21:39:36.227] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:44.135] DIAGRAMA· render: 0.6 ms — 3 nodos, 2 conexiones
+[21:39:44.148] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:44.150] DIAGRAMA· query_conectores_bulk (activos): 2.0 ms — n=50
+[21:39:44.157] DIAGRAMA· render: 6.2 ms — 50 nodos, 47 conexiones
+[21:39:44.167] DIAGRAMA· render: 3.8 ms — 50 nodos, 47 conexiones
+[21:39:44.196] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:44.198] DIAGRAMA· query_conectores_bulk (activos): 1.8 ms — n=50
+[21:39:44.204] DIAGRAMA· render: 5.8 ms — 50 nodos, 49 conexiones
+[21:39:44.217] DIAGRAMA· render: 4.5 ms — 50 nodos, 49 conexiones
+[21:39:44.232] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[21:39:44.235] DIAGRAMA· query_conectores_bulk (activos): 2.1 ms — n=50
+[21:39:44.242] DIAGRAMA· render: 6.6 ms — 50 nodos, 47 conexiones
+[21:39:44.255] DIAGRAMA· render: 5.7 ms — 50 nodos, 47 conexiones
+[21:39:44.273] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:44.276] DIAGRAMA· query_conectores_bulk (activos): 3.4 ms — n=50
+[21:39:44.284] DIAGRAMA· render: 6.5 ms — 50 nodos, 50 conexiones
+[21:39:44.295] DIAGRAMA· render: 5.2 ms — 50 nodos, 50 conexiones
+[21:39:44.313] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:44.315] DIAGRAMA· query_conectores_bulk (activos): 2.0 ms — n=50
+[21:39:44.323] DIAGRAMA· render: 7.3 ms — 50 nodos, 52 conexiones
+[21:39:44.335] DIAGRAMA· render: 6.3 ms — 50 nodos, 52 conexiones
+[21:39:44.355] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:44.357] DIAGRAMA· query_conectores_bulk (activos): 2.2 ms — n=50
+[21:39:44.379] DIAGRAMA· render: 21.3 ms — 50 nodos, 52 conexiones
+[21:39:44.389] DIAGRAMA· render: 4.4 ms — 50 nodos, 52 conexiones
+[21:39:44.405] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[21:39:44.413] DIAGRAMA· render: 7.8 ms — 50 nodos, 52 conexiones
+[21:39:44.429] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:45.020] DIAGRAMA· render: 20.2 ms — 50 nodos, 52 conexiones
+[21:39:45.045] DIAGRAMA· render: 7.3 ms — 50 nodos, 52 conexiones
+[21:39:45.068] DIAGRAMA· render: 6.2 ms — 50 nodos, 52 conexiones
+[21:39:45.094] DIAGRAMA· render: 7.7 ms — 50 nodos, 52 conexiones
+[21:39:45.121] DIAGRAMA· render: 7.3 ms — 50 nodos, 52 conexiones
+[21:39:45.147] DIAGRAMA· render: 9.6 ms — 50 nodos, 52 conexiones
+[21:39:45.171] DIAGRAMA· render: 6.2 ms — 50 nodos, 52 conexiones
+[21:39:45.196] DIAGRAMA· render: 7.0 ms — 50 nodos, 52 conexiones
+[21:39:45.221] DIAGRAMA· render: 6.5 ms — 50 nodos, 52 conexiones
+[21:39:45.249] DIAGRAMA· render: 11.8 ms — 50 nodos, 52 conexiones
+[21:39:45.278] DIAGRAMA· render: 11.1 ms — 50 nodos, 52 conexiones
+[21:39:45.313] DIAGRAMA· render: 8.5 ms — 50 nodos, 52 conexiones
+[21:39:45.337] DIAGRAMA· render: 6.1 ms — 50 nodos, 52 conexiones
+[21:39:45.364] DIAGRAMA· render: 8.7 ms — 50 nodos, 52 conexiones
+[21:39:45.390] DIAGRAMA· render: 6.0 ms — 50 nodos, 52 conexiones
+[21:39:45.565] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:45.570] DIAGRAMA· query_conectores_bulk (activos): 4.8 ms — n=16
+[21:39:45.582] DIAGRAMA· render: 10.9 ms — 16 nodos, 16 conexiones
+[21:39:46.597] DIAGRAMA· render: 5.0 ms — 16 nodos, 16 conexiones
+[21:39:46.772] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[21:39:46.772] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[21:39:46.774] DIAGRAMA· render: 1.4 ms — 0 nodos, 0 conexiones
+[21:39:46.788] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[21:39:46.948] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[21:39:47.125] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:47.510] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[21:39:47.693] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:48.414] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[21:39:48.592] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:39:48.595] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[21:39:48.745] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[21:39:48.914] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[21:39:49.066] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[21:39:49.222] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[21:39:49.364] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[21:39:49.533] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[21:39:49.687] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[21:39:49.862] DIAGRAMA· render: 2.2 ms — 0 nodos, 0 conexiones
+[21:39:50.039] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:50.092] DIAGRAMA· render: 3.0 ms — 0 nodos, 0 conexiones
+[21:39:50.238] DIAGRAMA· render: 2.7 ms — 0 nodos, 0 conexiones
+[21:39:50.419] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[21:39:50.435] DIAGRAMA· render: 3.8 ms — 0 nodos, 0 conexiones
+[21:39:50.609] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:50.883] DIAGRAMA· render: 1.5 ms — 0 nodos, 0 conexiones
+[21:39:51.057] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:39:52.225] DIAGRAMA· render: 2.4 ms — 0 nodos, 0 conexiones
+[21:39:52.236] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[21:39:52.238] DIAGRAMA· query_conectores_bulk (activos): 2.0 ms — n=50
+[21:39:52.245] DIAGRAMA· render: 6.7 ms — 50 nodos, 50 conexiones
+[21:39:53.288] DIAGRAMA· render: 12.2 ms — 50 nodos, 50 conexiones
+[21:39:53.298] DIAGRAMA· render: 3.7 ms — 50 nodos, 50 conexiones
+[21:39:53.318] DIAGRAMA· render: 5.1 ms — 50 nodos, 50 conexiones
+[21:39:53.341] DIAGRAMA· render: 7.6 ms — 50 nodos, 50 conexiones
+[21:39:53.366] DIAGRAMA· render: 6.8 ms — 50 nodos, 50 conexiones
+[21:39:53.399] DIAGRAMA· render: 15.7 ms — 50 nodos, 50 conexiones
+[21:39:53.419] DIAGRAMA· render: 5.5 ms — 50 nodos, 50 conexiones
+[21:39:53.440] DIAGRAMA· render: 4.8 ms — 50 nodos, 50 conexiones
+[21:39:53.461] DIAGRAMA· render: 6.2 ms — 50 nodos, 50 conexiones
+[21:39:53.481] DIAGRAMA· render: 5.0 ms — 50 nodos, 50 conexiones
+[21:39:53.502] DIAGRAMA· render: 6.1 ms — 50 nodos, 50 conexiones
+[21:39:53.525] DIAGRAMA· render: 6.4 ms — 50 nodos, 50 conexiones
+[21:39:53.548] DIAGRAMA· render: 5.9 ms — 50 nodos, 50 conexiones
+[21:39:53.570] DIAGRAMA· render: 6.5 ms — 50 nodos, 50 conexiones
+[21:39:53.594] DIAGRAMA· render: 5.4 ms — 50 nodos, 50 conexiones
+[21:39:53.615] DIAGRAMA· render: 4.7 ms — 50 nodos, 50 conexiones
+[21:39:53.638] DIAGRAMA· render: 6.1 ms — 50 nodos, 50 conexiones
+[21:39:53.659] DIAGRAMA· render: 5.7 ms — 50 nodos, 50 conexiones
+[21:39:53.681] DIAGRAMA· render: 5.2 ms — 50 nodos, 50 conexiones
+[21:39:53.704] DIAGRAMA· render: 6.6 ms — 50 nodos, 50 conexiones
+[21:39:53.728] DIAGRAMA· render: 5.5 ms — 50 nodos, 50 conexiones
+[21:39:53.904] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:39:53.910] DIAGRAMA· query_conectores_bulk (activos): 6.0 ms — n=50
+[21:39:53.919] DIAGRAMA· render: 7.6 ms — 50 nodos, 46 conexiones
+[21:39:54.640] DIAGRAMA· render: 4.8 ms — 50 nodos, 46 conexiones
+[21:39:54.814] DIAGRAMA· render: 13.5 ms — 50 nodos, 46 conexiones
+[21:39:54.976] DIAGRAMA· render: 8.8 ms — 50 nodos, 46 conexiones
+[21:39:55.143] DIAGRAMA· render: 11.7 ms — 50 nodos, 46 conexiones
+[21:39:55.307] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:39:55.313] DIAGRAMA· query_conectores_bulk (activos): 5.1 ms — n=28
+[21:39:55.325] DIAGRAMA· render: 11.3 ms — 28 nodos, 30 conexiones
+[21:39:55.434] DIAGRAMA· render: 8.0 ms — 28 nodos, 30 conexiones
+[21:39:55.452] DIAGRAMA· render: 2.5 ms — 28 nodos, 30 conexiones
+[21:39:55.467] DIAGRAMA· render: 2.8 ms — 28 nodos, 30 conexiones
+[21:39:55.483] DIAGRAMA· render: 2.8 ms — 28 nodos, 30 conexiones
+[21:39:55.499] DIAGRAMA· render: 2.7 ms — 28 nodos, 30 conexiones
+[21:39:55.518] DIAGRAMA· render: 2.8 ms — 28 nodos, 30 conexiones
+[21:39:55.535] DIAGRAMA· render: 2.9 ms — 28 nodos, 30 conexiones
+[21:39:55.551] DIAGRAMA· render: 3.0 ms — 28 nodos, 30 conexiones
+[21:39:55.568] DIAGRAMA· render: 2.7 ms — 28 nodos, 30 conexiones
+[21:39:55.583] DIAGRAMA· render: 3.7 ms — 28 nodos, 30 conexiones
+[21:39:55.601] DIAGRAMA· render: 2.9 ms — 28 nodos, 30 conexiones
+[21:39:55.617] DIAGRAMA· render: 2.9 ms — 28 nodos, 30 conexiones
+[21:39:55.635] DIAGRAMA· render: 2.5 ms — 28 nodos, 30 conexiones
+[21:39:55.652] DIAGRAMA· render: 2.8 ms — 28 nodos, 30 conexiones
+[21:39:55.668] DIAGRAMA· render: 2.8 ms — 28 nodos, 30 conexiones
+[21:39:55.685] DIAGRAMA· render: 2.6 ms — 28 nodos, 30 conexiones
+[21:39:55.702] DIAGRAMA· render: 3.0 ms — 28 nodos, 30 conexiones
+[21:39:55.718] DIAGRAMA· render: 2.6 ms — 28 nodos, 30 conexiones
+[21:39:55.742] DIAGRAMA· render: 5.2 ms — 28 nodos, 30 conexiones
+[21:39:55.920] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[21:39:55.927] DIAGRAMA· query_conectores_bulk (activos): 6.5 ms — n=30
+[21:39:55.935] DIAGRAMA· render: 7.2 ms — 30 nodos, 31 conexiones
+[21:39:56.222] DIAGRAMA· render: 7.9 ms — 30 nodos, 31 conexiones
+[21:39:56.230] DIAGRAMA· render: 1.8 ms — 30 nodos, 31 conexiones
+[21:39:56.244] DIAGRAMA· render: 4.1 ms — 30 nodos, 31 conexiones
+[21:39:56.259] DIAGRAMA· render: 4.2 ms — 30 nodos, 31 conexiones
+[21:39:56.279] DIAGRAMA· render: 5.3 ms — 30 nodos, 31 conexiones
+[21:39:56.296] DIAGRAMA· render: 4.0 ms — 30 nodos, 31 conexiones
+[21:39:56.506] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:39:56.511] DIAGRAMA· query_conectores_bulk (activos): 5.3 ms — n=38
+[21:39:56.519] DIAGRAMA· render: 6.3 ms — 38 nodos, 37 conexiones
+[21:39:57.098] DIAGRAMA· render: 4.1 ms — 38 nodos, 37 conexiones
+[21:39:57.106] DIAGRAMA· render: 2.7 ms — 38 nodos, 37 conexiones
+[21:39:57.121] DIAGRAMA· render: 3.8 ms — 38 nodos, 37 conexiones
+[21:39:57.139] DIAGRAMA· render: 3.4 ms — 38 nodos, 37 conexiones
+[21:39:57.156] DIAGRAMA· render: 3.6 ms — 38 nodos, 37 conexiones
+[21:39:57.174] DIAGRAMA· render: 4.1 ms — 38 nodos, 37 conexiones
+[21:39:57.197] DIAGRAMA· render: 5.0 ms — 38 nodos, 37 conexiones
+[21:39:57.214] DIAGRAMA· render: 4.2 ms — 38 nodos, 37 conexiones
+[21:39:57.242] DIAGRAMA· render: 10.7 ms — 38 nodos, 37 conexiones
+[21:39:57.262] DIAGRAMA· render: 5.1 ms — 38 nodos, 37 conexiones
+[21:39:57.280] DIAGRAMA· render: 5.2 ms — 38 nodos, 37 conexiones
+[21:39:57.298] DIAGRAMA· render: 3.4 ms — 38 nodos, 37 conexiones
+[21:39:57.316] DIAGRAMA· render: 3.1 ms — 38 nodos, 37 conexiones
+[21:39:57.333] DIAGRAMA· render: 3.2 ms — 38 nodos, 37 conexiones
+[21:39:57.351] DIAGRAMA· render: 3.1 ms — 38 nodos, 37 conexiones
+[21:39:57.527] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[21:39:58.206] DIAGRAMA· render: 9.4 ms — 38 nodos, 37 conexiones
+[21:39:58.381] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[21:39:58.388] DIAGRAMA· query_conectores_bulk (activos): 6.9 ms — n=29
+[21:39:58.396] DIAGRAMA· render: 5.6 ms — 29 nodos, 28 conexiones
+[21:39:58.405] DIAGRAMA· render: 2.6 ms — 29 nodos, 28 conexiones
+[21:39:58.560] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:58.560] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[21:39:58.562] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[21:39:58.622] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[21:39:58.797] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:39:59.357] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f3fb43365d0>, 1920, 1023))) platform='linux'
+[21:39:59.357] [inmersivo] platform != 'android' -> no hago nada
+[21:39:59.372] DIAGRAMA· render: 1.2 ms — 0 nodos, 0 conexiones
+[21:40:01.196] DIAGRAMA· render: 3.4 ms — 0 nodos, 0 conexiones
+[21:40:01.213] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:40:01.216] DIAGRAMA· query_conectores_bulk (activos): 3.0 ms — n=47
+[21:40:01.223] DIAGRAMA· render: 6.4 ms — 47 nodos, 50 conexiones
+[21:40:17.555] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[21:40:17.557] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[21:40:17.558] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[21:40:17.786] DIAGRAMA· ids_equipos (global): 13.0 ms
+[21:40:17.789] DIAGRAMA· query_equipos_bulk: 3.3 ms — n=348
+[21:40:17.792] DIAGRAMA· query_posiciones_bulk: 2.3 ms — n=348
+[21:40:17.798] DIAGRAMA· query_conexiones_bulk (grafo completo): 6.1 ms
+[21:40:17.798] DIAGRAMA· layout (columnas, indice completo): 0.2 ms
+[21:40:17.802] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[21:40:17.804] DIAGRAMA· _cargar total: 31.8 ms — modo=global
+[21:40:17.810] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[21:40:17.812] DIAGRAMA· query_conectores_bulk (activos): 2.1 ms — n=50
+[21:40:17.826] DIAGRAMA· render: 12.7 ms — 50 nodos, 33 conexiones
+[21:40:18.837] DIAGRAMA· render: 16.5 ms — 50 nodos, 33 conexiones
+[21:40:18.860] DIAGRAMA· render: 4.8 ms — 50 nodos, 33 conexiones
+[21:40:18.884] DIAGRAMA· render: 5.9 ms — 50 nodos, 33 conexiones
+[21:40:18.906] DIAGRAMA· render: 6.1 ms — 50 nodos, 33 conexiones
+[21:40:18.930] DIAGRAMA· render: 5.5 ms — 50 nodos, 33 conexiones
+[21:40:18.956] DIAGRAMA· render: 6.5 ms — 50 nodos, 33 conexiones
+[21:40:18.981] DIAGRAMA· render: 8.3 ms — 50 nodos, 33 conexiones
+[21:40:19.006] DIAGRAMA· render: 5.2 ms — 50 nodos, 33 conexiones
+[21:40:19.032] DIAGRAMA· render: 6.2 ms — 50 nodos, 33 conexiones
+[21:40:19.056] DIAGRAMA· render: 4.8 ms — 50 nodos, 33 conexiones
+[21:40:19.083] DIAGRAMA· render: 8.9 ms — 50 nodos, 33 conexiones
+[21:40:19.106] DIAGRAMA· render: 5.2 ms — 50 nodos, 33 conexiones
+[21:40:19.131] DIAGRAMA· render: 6.5 ms — 50 nodos, 33 conexiones
+[21:40:19.157] DIAGRAMA· render: 6.0 ms — 50 nodos, 33 conexiones
+[21:40:19.184] DIAGRAMA· render: 6.3 ms — 50 nodos, 33 conexiones
+[21:40:19.207] DIAGRAMA· render: 4.7 ms — 50 nodos, 33 conexiones
+[21:40:19.238] DIAGRAMA· render: 11.1 ms — 50 nodos, 33 conexiones
+[21:40:19.261] DIAGRAMA· render: 5.6 ms — 50 nodos, 33 conexiones
+[21:40:19.293] DIAGRAMA· render: 5.4 ms — 50 nodos, 33 conexiones
+[21:40:19.336] DIAGRAMA· render: 18.7 ms — 50 nodos, 33 conexiones
+[21:40:19.367] DIAGRAMA· render: 7.5 ms — 50 nodos, 33 conexiones
+[21:40:19.394] DIAGRAMA· render: 5.5 ms — 50 nodos, 33 conexiones
+[21:40:19.420] DIAGRAMA· render: 7.3 ms — 50 nodos, 33 conexiones
+[21:40:19.444] DIAGRAMA· render: 5.5 ms — 50 nodos, 33 conexiones
+[21:40:19.469] DIAGRAMA· render: 6.0 ms — 50 nodos, 33 conexiones
+[21:40:19.493] DIAGRAMA· render: 4.8 ms — 50 nodos, 33 conexiones
+[21:40:19.522] DIAGRAMA· render: 7.6 ms — 50 nodos, 33 conexiones
+[21:40:19.548] DIAGRAMA· render: 5.9 ms — 50 nodos, 33 conexiones
+[21:40:19.573] DIAGRAMA· render: 5.7 ms — 50 nodos, 33 conexiones
+[21:40:19.597] DIAGRAMA· render: 5.2 ms — 50 nodos, 33 conexiones
+[21:40:19.623] DIAGRAMA· render: 6.5 ms — 50 nodos, 33 conexiones
+[21:40:19.648] DIAGRAMA· render: 5.3 ms — 50 nodos, 33 conexiones
+[21:40:19.693] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[21:40:19.718] DIAGRAMA· render: 6.4 ms — 50 nodos, 33 conexiones
+[21:40:19.742] DIAGRAMA· render: 6.7 ms — 50 nodos, 33 conexiones
+[21:40:19.765] DIAGRAMA· render: 4.8 ms — 50 nodos, 33 conexiones
+[21:40:19.794] DIAGRAMA· render: 8.5 ms — 50 nodos, 33 conexiones
+[21:40:19.819] DIAGRAMA· render: 7.0 ms — 50 nodos, 33 conexiones
+[21:40:19.859] DIAGRAMA· render: 20.5 ms — 50 nodos, 33 conexiones
+[21:40:19.883] DIAGRAMA· render: 6.2 ms — 50 nodos, 33 conexiones
+[21:40:19.908] DIAGRAMA· render: 5.8 ms — 50 nodos, 33 conexiones
+[21:40:20.073] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:40:20.080] DIAGRAMA· query_conectores_bulk (activos): 6.3 ms — n=28
+[21:40:20.093] DIAGRAMA· render: 11.8 ms — 28 nodos, 27 conexiones
+[21:40:20.102] DIAGRAMA· render: 3.3 ms — 28 nodos, 27 conexiones
+[21:40:20.332] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[21:40:38.602] DIAGRAMA· render: 6.4 ms — 28 nodos, 27 conexiones
+[21:40:38.698] DIAGRAMA· render: 6.0 ms — 28 nodos, 27 conexiones
+[21:40:38.722] DIAGRAMA· render: 4.7 ms — 28 nodos, 27 conexiones
+[21:40:38.743] DIAGRAMA· render: 6.3 ms — 28 nodos, 27 conexiones
+[21:40:38.765] DIAGRAMA· render: 6.5 ms — 28 nodos, 27 conexiones
+[21:40:38.786] DIAGRAMA· render: 5.9 ms — 28 nodos, 27 conexiones
+[21:40:38.808] DIAGRAMA· render: 4.7 ms — 28 nodos, 27 conexiones
+[21:40:38.830] DIAGRAMA· render: 6.8 ms — 28 nodos, 27 conexiones
+[21:40:38.852] DIAGRAMA· render: 5.6 ms — 28 nodos, 27 conexiones
+[21:40:38.873] DIAGRAMA· render: 5.5 ms — 28 nodos, 27 conexiones
+[21:40:38.895] DIAGRAMA· render: 6.1 ms — 28 nodos, 27 conexiones
+[21:40:38.918] DIAGRAMA· render: 5.9 ms — 28 nodos, 27 conexiones
+[21:40:38.939] DIAGRAMA· render: 5.3 ms — 28 nodos, 27 conexiones
+[21:40:38.962] DIAGRAMA· render: 6.1 ms — 28 nodos, 27 conexiones
+[21:40:38.983] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:39.005] DIAGRAMA· render: 5.3 ms — 28 nodos, 27 conexiones
+[21:40:39.028] DIAGRAMA· render: 7.2 ms — 28 nodos, 27 conexiones
+[21:40:39.051] DIAGRAMA· render: 5.4 ms — 28 nodos, 27 conexiones
+[21:40:39.072] DIAGRAMA· render: 5.8 ms — 28 nodos, 27 conexiones
+[21:40:39.099] DIAGRAMA· render: 5.9 ms — 28 nodos, 27 conexiones
+[21:40:39.122] DIAGRAMA· render: 4.7 ms — 28 nodos, 27 conexiones
+[21:40:39.157] DIAGRAMA· render: 17.1 ms — 28 nodos, 27 conexiones
+[21:40:39.180] DIAGRAMA· render: 6.1 ms — 28 nodos, 27 conexiones
+[21:40:39.203] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:39.224] DIAGRAMA· render: 5.3 ms — 28 nodos, 27 conexiones
+[21:40:39.249] DIAGRAMA· render: 6.6 ms — 28 nodos, 27 conexiones
+[21:40:39.271] DIAGRAMA· render: 4.6 ms — 28 nodos, 27 conexiones
+[21:40:39.293] DIAGRAMA· render: 5.3 ms — 28 nodos, 27 conexiones
+[21:40:39.316] DIAGRAMA· render: 6.1 ms — 28 nodos, 27 conexiones
+[21:40:39.338] DIAGRAMA· render: 4.8 ms — 28 nodos, 27 conexiones
+[21:40:39.359] DIAGRAMA· render: 4.9 ms — 28 nodos, 27 conexiones
+[21:40:39.381] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:39.404] DIAGRAMA· render: 5.8 ms — 28 nodos, 27 conexiones
+[21:40:39.425] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:39.448] DIAGRAMA· render: 6.4 ms — 28 nodos, 27 conexiones
+[21:40:39.470] DIAGRAMA· render: 5.9 ms — 28 nodos, 27 conexiones
+[21:40:39.491] DIAGRAMA· render: 5.4 ms — 28 nodos, 27 conexiones
+[21:40:39.515] DIAGRAMA· render: 6.6 ms — 28 nodos, 27 conexiones
+[21:40:39.537] DIAGRAMA· render: 4.7 ms — 28 nodos, 27 conexiones
+[21:40:39.558] DIAGRAMA· render: 5.0 ms — 28 nodos, 27 conexiones
+[21:40:39.579] DIAGRAMA· render: 6.3 ms — 28 nodos, 27 conexiones
+[21:40:39.600] DIAGRAMA· render: 6.7 ms — 28 nodos, 27 conexiones
+[21:40:39.621] DIAGRAMA· render: 5.2 ms — 28 nodos, 27 conexiones
+[21:40:39.644] DIAGRAMA· render: 7.0 ms — 28 nodos, 27 conexiones
+[21:40:39.669] DIAGRAMA· render: 10.6 ms — 28 nodos, 27 conexiones
+[21:40:39.690] DIAGRAMA· render: 5.3 ms — 28 nodos, 27 conexiones
+[21:40:39.715] DIAGRAMA· render: 8.8 ms — 28 nodos, 27 conexiones
+[21:40:39.748] DIAGRAMA· render: 6.8 ms — 28 nodos, 27 conexiones
+[21:40:39.770] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:39.791] DIAGRAMA· render: 5.3 ms — 28 nodos, 27 conexiones
+[21:40:39.816] DIAGRAMA· render: 5.8 ms — 28 nodos, 27 conexiones
+[21:40:39.839] DIAGRAMA· render: 4.8 ms — 28 nodos, 27 conexiones
+[21:40:39.860] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:39.882] DIAGRAMA· render: 6.6 ms — 28 nodos, 27 conexiones
+[21:40:39.903] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:39.925] DIAGRAMA· render: 5.3 ms — 28 nodos, 27 conexiones
+[21:40:39.949] DIAGRAMA· render: 6.8 ms — 28 nodos, 27 conexiones
+[21:40:39.970] DIAGRAMA· render: 4.6 ms — 28 nodos, 27 conexiones
+[21:40:39.992] DIAGRAMA· render: 5.4 ms — 28 nodos, 27 conexiones
+[21:40:40.015] DIAGRAMA· render: 6.3 ms — 28 nodos, 27 conexiones
+[21:40:40.038] DIAGRAMA· render: 4.8 ms — 28 nodos, 27 conexiones
+[21:40:40.059] DIAGRAMA· render: 5.1 ms — 28 nodos, 27 conexiones
+[21:40:40.081] DIAGRAMA· render: 6.7 ms — 28 nodos, 27 conexiones
+[21:40:40.103] DIAGRAMA· render: 6.3 ms — 28 nodos, 27 conexiones
+[21:40:40.124] DIAGRAMA· render: 5.7 ms — 28 nodos, 27 conexiones
+[21:40:40.146] DIAGRAMA· render: 6.7 ms — 28 nodos, 27 conexiones
+[21:40:40.168] DIAGRAMA· render: 5.9 ms — 28 nodos, 27 conexiones
+[21:40:40.190] DIAGRAMA· render: 5.2 ms — 28 nodos, 27 conexiones
+[21:40:40.212] DIAGRAMA· render: 6.6 ms — 28 nodos, 27 conexiones
+[21:40:40.234] DIAGRAMA· render: 6.5 ms — 28 nodos, 27 conexiones
+[21:40:40.260] DIAGRAMA· render: 8.7 ms — 28 nodos, 27 conexiones
+[21:40:40.284] DIAGRAMA· render: 6.1 ms — 28 nodos, 27 conexiones
+[21:40:40.312] DIAGRAMA· render: 10.1 ms — 28 nodos, 27 conexiones
+[21:40:40.345] DIAGRAMA· render: 6.8 ms — 28 nodos, 27 conexiones
+[21:40:40.367] DIAGRAMA· render: 5.6 ms — 28 nodos, 27 conexiones
+[21:40:40.388] DIAGRAMA· render: 5.2 ms — 28 nodos, 27 conexiones
+[21:40:40.408] DIAGRAMA· render: 4.9 ms — 28 nodos, 27 conexiones
+[21:40:40.431] DIAGRAMA· render: 7.3 ms — 28 nodos, 27 conexiones
+[21:40:40.453] DIAGRAMA· render: 6.4 ms — 28 nodos, 27 conexiones
+[21:40:40.474] DIAGRAMA· render: 5.6 ms — 28 nodos, 27 conexiones
+[21:40:40.498] DIAGRAMA· render: 7.3 ms — 28 nodos, 27 conexiones
+[21:40:40.521] DIAGRAMA· render: 5.1 ms — 28 nodos, 27 conexiones
+[21:40:40.543] DIAGRAMA· render: 7.0 ms — 28 nodos, 27 conexiones
+[21:40:40.565] DIAGRAMA· render: 6.7 ms — 28 nodos, 27 conexiones
+[21:40:40.741] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[21:40:40.747] DIAGRAMA· query_conectores_bulk (activos): 5.5 ms — n=26
+[21:40:40.757] DIAGRAMA· render: 9.2 ms — 26 nodos, 26 conexiones
+[21:40:40.986] DIAGRAMA· render: 13.5 ms — 26 nodos, 26 conexiones
+[21:40:41.007] DIAGRAMA· render: 4.0 ms — 26 nodos, 26 conexiones
+[21:40:41.029] DIAGRAMA· render: 7.0 ms — 26 nodos, 26 conexiones
+[21:40:41.050] DIAGRAMA· render: 5.3 ms — 26 nodos, 26 conexiones
+[21:40:41.070] DIAGRAMA· render: 4.6 ms — 26 nodos, 26 conexiones
+[21:40:41.103] DIAGRAMA· render: 7.5 ms — 26 nodos, 26 conexiones
+[21:40:41.131] DIAGRAMA· render: 4.7 ms — 26 nodos, 26 conexiones
+[21:40:41.159] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[21:40:41.180] DIAGRAMA· render: 5.2 ms — 26 nodos, 26 conexiones
+[21:40:41.202] DIAGRAMA· render: 6.6 ms — 26 nodos, 26 conexiones
+[21:40:41.224] DIAGRAMA· render: 6.3 ms — 26 nodos, 26 conexiones
+[21:40:41.249] DIAGRAMA· render: 6.1 ms — 26 nodos, 26 conexiones
+[21:40:41.272] DIAGRAMA· render: 5.2 ms — 26 nodos, 26 conexiones
+[21:40:41.308] DIAGRAMA· render: 17.8 ms — 26 nodos, 26 conexiones
+[21:40:41.332] DIAGRAMA· render: 5.1 ms — 26 nodos, 26 conexiones
+[21:40:41.558] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[21:40:41.685] DIAGRAMA· render: 3.5 ms — 26 nodos, 26 conexiones
+[21:40:41.707] DIAGRAMA· render: 4.6 ms — 26 nodos, 26 conexiones
+[21:40:41.732] DIAGRAMA· render: 6.2 ms — 26 nodos, 26 conexiones
+[21:40:41.778] DIAGRAMA· render: 5.3 ms — 26 nodos, 26 conexiones
+[21:40:41.881] DIAGRAMA· render: 3.9 ms — 26 nodos, 26 conexiones
+[21:40:42.056] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[21:40:42.197] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[21:40:42.246] DIAGRAMA· render: 7.5 ms — 26 nodos, 26 conexiones
+[21:40:42.420] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[21:41:21.749] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f3fb43365d0>, 360, 800))) platform='linux'
+[21:41:21.749] [inmersivo] platform != 'android' -> no hago nada
+[22:40:25.760] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[22:40:25.760] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[22:40:26.084] [inmersivo] === CableDocApp.build() ===
+[22:40:26.163] [inmersivo] === CableDocApp.on_start() ===
+[22:40:26.163] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[22:40:26.163] [inmersivo] platform != 'android' -> no hago nada
+[22:40:26.242] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[22:40:26.242] [inmersivo] platform != 'android' -> no hago nada
+[22:40:26.278] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f82109ea440>, 360, 800))) platform='linux'
+[22:40:26.278] [inmersivo] platform != 'android' -> no hago nada
+[22:40:26.786] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[22:40:26.786] [inmersivo] platform != 'android' -> no hago nada
+[22:40:27.789] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[22:40:27.789] [inmersivo] platform != 'android' -> no hago nada
+[22:40:34.719] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:40:34.721] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:40:34.722] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:40:34.952] DIAGRAMA· ids_equipos (global): 13.8 ms
+[22:40:34.956] DIAGRAMA· query_equipos_bulk: 3.3 ms — n=348
+[22:40:34.965] DIAGRAMA· query_posiciones_bulk: 8.8 ms — n=348
+[22:40:34.972] DIAGRAMA· query_conexiones_bulk (grafo completo): 7.5 ms
+[22:40:34.973] DIAGRAMA· layout (columnas, indice completo): 0.3 ms
+[22:40:34.976] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:40:34.978] DIAGRAMA· _cargar total: 40.1 ms — modo=global
+[22:40:34.983] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:40:34.985] DIAGRAMA· query_conectores_bulk (activos): 1.9 ms — n=50
+[22:40:34.992] DIAGRAMA· render: 6.6 ms — 50 nodos, 33 conexiones
+[22:40:41.356] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f82109ea440>, 1920, 1023))) platform='linux'
+[22:40:41.356] [inmersivo] platform != 'android' -> no hago nada
+[22:40:41.368] DIAGRAMA· render: 5.4 ms — 50 nodos, 33 conexiones
+[22:40:42.167] DIAGRAMA· render: 10.7 ms — 50 nodos, 33 conexiones
+[22:40:42.179] DIAGRAMA· render: 4.9 ms — 50 nodos, 33 conexiones
+[22:40:42.203] DIAGRAMA· render: 6.2 ms — 50 nodos, 33 conexiones
+[22:40:42.227] DIAGRAMA· render: 9.5 ms — 50 nodos, 33 conexiones
+[22:40:42.253] DIAGRAMA· render: 6.8 ms — 50 nodos, 33 conexiones
+[22:40:42.288] DIAGRAMA· render: 6.4 ms — 50 nodos, 33 conexiones
+[22:40:42.312] DIAGRAMA· render: 5.7 ms — 50 nodos, 33 conexiones
+[22:40:42.337] DIAGRAMA· render: 6.9 ms — 50 nodos, 33 conexiones
+[22:40:42.363] DIAGRAMA· render: 5.0 ms — 50 nodos, 33 conexiones
+[22:40:42.386] DIAGRAMA· render: 6.4 ms — 50 nodos, 33 conexiones
+[22:40:42.410] DIAGRAMA· render: 5.0 ms — 50 nodos, 33 conexiones
+[22:40:42.434] DIAGRAMA· render: 6.5 ms — 50 nodos, 33 conexiones
+[22:40:42.457] DIAGRAMA· render: 4.9 ms — 50 nodos, 33 conexiones
+[22:40:42.481] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[22:40:42.505] DIAGRAMA· render: 5.6 ms — 50 nodos, 33 conexiones
+[22:40:42.531] DIAGRAMA· render: 6.3 ms — 50 nodos, 33 conexiones
+[22:40:42.555] DIAGRAMA· render: 5.8 ms — 50 nodos, 33 conexiones
+[22:40:42.578] DIAGRAMA· render: 7.1 ms — 50 nodos, 33 conexiones
+[22:40:42.600] DIAGRAMA· render: 6.1 ms — 50 nodos, 33 conexiones
+[22:40:42.623] DIAGRAMA· render: 5.4 ms — 50 nodos, 33 conexiones
+[22:40:42.646] DIAGRAMA· render: 5.4 ms — 50 nodos, 33 conexiones
+[22:40:42.670] DIAGRAMA· render: 6.2 ms — 50 nodos, 33 conexiones
+[22:40:42.694] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[22:40:42.717] DIAGRAMA· render: 5.4 ms — 50 nodos, 33 conexiones
+[22:40:42.920] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[22:40:42.924] DIAGRAMA· query_conectores_bulk (activos): 4.3 ms — n=26
+[22:40:42.930] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[22:40:43.219] DIAGRAMA· render: 10.0 ms — 26 nodos, 26 conexiones
+[22:40:43.396] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:40:43.700] DIAGRAMA· render: 8.5 ms — 26 nodos, 26 conexiones
+[22:40:43.735] DIAGRAMA· render: 13.8 ms — 26 nodos, 26 conexiones
+[22:40:43.757] DIAGRAMA· render: 6.2 ms — 26 nodos, 26 conexiones
+[22:40:43.778] DIAGRAMA· render: 6.1 ms — 26 nodos, 26 conexiones
+[22:40:43.797] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[22:40:43.821] DIAGRAMA· render: 8.6 ms — 26 nodos, 26 conexiones
+[22:40:43.845] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[22:40:43.869] DIAGRAMA· render: 6.2 ms — 26 nodos, 26 conexiones
+[22:40:43.890] DIAGRAMA· render: 6.0 ms — 26 nodos, 26 conexiones
+[22:40:43.913] DIAGRAMA· render: 5.6 ms — 26 nodos, 26 conexiones
+[22:40:43.938] DIAGRAMA· render: 6.8 ms — 26 nodos, 26 conexiones
+[22:40:43.960] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[22:40:43.983] DIAGRAMA· render: 4.9 ms — 26 nodos, 26 conexiones
+[22:40:44.004] DIAGRAMA· render: 6.8 ms — 26 nodos, 26 conexiones
+[22:40:44.025] DIAGRAMA· render: 6.9 ms — 26 nodos, 26 conexiones
+[22:40:44.046] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[22:40:44.067] DIAGRAMA· render: 5.4 ms — 26 nodos, 26 conexiones
+[22:40:44.087] DIAGRAMA· render: 5.3 ms — 26 nodos, 26 conexiones
+[22:40:44.107] DIAGRAMA· render: 6.4 ms — 26 nodos, 26 conexiones
+[22:40:44.129] DIAGRAMA· render: 5.5 ms — 26 nodos, 26 conexiones
+[22:40:44.301] DIAGRAMA· render: 10.3 ms — 26 nodos, 26 conexiones
+[22:40:44.466] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:40:46.153] DIAGRAMA· render: 23.0 ms — 26 nodos, 26 conexiones
+[22:40:47.294] DIAGRAMA· render: 22.9 ms — 26 nodos, 26 conexiones
+[22:40:47.368] DIAGRAMA· render: 22.3 ms — 26 nodos, 26 conexiones
+[22:40:47.429] DIAGRAMA· render: 10.8 ms — 26 nodos, 26 conexiones
+[22:40:47.489] DIAGRAMA· render: 12.1 ms — 26 nodos, 26 conexiones
+[22:40:47.551] DIAGRAMA· render: 11.8 ms — 26 nodos, 26 conexiones
+[22:40:47.612] DIAGRAMA· render: 10.2 ms — 26 nodos, 26 conexiones
+[22:40:47.675] DIAGRAMA· render: 12.0 ms — 26 nodos, 26 conexiones
+[22:40:47.737] DIAGRAMA· render: 11.9 ms — 26 nodos, 26 conexiones
+[22:40:47.796] DIAGRAMA· render: 12.6 ms — 26 nodos, 26 conexiones
+[22:40:47.880] DIAGRAMA· render: 22.6 ms — 26 nodos, 26 conexiones
+[22:40:47.940] DIAGRAMA· render: 12.4 ms — 26 nodos, 26 conexiones
+[22:40:48.184] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:40:48.188] DIAGRAMA· query_conectores_bulk (activos): 3.9 ms — n=25
+[22:40:48.202] DIAGRAMA· render: 13.0 ms — 25 nodos, 25 conexiones
+[22:40:49.679] DIAGRAMA· render: 21.5 ms — 25 nodos, 25 conexiones
+[22:40:49.740] DIAGRAMA· render: 14.0 ms — 25 nodos, 25 conexiones
+[22:40:49.809] DIAGRAMA· render: 12.3 ms — 25 nodos, 25 conexiones
+[22:40:49.878] DIAGRAMA· render: 16.2 ms — 25 nodos, 25 conexiones
+[22:40:49.939] DIAGRAMA· render: 12.1 ms — 25 nodos, 25 conexiones
+[22:40:50.001] DIAGRAMA· render: 11.5 ms — 25 nodos, 25 conexiones
+[22:40:50.061] DIAGRAMA· render: 13.1 ms — 25 nodos, 25 conexiones
+[22:40:50.121] DIAGRAMA· render: 12.7 ms — 25 nodos, 25 conexiones
+[22:40:50.391] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:40:50.394] DIAGRAMA· query_conectores_bulk (activos): 2.7 ms — n=24
+[22:40:50.409] DIAGRAMA· render: 15.1 ms — 24 nodos, 23 conexiones
+[22:40:50.990] DIAGRAMA· render: 22.4 ms — 24 nodos, 23 conexiones
+[22:40:51.043] DIAGRAMA· render: 10.8 ms — 24 nodos, 23 conexiones
+[22:40:51.105] DIAGRAMA· render: 11.9 ms — 24 nodos, 23 conexiones
+[22:40:51.164] DIAGRAMA· render: 9.7 ms — 24 nodos, 23 conexiones
+[22:40:51.227] DIAGRAMA· render: 13.0 ms — 24 nodos, 23 conexiones
+[22:40:51.288] DIAGRAMA· render: 11.8 ms — 24 nodos, 23 conexiones
+[22:40:51.456] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:40:51.456] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[22:40:51.463] DIAGRAMA· render: 6.6 ms — 0 nodos, 0 conexiones
+[22:40:51.539] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[22:40:51.556] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[22:40:51.570] DIAGRAMA· render: 1.5 ms — 0 nodos, 0 conexiones
+[22:40:51.591] DIAGRAMA· render: 1.6 ms — 0 nodos, 0 conexiones
+[22:40:51.607] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[22:40:51.646] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[22:40:51.821] DIAGRAMA· recalcular_visibles (filtro viewport): 0.7 ms — indice=347
+[22:40:53.350] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[22:40:53.361] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[22:40:53.364] DIAGRAMA· query_conectores_bulk (activos): 2.9 ms — n=23
+[22:40:53.388] DIAGRAMA· render: 23.5 ms — 23 nodos, 23 conexiones
+[22:40:54.220] DIAGRAMA· render: 19.9 ms — 23 nodos, 23 conexiones
+[22:40:54.281] DIAGRAMA· render: 10.7 ms — 23 nodos, 23 conexiones
+[22:40:54.340] DIAGRAMA· render: 12.5 ms — 23 nodos, 23 conexiones
+[22:40:54.398] DIAGRAMA· render: 10.6 ms — 23 nodos, 23 conexiones
+[22:40:54.459] DIAGRAMA· render: 12.5 ms — 23 nodos, 23 conexiones
+[22:40:54.556] DIAGRAMA· render: 15.1 ms — 23 nodos, 23 conexiones
+[22:40:54.615] DIAGRAMA· render: 10.6 ms — 23 nodos, 23 conexiones
+[22:40:54.677] DIAGRAMA· render: 12.2 ms — 23 nodos, 23 conexiones
+[22:40:54.736] DIAGRAMA· render: 11.7 ms — 23 nodos, 23 conexiones
+[22:40:54.799] DIAGRAMA· render: 10.5 ms — 23 nodos, 23 conexiones
+[22:40:54.859] DIAGRAMA· render: 12.1 ms — 23 nodos, 23 conexiones
+[22:40:54.922] DIAGRAMA· render: 13.1 ms — 23 nodos, 23 conexiones
+[22:40:54.985] DIAGRAMA· render: 13.7 ms — 23 nodos, 23 conexiones
+[22:40:55.058] DIAGRAMA· render: 22.0 ms — 23 nodos, 23 conexiones
+[22:40:55.120] DIAGRAMA· render: 12.6 ms — 23 nodos, 23 conexiones
+[22:40:55.180] DIAGRAMA· render: 10.7 ms — 23 nodos, 23 conexiones
+[22:40:55.243] DIAGRAMA· render: 12.5 ms — 23 nodos, 23 conexiones
+[22:40:55.414] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:40:55.420] DIAGRAMA· query_conectores_bulk (activos): 6.4 ms — n=24
+[22:40:55.436] DIAGRAMA· render: 14.9 ms — 24 nodos, 24 conexiones
+[22:40:57.037] DIAGRAMA· render: 12.4 ms — 24 nodos, 24 conexiones
+[22:40:57.091] DIAGRAMA· recalcular_visibles (filtro viewport): 0.8 ms — indice=347
+[22:40:57.096] DIAGRAMA· query_conectores_bulk (activos): 4.6 ms — n=19
+[22:40:57.109] DIAGRAMA· render: 12.4 ms — 19 nodos, 18 conexiones
+[22:41:01.355] DIAGRAMA· render: 13.8 ms — 19 nodos, 18 conexiones
+[22:41:01.400] DIAGRAMA· recalcular_visibles (filtro viewport): 5.2 ms — indice=347
+[22:41:01.404] DIAGRAMA· query_conectores_bulk (activos): 3.1 ms — n=20
+[22:41:01.415] DIAGRAMA· render: 10.7 ms — 20 nodos, 21 conexiones
+[22:41:14.459] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f82109ea440>, 360, 800))) platform='linux'
+[22:41:14.460] [inmersivo] platform != 'android' -> no hago nada
+[22:41:14.484] DIAGRAMA· render: 10.2 ms — 20 nodos, 21 conexiones
+[22:41:20.411] DIAGRAMA· render: 22.9 ms — 20 nodos, 21 conexiones
+[22:41:20.471] DIAGRAMA· render: 14.5 ms — 20 nodos, 21 conexiones
+[22:41:20.541] DIAGRAMA· render: 11.6 ms — 20 nodos, 21 conexiones
+[22:41:20.595] DIAGRAMA· render: 9.7 ms — 20 nodos, 21 conexiones
+[22:41:20.652] DIAGRAMA· render: 11.2 ms — 20 nodos, 21 conexiones
+[22:41:20.708] DIAGRAMA· render: 10.9 ms — 20 nodos, 21 conexiones
+[22:41:20.788] DIAGRAMA· render: 13.1 ms — 20 nodos, 21 conexiones
+[22:41:20.925] DIAGRAMA· render: 18.8 ms — 20 nodos, 21 conexiones
+[22:41:21.081] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:41:21.086] DIAGRAMA· query_conectores_bulk (activos): 4.5 ms — n=6
+[22:41:21.103] DIAGRAMA· render: 16.0 ms — 6 nodos, 5 conexiones
+[22:41:21.896] DIAGRAMA· render: 13.7 ms — 6 nodos, 5 conexiones
+[22:41:23.305] DIAGRAMA· render: 14.0 ms — 6 nodos, 5 conexiones
+[22:55:12.504] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[22:55:12.504] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[22:55:12.856] [inmersivo] === CableDocApp.build() ===
+[22:55:12.954] [inmersivo] === CableDocApp.on_start() ===
+[22:55:12.954] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[22:55:12.954] [inmersivo] platform != 'android' -> no hago nada
+[22:55:13.038] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[22:55:13.038] [inmersivo] platform != 'android' -> no hago nada
+[22:55:13.077] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f4f0c63e440>, 360, 800))) platform='linux'
+[22:55:13.077] [inmersivo] platform != 'android' -> no hago nada
+[22:55:13.536] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[22:55:13.536] [inmersivo] platform != 'android' -> no hago nada
+[22:55:14.527] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[22:55:14.527] [inmersivo] platform != 'android' -> no hago nada
+[22:55:15.232] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:55:15.234] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:55:15.235] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:55:15.473] DIAGRAMA· ids_equipos (global): 14.3 ms
+[22:55:15.476] DIAGRAMA· query_equipos_bulk: 2.5 ms — n=348
+[22:55:15.477] DIAGRAMA· query_posiciones_bulk: 1.6 ms — n=348
+[22:55:15.483] DIAGRAMA· query_conexiones_bulk (grafo completo): 5.9 ms
+[22:55:15.484] DIAGRAMA· layout (columnas, indice completo): 0.2 ms
+[22:55:15.486] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[22:55:15.489] DIAGRAMA· _cargar total: 30.3 ms — modo=global
+[22:55:15.493] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:55:15.495] DIAGRAMA· query_conectores_bulk (activos): 1.8 ms — n=50
+[22:55:15.502] DIAGRAMA· render: 6.8 ms — 50 nodos, 33 conexiones
+[22:55:16.798] DIAGRAMA· render: 5.6 ms — 50 nodos, 33 conexiones
+[22:55:16.819] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[22:55:16.838] DIAGRAMA· render: 5.5 ms — 50 nodos, 33 conexiones
+[22:55:16.857] DIAGRAMA· render: 5.7 ms — 50 nodos, 33 conexiones
+[22:55:16.876] DIAGRAMA· render: 4.8 ms — 50 nodos, 33 conexiones
+[22:55:16.896] DIAGRAMA· render: 6.2 ms — 50 nodos, 33 conexiones
+[22:55:16.925] DIAGRAMA· render: 15.8 ms — 50 nodos, 33 conexiones
+[22:55:16.944] DIAGRAMA· render: 5.3 ms — 50 nodos, 33 conexiones
+[22:55:16.962] DIAGRAMA· render: 4.4 ms — 50 nodos, 33 conexiones
+[22:55:16.981] DIAGRAMA· render: 4.8 ms — 50 nodos, 33 conexiones
+[22:55:17.000] DIAGRAMA· render: 4.7 ms — 50 nodos, 33 conexiones
+[22:55:17.018] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[22:55:17.194] DIAGRAMA· render: 14.7 ms — 50 nodos, 33 conexiones
+[22:55:17.214] DIAGRAMA· render: 4.2 ms — 50 nodos, 33 conexiones
+[22:55:17.231] DIAGRAMA· render: 4.4 ms — 50 nodos, 33 conexiones
+[22:55:17.248] DIAGRAMA· render: 4.3 ms — 50 nodos, 33 conexiones
+[22:55:17.267] DIAGRAMA· render: 4.9 ms — 50 nodos, 33 conexiones
+[22:55:17.284] DIAGRAMA· render: 4.6 ms — 50 nodos, 33 conexiones
+[22:55:17.302] DIAGRAMA· render: 4.6 ms — 50 nodos, 33 conexiones
+[22:55:17.318] DIAGRAMA· render: 4.4 ms — 50 nodos, 33 conexiones
+[22:55:17.377] DIAGRAMA· render: 10.6 ms — 50 nodos, 33 conexiones
+[22:55:17.397] DIAGRAMA· render: 5.5 ms — 50 nodos, 33 conexiones
+[22:55:17.416] DIAGRAMA· render: 4.4 ms — 50 nodos, 33 conexiones
+[22:55:17.434] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[22:55:17.573] DIAGRAMA· render: 14.8 ms — 50 nodos, 33 conexiones
+[22:55:17.596] DIAGRAMA· render: 6.3 ms — 50 nodos, 33 conexiones
+[22:55:17.614] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[22:55:17.641] DIAGRAMA· render: 14.0 ms — 50 nodos, 33 conexiones
+[22:55:17.659] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[22:55:17.677] DIAGRAMA· render: 4.6 ms — 50 nodos, 33 conexiones
+[22:55:17.694] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[22:55:17.711] DIAGRAMA· render: 4.4 ms — 50 nodos, 33 conexiones
+[22:55:17.730] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[22:55:17.748] DIAGRAMA· render: 4.4 ms — 50 nodos, 33 conexiones
+[22:55:18.034] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:55:18.039] DIAGRAMA· query_conectores_bulk (activos): 5.5 ms — n=25
+[22:55:18.052] DIAGRAMA· render: 11.9 ms — 25 nodos, 24 conexiones
+[22:55:18.115] DIAGRAMA· render: 6.6 ms — 25 nodos, 24 conexiones
+[22:55:18.131] DIAGRAMA· render: 3.2 ms — 25 nodos, 24 conexiones
+[22:55:18.185] DIAGRAMA· render: 3.3 ms — 25 nodos, 24 conexiones
+[22:55:18.358] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:55:18.828] DIAGRAMA· render: 9.8 ms — 25 nodos, 24 conexiones
+[22:55:18.847] DIAGRAMA· render: 2.8 ms — 25 nodos, 24 conexiones
+[22:55:18.860] DIAGRAMA· render: 2.8 ms — 25 nodos, 24 conexiones
+[22:55:18.876] DIAGRAMA· render: 2.9 ms — 25 nodos, 24 conexiones
+[22:55:18.891] DIAGRAMA· render: 3.1 ms — 25 nodos, 24 conexiones
+[22:55:18.907] DIAGRAMA· render: 3.0 ms — 25 nodos, 24 conexiones
+[22:55:18.921] DIAGRAMA· render: 3.6 ms — 25 nodos, 24 conexiones
+[22:55:18.934] DIAGRAMA· render: 2.9 ms — 25 nodos, 24 conexiones
+[22:55:18.948] DIAGRAMA· render: 3.0 ms — 25 nodos, 24 conexiones
+[22:55:18.962] DIAGRAMA· render: 3.0 ms — 25 nodos, 24 conexiones
+[22:55:18.982] DIAGRAMA· render: 6.0 ms — 25 nodos, 24 conexiones
+[22:55:18.996] DIAGRAMA· render: 2.9 ms — 25 nodos, 24 conexiones
+[22:55:19.012] DIAGRAMA· render: 3.2 ms — 25 nodos, 24 conexiones
+[22:55:19.036] DIAGRAMA· render: 3.7 ms — 25 nodos, 24 conexiones
+[22:55:19.075] DIAGRAMA· render: 4.6 ms — 25 nodos, 24 conexiones
+[22:55:19.297] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:55:19.302] DIAGRAMA· query_conectores_bulk (activos): 5.3 ms — n=24
+[22:55:19.312] DIAGRAMA· render: 8.4 ms — 24 nodos, 23 conexiones
+[22:55:22.742] DIAGRAMA· render: 16.7 ms — 24 nodos, 23 conexiones
+[22:55:23.621] DIAGRAMA· render: 22.5 ms — 24 nodos, 23 conexiones
+[22:55:23.677] DIAGRAMA· render: 9.8 ms — 24 nodos, 23 conexiones
+[22:55:23.727] DIAGRAMA· render: 11.1 ms — 24 nodos, 23 conexiones
+[22:55:23.778] DIAGRAMA· render: 10.0 ms — 24 nodos, 23 conexiones
+[22:55:23.829] DIAGRAMA· render: 10.7 ms — 24 nodos, 23 conexiones
+[22:55:23.881] DIAGRAMA· render: 9.0 ms — 24 nodos, 23 conexiones
+[22:55:23.931] DIAGRAMA· render: 8.9 ms — 24 nodos, 23 conexiones
+[22:55:23.981] DIAGRAMA· render: 9.3 ms — 24 nodos, 23 conexiones
+[22:55:24.329] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:55:24.335] DIAGRAMA· query_conectores_bulk (activos): 6.1 ms — n=3
+[22:55:24.346] DIAGRAMA· render: 9.7 ms — 3 nodos, 2 conexiones
+[22:56:55.346] DIAGRAMA· render: 15.2 ms — 3 nodos, 2 conexiones
+[22:56:55.382] DIAGRAMA· render: 5.1 ms — 3 nodos, 2 conexiones
+[22:56:55.417] DIAGRAMA· render: 6.0 ms — 3 nodos, 2 conexiones
+[22:56:55.461] DIAGRAMA· render: 5.1 ms — 3 nodos, 2 conexiones
+[22:56:55.495] DIAGRAMA· render: 4.4 ms — 3 nodos, 2 conexiones
+[22:56:55.528] DIAGRAMA· render: 5.0 ms — 3 nodos, 2 conexiones
+[22:56:55.767] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:56:55.770] DIAGRAMA· query_conectores_bulk (activos): 2.9 ms — n=24
+[22:56:55.781] DIAGRAMA· render: 10.0 ms — 24 nodos, 23 conexiones
+[22:56:55.978] DIAGRAMA· render: 15.2 ms — 24 nodos, 23 conexiones
+[22:56:56.042] DIAGRAMA· render: 12.9 ms — 24 nodos, 23 conexiones
+[22:56:56.116] DIAGRAMA· render: 17.5 ms — 24 nodos, 23 conexiones
+[22:56:56.181] DIAGRAMA· render: 13.6 ms — 24 nodos, 23 conexiones
+[22:56:56.245] DIAGRAMA· render: 12.9 ms — 24 nodos, 23 conexiones
+[22:56:56.411] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:56:56.967] DIAGRAMA· render: 11.3 ms — 24 nodos, 23 conexiones
+[22:56:57.029] DIAGRAMA· render: 12.1 ms — 24 nodos, 23 conexiones
+[22:56:57.089] DIAGRAMA· render: 10.8 ms — 24 nodos, 23 conexiones
+[22:56:57.258] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:56:57.407] DIAGRAMA· render: 12.8 ms — 24 nodos, 23 conexiones
+[22:56:57.474] DIAGRAMA· render: 17.8 ms — 24 nodos, 23 conexiones
+[22:56:57.497] DIAGRAMA· render: 19.1 ms — 24 nodos, 23 conexiones
+[22:56:57.559] DIAGRAMA· render: 12.9 ms — 24 nodos, 23 conexiones
+[22:56:57.570] DIAGRAMA· render: 6.4 ms — 24 nodos, 23 conexiones
+[22:56:57.726] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:56:58.056] DIAGRAMA· render: 19.3 ms — 24 nodos, 23 conexiones
+[22:56:58.118] DIAGRAMA· render: 10.6 ms — 24 nodos, 23 conexiones
+[22:56:58.130] DIAGRAMA· render: 6.7 ms — 24 nodos, 23 conexiones
+[22:56:58.194] DIAGRAMA· render: 15.0 ms — 24 nodos, 23 conexiones
+[22:56:58.352] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:56:58.539] DIAGRAMA· render: 14.5 ms — 24 nodos, 23 conexiones
+[22:56:58.603] DIAGRAMA· render: 10.8 ms — 24 nodos, 23 conexiones
+[22:56:58.663] DIAGRAMA· render: 12.3 ms — 24 nodos, 23 conexiones
+[22:56:58.725] DIAGRAMA· render: 13.0 ms — 24 nodos, 23 conexiones
+[22:56:58.789] DIAGRAMA· render: 14.2 ms — 24 nodos, 23 conexiones
+[22:56:58.849] DIAGRAMA· render: 14.2 ms — 24 nodos, 23 conexiones
+[22:56:58.917] DIAGRAMA· render: 12.5 ms — 24 nodos, 23 conexiones
+[22:56:58.998] DIAGRAMA· render: 27.7 ms — 24 nodos, 23 conexiones
+[22:56:59.060] DIAGRAMA· render: 13.1 ms — 24 nodos, 23 conexiones
+[22:56:59.294] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:57:02.620] DIAGRAMA· render: 25.0 ms — 24 nodos, 23 conexiones
+[22:57:02.776] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:57:02.776] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[22:57:02.783] DIAGRAMA· render: 6.6 ms — 0 nodos, 0 conexiones
+[22:57:02.800] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[22:57:02.975] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[22:57:02.977] DIAGRAMA· query_conectores_bulk (activos): 2.0 ms — n=19
+[22:57:02.989] DIAGRAMA· render: 11.5 ms — 19 nodos, 21 conexiones
+[22:57:03.002] DIAGRAMA· render: 7.6 ms — 19 nodos, 21 conexiones
+[22:57:03.152] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:57:03.155] DIAGRAMA· query_conectores_bulk (activos): 1.6 ms — n=22
+[22:57:03.166] DIAGRAMA· render: 11.3 ms — 22 nodos, 19 conexiones
+[22:57:03.352] DIAGRAMA· render: 10.5 ms — 22 nodos, 19 conexiones
+[22:57:03.516] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:57:03.521] DIAGRAMA· query_conectores_bulk (activos): 4.9 ms — n=2
+[22:57:03.530] DIAGRAMA· render: 7.5 ms — 2 nodos, 1 conexiones
+[22:57:04.756] DIAGRAMA· render: 2.8 ms — 2 nodos, 1 conexiones
+[22:57:04.776] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:57:04.778] DIAGRAMA· query_conectores_bulk (activos): 1.7 ms — n=10
+[22:57:04.784] DIAGRAMA· render: 4.8 ms — 10 nodos, 9 conexiones
+[22:57:05.527] DIAGRAMA· render: 8.8 ms — 10 nodos, 9 conexiones
+[22:57:05.560] DIAGRAMA· render: 5.4 ms — 10 nodos, 9 conexiones
+[22:57:05.591] DIAGRAMA· render: 6.1 ms — 10 nodos, 9 conexiones
+[22:57:05.619] DIAGRAMA· render: 4.3 ms — 10 nodos, 9 conexiones
+[22:57:05.649] DIAGRAMA· render: 4.3 ms — 10 nodos, 9 conexiones
+[22:57:05.680] DIAGRAMA· render: 4.5 ms — 10 nodos, 9 conexiones
+[22:57:05.711] DIAGRAMA· render: 6.4 ms — 10 nodos, 9 conexiones
+[22:57:05.740] DIAGRAMA· render: 6.3 ms — 10 nodos, 9 conexiones
+[22:57:05.773] DIAGRAMA· render: 6.1 ms — 10 nodos, 9 conexiones
+[22:57:05.828] DIAGRAMA· render: 6.0 ms — 10 nodos, 9 conexiones
+[22:57:05.865] DIAGRAMA· render: 7.7 ms — 10 nodos, 9 conexiones
+[22:57:06.038] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:57:06.044] DIAGRAMA· query_conectores_bulk (activos): 5.5 ms — n=12
+[22:57:06.057] DIAGRAMA· render: 12.9 ms — 12 nodos, 12 conexiones
+[22:57:06.331] DIAGRAMA· render: 7.1 ms — 12 nodos, 12 conexiones
+[22:57:06.364] DIAGRAMA· render: 5.3 ms — 12 nodos, 12 conexiones
+[22:57:06.396] DIAGRAMA· render: 4.9 ms — 12 nodos, 12 conexiones
+[22:57:06.429] DIAGRAMA· render: 4.8 ms — 12 nodos, 12 conexiones
+[22:57:06.463] DIAGRAMA· render: 5.0 ms — 12 nodos, 12 conexiones
+[22:57:06.494] DIAGRAMA· render: 6.0 ms — 12 nodos, 12 conexiones
+[22:57:06.528] DIAGRAMA· render: 5.1 ms — 12 nodos, 12 conexiones
+[22:57:06.562] DIAGRAMA· render: 7.3 ms — 12 nodos, 12 conexiones
+[22:57:06.598] DIAGRAMA· render: 5.4 ms — 12 nodos, 12 conexiones
+[22:57:06.774] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:57:06.777] DIAGRAMA· query_conectores_bulk (activos): 2.8 ms — n=13
+[22:57:06.787] DIAGRAMA· render: 9.2 ms — 13 nodos, 14 conexiones
+[23:41:19.666] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[23:41:19.666] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[23:41:20.075] [inmersivo] === CableDocApp.build() ===
+[23:41:20.168] [inmersivo] === CableDocApp.on_start() ===
+[23:41:20.169] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[23:41:20.169] [inmersivo] platform != 'android' -> no hago nada
+[23:41:20.249] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[23:41:20.250] [inmersivo] platform != 'android' -> no hago nada
+[23:41:20.288] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f9c8bb5e440>, 360, 800))) platform='linux'
+[23:41:20.288] [inmersivo] platform != 'android' -> no hago nada
+[23:41:20.696] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[23:41:20.696] [inmersivo] platform != 'android' -> no hago nada
+[23:41:21.702] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[23:41:21.702] [inmersivo] platform != 'android' -> no hago nada
+[23:41:33.253] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[23:41:33.256] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[23:41:33.257] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[23:41:33.492] DIAGRAMA· ids_equipos (global): 6.4 ms
+[23:41:33.496] DIAGRAMA· query_equipos_bulk: 3.1 ms — n=348
+[23:41:33.499] DIAGRAMA· query_posiciones_bulk: 3.0 ms — n=348
+[23:41:33.509] DIAGRAMA· query_conexiones_bulk (grafo completo): 10.3 ms
+[23:41:33.510] DIAGRAMA· layout (columnas, indice completo): 0.5 ms
+[23:41:33.517] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[23:41:33.521] DIAGRAMA· _cargar total: 35.5 ms — modo=global
+[23:41:33.531] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[23:41:33.535] DIAGRAMA· query_conectores_bulk (activos): 4.2 ms — n=50
+[23:41:33.547] DIAGRAMA· render: 11.5 ms — 50 nodos, 33 conexiones
+[23:41:34.743] DIAGRAMA· render: 5.1 ms — 50 nodos, 33 conexiones
+[23:41:34.770] DIAGRAMA· render: 6.2 ms — 50 nodos, 33 conexiones
+[23:41:34.887] DIAGRAMA· render: 13.4 ms — 50 nodos, 33 conexiones
+[23:41:35.052] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[23:41:35.058] DIAGRAMA· query_conectores_bulk (activos): 5.5 ms — n=3
+[23:41:35.064] DIAGRAMA· render: 5.0 ms — 3 nodos, 2 conexiones
+[23:41:35.380] DIAGRAMA· render: 2.4 ms — 3 nodos, 2 conexiones
+[23:41:35.425] DIAGRAMA· render: 1.2 ms — 3 nodos, 2 conexiones
+[23:41:35.439] DIAGRAMA· render: 0.6 ms — 3 nodos, 2 conexiones
+[23:41:35.452] DIAGRAMA· render: 1.1 ms — 3 nodos, 2 conexiones
+[23:41:35.463] DIAGRAMA· render: 0.7 ms — 3 nodos, 2 conexiones
+[23:41:35.481] DIAGRAMA· render: 1.0 ms — 3 nodos, 2 conexiones
+[23:41:35.496] DIAGRAMA· render: 1.0 ms — 3 nodos, 2 conexiones
+[23:41:35.508] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.523] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.538] DIAGRAMA· render: 0.6 ms — 3 nodos, 2 conexiones
+[23:41:35.570] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.582] DIAGRAMA· render: 0.9 ms — 3 nodos, 2 conexiones
+[23:41:35.593] DIAGRAMA· render: 0.8 ms — 3 nodos, 2 conexiones
+[23:41:35.605] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.620] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.636] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.654] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.670] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.687] DIAGRAMA· render: 0.8 ms — 3 nodos, 2 conexiones
+[23:41:35.703] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.721] DIAGRAMA· render: 0.6 ms — 3 nodos, 2 conexiones
+[23:41:35.736] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.753] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.769] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:35.787] DIAGRAMA· render: 0.5 ms — 3 nodos, 2 conexiones
+[23:41:36.050] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[23:41:36.055] DIAGRAMA· query_conectores_bulk (activos): 4.4 ms — n=25
+[23:41:36.061] DIAGRAMA· render: 5.1 ms — 25 nodos, 24 conexiones
+[23:41:36.604] DIAGRAMA· render: 3.0 ms — 25 nodos, 24 conexiones
+[23:41:36.612] DIAGRAMA· render: 2.8 ms — 25 nodos, 24 conexiones
+[23:41:36.628] DIAGRAMA· render: 2.9 ms — 25 nodos, 24 conexiones
+[23:41:36.645] DIAGRAMA· render: 3.0 ms — 25 nodos, 24 conexiones
+[23:41:36.663] DIAGRAMA· render: 3.7 ms — 25 nodos, 24 conexiones
+[23:41:36.682] DIAGRAMA· render: 3.8 ms — 25 nodos, 24 conexiones
+[23:41:36.700] DIAGRAMA· render: 3.8 ms — 25 nodos, 24 conexiones
+[23:41:36.718] DIAGRAMA· render: 6.0 ms — 25 nodos, 24 conexiones
+[23:41:36.736] DIAGRAMA· render: 5.1 ms — 25 nodos, 24 conexiones
+[23:41:36.755] DIAGRAMA· render: 3.2 ms — 25 nodos, 24 conexiones
+[23:41:36.772] DIAGRAMA· render: 3.6 ms — 25 nodos, 24 conexiones
+[23:41:36.801] DIAGRAMA· render: 12.8 ms — 25 nodos, 24 conexiones
+[23:41:36.821] DIAGRAMA· render: 4.6 ms — 25 nodos, 24 conexiones
+[23:41:36.838] DIAGRAMA· render: 2.9 ms — 25 nodos, 24 conexiones
+[23:41:36.874] DIAGRAMA· render: 19.0 ms — 25 nodos, 24 conexiones
+[23:41:36.892] DIAGRAMA· render: 3.4 ms — 25 nodos, 24 conexiones
+[23:41:36.909] DIAGRAMA· render: 3.1 ms — 25 nodos, 24 conexiones
+[23:41:36.926] DIAGRAMA· render: 2.9 ms — 25 nodos, 24 conexiones
+[23:41:36.943] DIAGRAMA· render: 3.8 ms — 25 nodos, 24 conexiones
+[23:41:36.962] DIAGRAMA· render: 3.4 ms — 25 nodos, 24 conexiones
+[23:41:36.978] DIAGRAMA· render: 3.0 ms — 25 nodos, 24 conexiones
+[23:41:36.997] DIAGRAMA· render: 3.0 ms — 25 nodos, 24 conexiones
+[23:41:37.014] DIAGRAMA· render: 3.3 ms — 25 nodos, 24 conexiones
+[23:41:37.251] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[23:41:37.257] DIAGRAMA· query_conectores_bulk (activos): 5.6 ms — n=24
+[23:41:37.266] DIAGRAMA· render: 8.0 ms — 24 nodos, 23 conexiones
+[23:41:41.761] DIAGRAMA· render: 10.1 ms — 24 nodos, 23 conexiones
+[23:41:43.032] DIAGRAMA· render: 13.9 ms — 24 nodos, 23 conexiones
+[23:41:43.043] DIAGRAMA· render: 5.8 ms — 24 nodos, 23 conexiones
+[23:41:43.106] DIAGRAMA· render: 11.3 ms — 24 nodos, 23 conexiones
+[23:41:43.166] DIAGRAMA· render: 10.9 ms — 24 nodos, 23 conexiones
+[23:41:43.229] DIAGRAMA· render: 16.5 ms — 24 nodos, 23 conexiones
+[23:41:43.289] DIAGRAMA· render: 11.3 ms — 24 nodos, 23 conexiones
+[23:41:43.365] DIAGRAMA· render: 25.3 ms — 24 nodos, 23 conexiones
+[23:41:43.423] DIAGRAMA· render: 11.9 ms — 24 nodos, 23 conexiones
+[23:41:43.482] DIAGRAMA· render: 10.9 ms — 24 nodos, 23 conexiones
+[23:41:43.594] DIAGRAMA· render: 17.6 ms — 24 nodos, 23 conexiones
+[23:41:43.669] DIAGRAMA· render: 12.7 ms — 24 nodos, 23 conexiones
+[23:41:43.830] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[23:41:43.834] DIAGRAMA· query_conectores_bulk (activos): 4.2 ms — n=3
+[23:41:43.845] DIAGRAMA· render: 10.7 ms — 3 nodos, 2 conexiones
+[23:41:50.869] DIAGRAMA· render: 5.2 ms — 3 nodos, 2 conexiones
+[23:41:50.905] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[23:41:50.908] DIAGRAMA· query_conectores_bulk (activos): 2.8 ms — n=18
+[23:41:50.927] DIAGRAMA· render: 19.2 ms — 18 nodos, 20 conexiones
+[23:41:56.916] DIAGRAMA· render: 11.8 ms — 18 nodos, 20 conexiones
+[23:41:56.993] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[23:41:56.995] DIAGRAMA· query_conectores_bulk (activos): 2.1 ms — n=6
+[23:41:57.006] DIAGRAMA· render: 10.6 ms — 6 nodos, 5 conexiones
+[23:41:58.488] DIAGRAMA· render: 19.2 ms — 6 nodos, 5 conexiones
+[23:41:58.533] DIAGRAMA· render: 7.5 ms — 6 nodos, 5 conexiones
+[23:41:58.587] DIAGRAMA· render: 11.6 ms — 6 nodos, 5 conexiones
+[23:41:58.650] DIAGRAMA· render: 6.6 ms — 6 nodos, 5 conexiones
+[23:41:58.700] DIAGRAMA· render: 8.8 ms — 6 nodos, 5 conexiones
+[23:41:58.749] DIAGRAMA· render: 8.9 ms — 6 nodos, 5 conexiones
+[23:41:58.793] DIAGRAMA· render: 5.2 ms — 6 nodos, 5 conexiones
+[23:41:58.835] DIAGRAMA· render: 6.4 ms — 6 nodos, 5 conexiones
+[23:41:58.883] DIAGRAMA· render: 7.6 ms — 6 nodos, 5 conexiones
+[23:41:59.059] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[23:41:59.270] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:45:46.684] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[19:45:46.684] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[19:45:47.109] [inmersivo] === CableDocApp.build() ===
+[19:45:47.205] [inmersivo] === CableDocApp.on_start() ===
+[19:45:47.205] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[19:45:47.205] [inmersivo] platform != 'android' -> no hago nada
+[19:45:47.282] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[19:45:47.282] [inmersivo] platform != 'android' -> no hago nada
+[19:45:47.316] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f8c604ca440>, 360, 800))) platform='linux'
+[19:45:47.316] [inmersivo] platform != 'android' -> no hago nada
+[19:45:47.726] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[19:45:47.726] [inmersivo] platform != 'android' -> no hago nada
+[19:45:48.728] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[19:45:48.728] [inmersivo] platform != 'android' -> no hago nada
+[19:45:56.206] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[19:45:56.208] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[19:45:56.209] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[19:45:56.442] DIAGRAMA· ids_equipos (global): 18.0 ms
+[19:45:56.447] DIAGRAMA· query_equipos_bulk: 4.8 ms — n=348
+[19:45:56.449] DIAGRAMA· query_posiciones_bulk: 1.7 ms — n=348
+[19:45:56.455] DIAGRAMA· query_conexiones_bulk (grafo completo): 6.2 ms
+[19:45:56.455] DIAGRAMA· layout (columnas, indice completo): 0.1 ms
+[19:45:56.458] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[19:45:56.460] DIAGRAMA· _cargar total: 36.5 ms — modo=global
+[19:45:56.465] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:45:56.467] DIAGRAMA· query_conectores_bulk (activos): 2.0 ms — n=50
+[19:45:56.474] DIAGRAMA· render: 6.9 ms — 50 nodos, 33 conexiones
+[19:46:03.008] DIAGRAMA· render: 4.5 ms — 50 nodos, 33 conexiones
+[19:46:03.041] DIAGRAMA· render: 28.9 ms — 50 nodos, 33 conexiones
+[19:46:13.199] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[19:46:13.204] DIAGRAMA· query_conectores_bulk (activos): 4.7 ms — n=3
+[19:46:13.221] DIAGRAMA· render: 16.7 ms — 3 nodos, 2 conexiones
+[19:46:14.457] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:46:17.214] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f8c604ca440>, 1920, 1023))) platform='linux'
+[19:46:17.214] [inmersivo] platform != 'android' -> no hago nada
+[19:46:17.225] DIAGRAMA· render: 3.8 ms — 3 nodos, 2 conexiones
+[19:46:19.222] DIAGRAMA· recalcular_visibles (filtro viewport): 0.1 ms — indice=347
+[19:46:19.224] DIAGRAMA· query_conectores_bulk (activos): 1.6 ms — n=26
+[19:46:19.234] DIAGRAMA· render: 9.7 ms — 26 nodos, 26 conexiones
+[19:46:19.480] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:46:19.677] DIAGRAMA· render: 10.8 ms — 26 nodos, 26 conexiones
+[19:46:19.750] DIAGRAMA· render: 19.7 ms — 26 nodos, 26 conexiones
+[19:46:19.863] DIAGRAMA· render: 23.0 ms — 26 nodos, 26 conexiones
+[19:46:19.955] DIAGRAMA· render: 14.4 ms — 26 nodos, 26 conexiones
+[19:46:20.121] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:46:20.122] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[19:46:20.137] DIAGRAMA· render: 14.8 ms — 0 nodos, 0 conexiones
+[19:46:20.615] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:20.633] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[19:46:20.648] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[19:46:20.662] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[19:46:20.677] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:20.692] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[19:46:20.711] DIAGRAMA· render: 2.0 ms — 0 nodos, 0 conexiones
+[19:46:20.726] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:20.745] DIAGRAMA· render: 1.5 ms — 0 nodos, 0 conexiones
+[19:46:20.762] DIAGRAMA· render: 1.7 ms — 0 nodos, 0 conexiones
+[19:46:20.779] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[19:46:20.795] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:21.160] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[19:46:21.165] DIAGRAMA· query_conectores_bulk (activos): 5.1 ms — n=25
+[19:46:21.198] DIAGRAMA· render: 32.0 ms — 25 nodos, 25 conexiones
+[19:46:21.213] DIAGRAMA· render: 10.5 ms — 25 nodos, 25 conexiones
+[19:46:21.297] DIAGRAMA· render: 18.5 ms — 25 nodos, 25 conexiones
+[19:46:21.386] DIAGRAMA· render: 18.3 ms — 25 nodos, 25 conexiones
+[19:46:21.471] DIAGRAMA· render: 12.7 ms — 25 nodos, 25 conexiones
+[19:46:21.643] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[19:46:21.643] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[19:46:21.650] DIAGRAMA· render: 7.0 ms — 0 nodos, 0 conexiones
+[19:46:22.734] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:22.754] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:22.768] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:22.786] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:22.800] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[19:46:22.817] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[19:46:22.830] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[19:46:22.845] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:22.857] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[19:46:22.871] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[19:46:22.884] DIAGRAMA· render: 0.4 ms — 0 nodos, 0 conexiones
+[19:46:22.902] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:22.916] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[19:46:22.932] DIAGRAMA· render: 0.6 ms — 0 nodos, 0 conexiones
+[19:46:22.953] DIAGRAMA· render: 1.2 ms — 0 nodos, 0 conexiones
+[19:46:22.976] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:22.996] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:23.015] DIAGRAMA· render: 0.5 ms — 0 nodos, 0 conexiones
+[19:46:23.219] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:46:24.298] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:46:25.241] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[19:46:25.258] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[19:46:25.261] DIAGRAMA· query_conectores_bulk (activos): 3.2 ms — n=15
+[19:46:25.271] DIAGRAMA· render: 8.9 ms — 15 nodos, 14 conexiones
+[19:46:26.404] DIAGRAMA· render: 14.6 ms — 15 nodos, 14 conexiones
+[19:46:26.444] DIAGRAMA· render: 8.5 ms — 15 nodos, 14 conexiones
+[19:46:26.493] DIAGRAMA· render: 10.9 ms — 15 nodos, 14 conexiones
+[19:46:26.559] DIAGRAMA· render: 23.4 ms — 15 nodos, 14 conexiones
+[19:46:26.608] DIAGRAMA· render: 11.5 ms — 15 nodos, 14 conexiones
+[19:46:26.660] DIAGRAMA· render: 8.0 ms — 15 nodos, 14 conexiones
+[19:46:26.699] DIAGRAMA· render: 6.2 ms — 15 nodos, 14 conexiones
+[19:46:26.738] DIAGRAMA· render: 7.6 ms — 15 nodos, 14 conexiones
+[19:46:26.837] DIAGRAMA· render: 11.2 ms — 15 nodos, 14 conexiones
+[19:46:26.876] DIAGRAMA· render: 8.0 ms — 15 nodos, 14 conexiones
+[19:46:26.913] DIAGRAMA· render: 7.8 ms — 15 nodos, 14 conexiones
+[19:46:26.949] DIAGRAMA· render: 6.2 ms — 15 nodos, 14 conexiones
+[19:46:26.987] DIAGRAMA· render: 6.3 ms — 15 nodos, 14 conexiones
+[19:46:27.023] DIAGRAMA· render: 7.1 ms — 15 nodos, 14 conexiones
+[19:46:27.059] DIAGRAMA· render: 6.5 ms — 15 nodos, 14 conexiones
+[19:46:27.096] DIAGRAMA· render: 7.5 ms — 15 nodos, 14 conexiones
+[19:46:27.132] DIAGRAMA· render: 6.7 ms — 15 nodos, 14 conexiones
+[19:46:27.167] DIAGRAMA· render: 5.6 ms — 15 nodos, 14 conexiones
+[19:46:27.215] DIAGRAMA· render: 11.8 ms — 15 nodos, 14 conexiones
+[19:46:27.261] DIAGRAMA· render: 6.9 ms — 15 nodos, 14 conexiones
+[19:46:27.300] DIAGRAMA· render: 7.0 ms — 15 nodos, 14 conexiones
+[19:46:27.343] DIAGRAMA· render: 8.9 ms — 15 nodos, 14 conexiones
+[19:46:27.380] DIAGRAMA· render: 7.9 ms — 15 nodos, 14 conexiones
+[19:46:27.418] DIAGRAMA· render: 7.6 ms — 15 nodos, 14 conexiones
+[19:46:27.455] DIAGRAMA· render: 7.3 ms — 15 nodos, 14 conexiones
+[19:46:27.491] DIAGRAMA· render: 7.2 ms — 15 nodos, 14 conexiones
+[19:46:27.531] DIAGRAMA· render: 11.3 ms — 15 nodos, 14 conexiones
+[19:46:27.570] DIAGRAMA· render: 6.5 ms — 15 nodos, 14 conexiones
+[19:46:27.614] DIAGRAMA· render: 13.6 ms — 15 nodos, 14 conexiones
+[19:46:27.659] DIAGRAMA· render: 7.8 ms — 15 nodos, 14 conexiones
+[19:46:27.712] DIAGRAMA· render: 18.6 ms — 15 nodos, 14 conexiones
+[19:46:27.748] DIAGRAMA· render: 6.1 ms — 15 nodos, 14 conexiones
+[19:46:27.787] DIAGRAMA· render: 10.1 ms — 15 nodos, 14 conexiones
+[19:46:27.836] DIAGRAMA· render: 5.7 ms — 15 nodos, 14 conexiones
+[19:46:27.874] DIAGRAMA· render: 9.6 ms — 15 nodos, 14 conexiones
+[19:46:27.918] DIAGRAMA· render: 8.1 ms — 15 nodos, 14 conexiones
+[19:46:27.963] DIAGRAMA· render: 5.9 ms — 15 nodos, 14 conexiones
+[19:46:27.999] DIAGRAMA· render: 6.5 ms — 15 nodos, 14 conexiones
+[19:46:28.212] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:46:28.212] DIAGRAMA· query_conectores_bulk (activos): 0.0 ms — n=0
+[19:46:28.220] DIAGRAMA· render: 7.6 ms — 0 nodos, 0 conexiones
+[19:46:28.548] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.564] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.579] DIAGRAMA· render: 1.9 ms — 0 nodos, 0 conexiones
+[19:46:28.592] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[19:46:28.606] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[19:46:28.622] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.633] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:28.648] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:28.661] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:28.678] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.694] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:28.711] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:28.727] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.745] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:28.760] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.777] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.796] DIAGRAMA· render: 1.6 ms — 0 nodos, 0 conexiones
+[19:46:28.814] DIAGRAMA· render: 1.2 ms — 0 nodos, 0 conexiones
+[19:46:28.829] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[19:46:28.845] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:28.861] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:28.878] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:28.894] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:28.912] DIAGRAMA· render: 1.1 ms — 0 nodos, 0 conexiones
+[19:46:28.927] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:28.945] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:28.960] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:28.977] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:28.993] DIAGRAMA· render: 0.8 ms — 0 nodos, 0 conexiones
+[19:46:29.011] DIAGRAMA· render: 0.9 ms — 0 nodos, 0 conexiones
+[19:46:29.038] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[19:46:29.053] DIAGRAMA· render: 1.0 ms — 0 nodos, 0 conexiones
+[19:46:29.090] DIAGRAMA· render: 0.7 ms — 0 nodos, 0 conexiones
+[19:46:29.102] DIAGRAMA· render: 1.3 ms — 0 nodos, 0 conexiones
+[19:46:29.276] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:46:30.308] DIAGRAMA· render: 1.6 ms — 0 nodos, 0 conexiones
+[19:46:30.326] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[19:46:30.329] DIAGRAMA· query_conectores_bulk (activos): 3.0 ms — n=50
+[19:46:30.344] DIAGRAMA· render: 14.9 ms — 50 nodos, 45 conexiones
+[19:46:31.730] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[19:46:31.740] DIAGRAMA· query_conectores_bulk (activos): 9.5 ms — n=27
+[19:46:31.761] DIAGRAMA· render: 20.3 ms — 27 nodos, 29 conexiones
+[19:46:33.346] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:46:33.855] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[19:46:34.217] DIAGRAMA· render: 26.8 ms — 27 nodos, 29 conexiones
+[19:46:34.322] DIAGRAMA· render: 20.4 ms — 27 nodos, 29 conexiones
+[19:46:34.405] DIAGRAMA· render: 15.9 ms — 27 nodos, 29 conexiones
+[19:46:34.497] DIAGRAMA· render: 16.3 ms — 27 nodos, 29 conexiones
+[19:46:34.599] DIAGRAMA· render: 29.1 ms — 27 nodos, 29 conexiones
+[19:46:34.704] DIAGRAMA· render: 16.8 ms — 27 nodos, 29 conexiones
+[19:46:34.792] DIAGRAMA· render: 16.8 ms — 27 nodos, 29 conexiones
+[19:46:34.885] DIAGRAMA· render: 21.9 ms — 27 nodos, 29 conexiones
+[19:46:35.057] DIAGRAMA· render: 18.7 ms — 27 nodos, 29 conexiones
+[19:46:35.142] DIAGRAMA· render: 18.6 ms — 27 nodos, 29 conexiones
+[19:46:35.240] DIAGRAMA· render: 18.2 ms — 27 nodos, 29 conexiones
+[19:46:35.333] DIAGRAMA· render: 19.0 ms — 27 nodos, 29 conexiones
+[19:46:35.428] DIAGRAMA· render: 22.2 ms — 27 nodos, 29 conexiones
+[19:46:35.603] DIAGRAMA· render: 31.9 ms — 27 nodos, 29 conexiones
+[19:46:35.695] DIAGRAMA· render: 18.2 ms — 27 nodos, 29 conexiones
+[19:46:35.929] DIAGRAMA· render: 27.7 ms — 27 nodos, 29 conexiones
+[19:46:36.019] DIAGRAMA· render: 19.7 ms — 27 nodos, 29 conexiones
+[19:46:36.120] DIAGRAMA· render: 15.4 ms — 27 nodos, 29 conexiones
+[19:46:36.217] DIAGRAMA· render: 20.4 ms — 27 nodos, 29 conexiones
+[19:46:36.301] DIAGRAMA· render: 17.0 ms — 27 nodos, 29 conexiones
+[19:46:36.423] DIAGRAMA· render: 22.3 ms — 27 nodos, 29 conexiones
+[19:46:36.509] DIAGRAMA· render: 21.0 ms — 27 nodos, 29 conexiones
+[19:46:36.606] DIAGRAMA· render: 28.6 ms — 27 nodos, 29 conexiones
+[19:46:36.694] DIAGRAMA· render: 17.5 ms — 27 nodos, 29 conexiones
+[19:46:36.784] DIAGRAMA· render: 20.2 ms — 27 nodos, 29 conexiones
+[19:46:36.870] DIAGRAMA· render: 17.7 ms — 27 nodos, 29 conexiones
+[19:46:36.957] DIAGRAMA· render: 16.4 ms — 27 nodos, 29 conexiones
+[19:46:37.044] DIAGRAMA· render: 16.7 ms — 27 nodos, 29 conexiones
+[19:46:37.131] DIAGRAMA· render: 17.2 ms — 27 nodos, 29 conexiones
+[19:46:37.253] DIAGRAMA· render: 20.2 ms — 27 nodos, 29 conexiones
+[19:46:37.347] DIAGRAMA· render: 21.7 ms — 27 nodos, 29 conexiones
+[19:46:37.448] DIAGRAMA· render: 17.7 ms — 27 nodos, 29 conexiones
+[19:46:37.535] DIAGRAMA· render: 18.3 ms — 27 nodos, 29 conexiones
+[19:46:37.621] DIAGRAMA· render: 19.3 ms — 27 nodos, 29 conexiones
+[19:46:38.032] DIAGRAMA· render: 23.9 ms — 27 nodos, 29 conexiones
+[19:46:38.120] DIAGRAMA· render: 16.1 ms — 27 nodos, 29 conexiones
+[19:46:38.851] DIAGRAMA· render: 24.3 ms — 27 nodos, 29 conexiones
+[19:46:38.933] DIAGRAMA· render: 17.1 ms — 27 nodos, 29 conexiones
+[19:46:39.017] DIAGRAMA· render: 18.3 ms — 27 nodos, 29 conexiones
+[19:46:39.103] DIAGRAMA· render: 19.7 ms — 27 nodos, 29 conexiones
+[19:46:39.198] DIAGRAMA· render: 27.4 ms — 27 nodos, 29 conexiones
+[19:46:39.283] DIAGRAMA· render: 17.3 ms — 27 nodos, 29 conexiones
+[19:46:39.369] DIAGRAMA· render: 15.5 ms — 27 nodos, 29 conexiones
+[19:46:39.453] DIAGRAMA· render: 17.1 ms — 27 nodos, 29 conexiones
+[19:46:40.209] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[19:46:40.215] DIAGRAMA· query_conectores_bulk (activos): 5.6 ms — n=32
+[19:46:40.239] DIAGRAMA· render: 22.7 ms — 32 nodos, 34 conexiones
+[19:46:42.060] DIAGRAMA· render: 13.1 ms — 32 nodos, 34 conexiones
+[19:47:02.146] DIAGRAMA· render: 13.8 ms — 32 nodos, 34 conexiones
+[19:47:03.666] DIAGRAMA· render: 17.8 ms — 32 nodos, 34 conexiones
+[19:47:03.767] DIAGRAMA· render: 27.4 ms — 32 nodos, 34 conexiones
+[19:47:03.857] DIAGRAMA· render: 16.0 ms — 32 nodos, 34 conexiones
+[19:47:04.622] DIAGRAMA· render: 16.1 ms — 32 nodos, 34 conexiones
+[20:53:35.936] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[20:53:35.937] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[20:53:36.293] [inmersivo] === CableDocApp.build() ===
+[20:53:36.388] [inmersivo] === CableDocApp.on_start() ===
+[20:53:36.389] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[20:53:36.389] [inmersivo] platform != 'android' -> no hago nada
+[20:53:36.476] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[20:53:36.477] [inmersivo] platform != 'android' -> no hago nada
+[20:53:36.510] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f8aeaf7e440>, 360, 800))) platform='linux'
+[20:53:36.510] [inmersivo] platform != 'android' -> no hago nada
+[20:53:36.968] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[20:53:36.968] [inmersivo] platform != 'android' -> no hago nada
+[20:53:37.615] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f8aeaf7e440>, 1920, 1023))) platform='linux'
+[20:53:37.615] [inmersivo] platform != 'android' -> no hago nada
+[20:53:37.969] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[20:53:37.969] [inmersivo] platform != 'android' -> no hago nada
+[20:53:42.027] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[20:53:42.029] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[20:53:42.030] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[20:53:42.278] DIAGRAMA· ids_equipos (global): 21.9 ms
+[20:53:42.282] DIAGRAMA· query_equipos_bulk: 3.6 ms — n=348
+[20:53:42.284] DIAGRAMA· query_posiciones_bulk: 2.1 ms — n=348
+[20:53:42.292] DIAGRAMA· query_conexiones_bulk (grafo completo): 8.0 ms
+[20:53:42.292] DIAGRAMA· layout (columnas, indice completo): 0.2 ms
+[20:53:42.295] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[20:53:42.298] DIAGRAMA· _cargar total: 42.5 ms — modo=global
+[20:53:42.303] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[20:53:42.306] DIAGRAMA· query_conectores_bulk (activos): 2.7 ms — n=50
+[20:53:42.317] DIAGRAMA· render: 9.6 ms — 50 nodos, 33 conexiones
+[20:53:48.805] DIAGRAMA· render: 5.5 ms — 50 nodos, 33 conexiones
+[20:53:48.847] DIAGRAMA· render: 37.7 ms — 50 nodos, 33 conexiones
+[20:53:50.927] DIAGRAMA· render: 18.8 ms — 50 nodos, 33 conexiones
+[2026-09-14 20:54:30] (No capturado)
+Traceback (most recent call last):
+  File "/home/sa/Desktop/cabledoc_repository/ui_kivy/main.py", line 990, in <module>
+    CableDocApp().run()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/app.py", line 956, in run
+    runTouchApp()
+    ~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 574, in runTouchApp
+    EventLoop.mainloop()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 339, in mainloop
+    self.idle()
+    ~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/base.py", line 379, in idle
+    Clock.tick()
+    ~~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/clock.py", line 733, in tick
+    self.post_idle(ts, self.idle())
+                       ~~~~~~~~~^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/clock.py", line 689, in idle
+    usleep(1000000 * sleeptime)
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/clock.py", line 965, in usleep
+    _usleep(microseconds, self._sleep_obj)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sa/Desktop/cabledoc_repository/.venv/lib/python3.14/site-packages/kivy/clock.py", line 556, in _usleep
+    _libc_usleep(int(microseconds))
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+[22:40:55.865] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[22:40:55.865] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[22:40:56.236] [inmersivo] === CableDocApp.build() ===
+[22:40:56.335] [inmersivo] === CableDocApp.on_start() ===
+[22:40:56.336] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[22:40:56.336] [inmersivo] platform != 'android' -> no hago nada
+[22:40:56.414] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[22:40:56.414] [inmersivo] platform != 'android' -> no hago nada
+[22:40:56.448] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f0aec8e6440>, 360, 800))) platform='linux'
+[22:40:56.448] [inmersivo] platform != 'android' -> no hago nada
+[22:40:56.907] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[22:40:56.907] [inmersivo] platform != 'android' -> no hago nada
+[22:40:57.901] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[22:40:57.901] [inmersivo] platform != 'android' -> no hago nada
+[22:40:58.690] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:40:58.692] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:40:58.693] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[22:40:58.931] DIAGRAMA· ids_equipos (global): 17.8 ms
+[22:40:58.934] DIAGRAMA· query_equipos_bulk: 2.9 ms — n=348
+[22:40:58.936] DIAGRAMA· query_posiciones_bulk: 2.2 ms — n=348
+[22:40:58.942] DIAGRAMA· query_conexiones_bulk (grafo completo): 5.7 ms
+[22:40:58.942] DIAGRAMA· layout (columnas, indice completo): 0.1 ms
+[22:40:58.945] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[22:40:58.949] DIAGRAMA· _cargar total: 36.1 ms — modo=global
+[22:40:58.954] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:40:58.956] DIAGRAMA· query_conectores_bulk (activos): 1.7 ms — n=50
+[22:40:58.963] DIAGRAMA· render: 6.2 ms — 50 nodos, 33 conexiones
+[22:41:01.255] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f0aec8e6440>, 1920, 1023))) platform='linux'
+[22:41:01.255] [inmersivo] platform != 'android' -> no hago nada
+[22:41:01.272] DIAGRAMA· render: 4.9 ms — 50 nodos, 33 conexiones
+[22:41:03.861] DIAGRAMA· render: 14.7 ms — 50 nodos, 33 conexiones
+[22:41:03.885] DIAGRAMA· render: 5.6 ms — 50 nodos, 33 conexiones
+[22:41:03.895] DIAGRAMA· render: 4.9 ms — 50 nodos, 33 conexiones
+[22:41:03.927] DIAGRAMA· render: 15.0 ms — 50 nodos, 33 conexiones
+[22:41:03.951] DIAGRAMA· render: 7.4 ms — 50 nodos, 33 conexiones
+[22:41:04.127] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[22:41:04.133] DIAGRAMA· query_conectores_bulk (activos): 5.6 ms — n=26
+[22:41:04.145] DIAGRAMA· render: 11.2 ms — 26 nodos, 26 conexiones
+[22:41:04.396] DIAGRAMA· render: 3.4 ms — 26 nodos, 26 conexiones
+[22:41:04.465] DIAGRAMA· render: 9.1 ms — 26 nodos, 26 conexiones
+[22:41:04.485] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[22:41:04.506] DIAGRAMA· render: 5.8 ms — 26 nodos, 26 conexiones
+[22:41:04.527] DIAGRAMA· render: 5.9 ms — 26 nodos, 26 conexiones
+[22:41:04.546] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[22:41:04.566] DIAGRAMA· render: 5.5 ms — 26 nodos, 26 conexiones
+[22:41:04.587] DIAGRAMA· render: 5.3 ms — 26 nodos, 26 conexiones
+[22:41:04.609] DIAGRAMA· render: 5.6 ms — 26 nodos, 26 conexiones
+[22:41:04.630] DIAGRAMA· render: 5.6 ms — 26 nodos, 26 conexiones
+[22:41:04.651] DIAGRAMA· render: 6.6 ms — 26 nodos, 26 conexiones
+[22:41:04.672] DIAGRAMA· render: 5.5 ms — 26 nodos, 26 conexiones
+[22:41:04.694] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[22:41:04.714] DIAGRAMA· render: 4.7 ms — 26 nodos, 26 conexiones
+[22:41:04.734] DIAGRAMA· render: 5.7 ms — 26 nodos, 26 conexiones
+[22:41:04.756] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[22:41:04.777] DIAGRAMA· render: 5.1 ms — 26 nodos, 26 conexiones
+[22:41:04.796] DIAGRAMA· render: 4.3 ms — 26 nodos, 26 conexiones
+[22:41:04.817] DIAGRAMA· render: 5.6 ms — 26 nodos, 26 conexiones
+[22:41:04.837] DIAGRAMA· render: 4.6 ms — 26 nodos, 26 conexiones
+[22:41:04.861] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[22:41:04.881] DIAGRAMA· render: 6.0 ms — 26 nodos, 26 conexiones
+[22:41:04.908] DIAGRAMA· render: 8.4 ms — 26 nodos, 26 conexiones
+[22:41:04.938] DIAGRAMA· render: 5.1 ms — 26 nodos, 26 conexiones
+[22:41:04.958] DIAGRAMA· render: 4.9 ms — 26 nodos, 26 conexiones
+[22:41:04.979] DIAGRAMA· render: 4.9 ms — 26 nodos, 26 conexiones
+[22:41:04.999] DIAGRAMA· render: 5.3 ms — 26 nodos, 26 conexiones
+[22:41:05.019] DIAGRAMA· render: 4.6 ms — 26 nodos, 26 conexiones
+[22:41:05.040] DIAGRAMA· render: 6.3 ms — 26 nodos, 26 conexiones
+[22:41:05.060] DIAGRAMA· render: 4.9 ms — 26 nodos, 26 conexiones
+[22:41:05.079] DIAGRAMA· render: 4.6 ms — 26 nodos, 26 conexiones
+[22:41:05.100] DIAGRAMA· render: 6.0 ms — 26 nodos, 26 conexiones
+[22:41:05.121] DIAGRAMA· render: 5.9 ms — 26 nodos, 26 conexiones
+[22:41:05.140] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[22:41:05.160] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[22:41:05.360] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:41:05.366] DIAGRAMA· query_conectores_bulk (activos): 5.9 ms — n=28
+[22:41:05.379] DIAGRAMA· render: 11.8 ms — 28 nodos, 27 conexiones
+[22:41:06.103] DIAGRAMA· render: 11.2 ms — 28 nodos, 27 conexiones
+[22:41:11.564] DIAGRAMA· render: 5.2 ms — 28 nodos, 27 conexiones
+[22:41:12.397] DIAGRAMA· render: 11.0 ms — 28 nodos, 27 conexiones
+[22:41:13.186] DIAGRAMA· render: 8.0 ms — 28 nodos, 27 conexiones
+[22:41:13.757] DIAGRAMA· render: 11.2 ms — 28 nodos, 27 conexiones
+[22:41:16.160] DIAGRAMA· render: 6.3 ms — 28 nodos, 27 conexiones
+[22:41:16.520] DIAGRAMA· render: 12.0 ms — 28 nodos, 27 conexiones
+[22:41:18.136] DIAGRAMA· render: 22.9 ms — 28 nodos, 27 conexiones
+[22:41:18.145] DIAGRAMA· render: 3.9 ms — 28 nodos, 27 conexiones
+[22:41:18.169] DIAGRAMA· render: 6.8 ms — 28 nodos, 27 conexiones
+[22:41:18.191] DIAGRAMA· render: 5.1 ms — 28 nodos, 27 conexiones
+[22:41:18.215] DIAGRAMA· render: 7.7 ms — 28 nodos, 27 conexiones
+[22:41:18.239] DIAGRAMA· render: 5.6 ms — 28 nodos, 27 conexiones
+[22:41:18.261] DIAGRAMA· render: 5.8 ms — 28 nodos, 27 conexiones
+[22:41:18.283] DIAGRAMA· render: 6.0 ms — 28 nodos, 27 conexiones
+[22:41:18.306] DIAGRAMA· render: 4.8 ms — 28 nodos, 27 conexiones
+[22:41:18.331] DIAGRAMA· render: 9.0 ms — 28 nodos, 27 conexiones
+[22:41:18.489] DIAGRAMA· render: 7.9 ms — 28 nodos, 27 conexiones
+[22:41:18.514] DIAGRAMA· render: 7.1 ms — 28 nodos, 27 conexiones
+[22:41:18.536] DIAGRAMA· render: 6.2 ms — 28 nodos, 27 conexiones
+[22:41:18.564] DIAGRAMA· render: 7.7 ms — 28 nodos, 27 conexiones
+[22:41:18.669] DIAGRAMA· render: 4.6 ms — 28 nodos, 27 conexiones
+[22:41:18.691] DIAGRAMA· render: 5.5 ms — 28 nodos, 27 conexiones
+[22:41:18.715] DIAGRAMA· render: 7.3 ms — 28 nodos, 27 conexiones
+[22:41:18.738] DIAGRAMA· render: 5.9 ms — 28 nodos, 27 conexiones
+[22:41:18.762] DIAGRAMA· render: 7.4 ms — 28 nodos, 27 conexiones
+[22:41:18.786] DIAGRAMA· render: 6.0 ms — 28 nodos, 27 conexiones
+[22:41:18.810] DIAGRAMA· render: 6.0 ms — 28 nodos, 27 conexiones
+[22:41:18.834] DIAGRAMA· render: 9.2 ms — 28 nodos, 27 conexiones
+[22:41:18.864] DIAGRAMA· render: 11.9 ms — 28 nodos, 27 conexiones
+[22:41:18.889] DIAGRAMA· render: 6.4 ms — 28 nodos, 27 conexiones
+[22:41:19.065] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[22:41:19.071] DIAGRAMA· query_conectores_bulk (activos): 6.3 ms — n=26
+[22:41:19.084] DIAGRAMA· render: 11.5 ms — 26 nodos, 26 conexiones
+[22:41:19.314] DIAGRAMA· render: 23.3 ms — 26 nodos, 26 conexiones
+[22:41:19.331] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[22:41:19.354] DIAGRAMA· render: 4.4 ms — 26 nodos, 26 conexiones
+[22:41:19.376] DIAGRAMA· render: 6.0 ms — 26 nodos, 26 conexiones
+[22:41:19.401] DIAGRAMA· render: 5.8 ms — 26 nodos, 26 conexiones
+[22:41:19.423] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[22:41:19.446] DIAGRAMA· render: 6.8 ms — 26 nodos, 26 conexiones
+[22:41:19.465] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[22:41:19.487] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[22:41:19.507] DIAGRAMA· render: 4.7 ms — 26 nodos, 26 conexiones
+[22:41:19.529] DIAGRAMA· render: 6.1 ms — 26 nodos, 26 conexiones
+[22:41:19.550] DIAGRAMA· render: 5.2 ms — 26 nodos, 26 conexiones
+[22:41:19.571] DIAGRAMA· render: 5.6 ms — 26 nodos, 26 conexiones
+[22:41:19.592] DIAGRAMA· render: 5.5 ms — 26 nodos, 26 conexiones
+[22:41:19.612] DIAGRAMA· render: 6.6 ms — 26 nodos, 26 conexiones
+[22:41:19.632] DIAGRAMA· render: 4.9 ms — 26 nodos, 26 conexiones
+[22:41:19.654] DIAGRAMA· render: 5.3 ms — 26 nodos, 26 conexiones
+[22:41:19.677] DIAGRAMA· render: 5.8 ms — 26 nodos, 26 conexiones
+[22:41:19.697] DIAGRAMA· render: 5.6 ms — 26 nodos, 26 conexiones
+[22:41:19.718] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[22:41:19.739] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[22:41:19.760] DIAGRAMA· render: 5.6 ms — 26 nodos, 26 conexiones
+[22:41:19.784] DIAGRAMA· render: 9.9 ms — 26 nodos, 26 conexiones
+[22:41:19.805] DIAGRAMA· render: 4.9 ms — 26 nodos, 26 conexiones
+[22:41:19.828] DIAGRAMA· render: 8.3 ms — 26 nodos, 26 conexiones
+[22:41:19.858] DIAGRAMA· render: 5.2 ms — 26 nodos, 26 conexiones
+[22:41:19.879] DIAGRAMA· render: 7.4 ms — 26 nodos, 26 conexiones
+[22:41:19.901] DIAGRAMA· render: 4.7 ms — 26 nodos, 26 conexiones
+[22:41:19.921] DIAGRAMA· render: 4.6 ms — 26 nodos, 26 conexiones
+[22:41:19.941] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[22:41:20.115] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[22:41:20.122] DIAGRAMA· query_conectores_bulk (activos): 6.3 ms — n=25
+[22:41:20.129] DIAGRAMA· render: 6.9 ms — 25 nodos, 25 conexiones
+[22:41:20.229] DIAGRAMA· render: 9.6 ms — 25 nodos, 25 conexiones
+[22:41:20.252] DIAGRAMA· render: 4.9 ms — 25 nodos, 25 conexiones
+[22:41:20.272] DIAGRAMA· render: 4.9 ms — 25 nodos, 25 conexiones
+[22:41:20.294] DIAGRAMA· render: 5.8 ms — 25 nodos, 25 conexiones
+[22:41:20.321] DIAGRAMA· render: 3.7 ms — 25 nodos, 25 conexiones
+[22:41:20.495] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:41:22.332] DIAGRAMA· render: 10.6 ms — 25 nodos, 25 conexiones
+[22:41:22.350] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:41:22.354] DIAGRAMA· query_conectores_bulk (activos): 2.6 ms — n=50
+[22:41:22.362] DIAGRAMA· render: 7.8 ms — 50 nodos, 51 conexiones
+[22:41:23.225] DIAGRAMA· render: 15.4 ms — 50 nodos, 51 conexiones
+[22:41:23.243] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[22:41:23.245] DIAGRAMA· query_conectores_bulk (activos): 2.2 ms — n=42
+[22:41:23.252] DIAGRAMA· render: 6.1 ms — 42 nodos, 40 conexiones
+[22:41:24.210] DIAGRAMA· render: 13.3 ms — 42 nodos, 40 conexiones
+[22:41:24.232] DIAGRAMA· render: 4.9 ms — 42 nodos, 40 conexiones
+[22:41:24.256] DIAGRAMA· render: 5.8 ms — 42 nodos, 40 conexiones
+[22:41:24.282] DIAGRAMA· render: 5.2 ms — 42 nodos, 40 conexiones
+[22:41:24.313] DIAGRAMA· render: 7.5 ms — 42 nodos, 40 conexiones
+[22:41:24.336] DIAGRAMA· render: 5.6 ms — 42 nodos, 40 conexiones
+[22:41:24.374] DIAGRAMA· render: 16.7 ms — 42 nodos, 40 conexiones
+[22:41:24.398] DIAGRAMA· render: 4.9 ms — 42 nodos, 40 conexiones
+[22:41:24.422] DIAGRAMA· render: 5.4 ms — 42 nodos, 40 conexiones
+[22:41:24.449] DIAGRAMA· render: 5.8 ms — 42 nodos, 40 conexiones
+[22:41:24.473] DIAGRAMA· render: 5.5 ms — 42 nodos, 40 conexiones
+[22:41:24.499] DIAGRAMA· render: 5.9 ms — 42 nodos, 40 conexiones
+[22:41:24.850] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:41:24.858] DIAGRAMA· query_conectores_bulk (activos): 7.2 ms — n=43
+[22:41:24.869] DIAGRAMA· render: 11.2 ms — 43 nodos, 42 conexiones
+[22:41:25.145] DIAGRAMA· render: 16.2 ms — 43 nodos, 42 conexiones
+[22:41:26.119] DIAGRAMA· render: 5.2 ms — 43 nodos, 42 conexiones
+[22:41:26.147] DIAGRAMA· render: 9.5 ms — 43 nodos, 42 conexiones
+[22:41:26.176] DIAGRAMA· render: 7.4 ms — 43 nodos, 42 conexiones
+[22:41:26.208] DIAGRAMA· render: 9.9 ms — 43 nodos, 42 conexiones
+[22:41:26.248] DIAGRAMA· render: 11.6 ms — 43 nodos, 42 conexiones
+[22:41:26.286] DIAGRAMA· render: 9.5 ms — 43 nodos, 42 conexiones
+[22:41:26.326] DIAGRAMA· render: 11.1 ms — 43 nodos, 42 conexiones
+[22:41:26.362] DIAGRAMA· render: 6.9 ms — 43 nodos, 42 conexiones
+[22:41:26.691] DIAGRAMA· recalcular_visibles (filtro viewport): 0.7 ms — indice=347
+[22:41:26.697] DIAGRAMA· query_conectores_bulk (activos): 5.0 ms — n=19
+[22:41:26.708] DIAGRAMA· render: 10.1 ms — 19 nodos, 18 conexiones
+[22:41:27.583] DIAGRAMA· render: 6.6 ms — 19 nodos, 18 conexiones
+[22:41:27.816] DIAGRAMA· render: 7.8 ms — 19 nodos, 18 conexiones
+[22:41:27.957] DIAGRAMA· render: 6.5 ms — 19 nodos, 18 conexiones
+[22:41:28.295] DIAGRAMA· render: 3.9 ms — 19 nodos, 18 conexiones
+[22:41:38.180] DIAGRAMA· render: 19.4 ms — 19 nodos, 18 conexiones
+[22:41:40.113] DIAGRAMA· render: 17.9 ms — 19 nodos, 18 conexiones
+[22:41:41.100] DIAGRAMA· render: 17.3 ms — 19 nodos, 18 conexiones
+[22:41:42.521] DIAGRAMA· render: 16.3 ms — 19 nodos, 18 conexiones
+[22:41:45.626] DIAGRAMA· render: 17.4 ms — 19 nodos, 18 conexiones
+[22:41:47.498] DIAGRAMA· render: 8.8 ms — 19 nodos, 18 conexiones
+[22:41:48.370] DIAGRAMA· render: 18.0 ms — 19 nodos, 18 conexiones
+[22:41:51.900] DIAGRAMA· render: 19.3 ms — 19 nodos, 18 conexiones
+[22:41:51.947] DIAGRAMA· render: 8.7 ms — 19 nodos, 18 conexiones
+[22:41:51.994] DIAGRAMA· render: 7.9 ms — 19 nodos, 18 conexiones
+[22:41:52.040] DIAGRAMA· render: 8.2 ms — 19 nodos, 18 conexiones
+[22:41:52.095] DIAGRAMA· render: 14.2 ms — 19 nodos, 18 conexiones
+[22:41:52.144] DIAGRAMA· render: 12.2 ms — 19 nodos, 18 conexiones
+[22:41:52.210] DIAGRAMA· render: 10.0 ms — 19 nodos, 18 conexiones
+[22:41:52.382] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:41:52.537] DIAGRAMA· render: 17.9 ms — 19 nodos, 18 conexiones
+[22:41:52.587] DIAGRAMA· render: 8.6 ms — 19 nodos, 18 conexiones
+[22:41:52.633] DIAGRAMA· render: 8.7 ms — 19 nodos, 18 conexiones
+[22:41:52.681] DIAGRAMA· render: 8.5 ms — 19 nodos, 18 conexiones
+[22:41:52.808] DIAGRAMA· render: 18.0 ms — 19 nodos, 18 conexiones
+[22:41:52.857] DIAGRAMA· render: 9.9 ms — 19 nodos, 18 conexiones
+[22:41:52.906] DIAGRAMA· render: 9.1 ms — 19 nodos, 18 conexiones
+[22:41:52.953] DIAGRAMA· render: 8.9 ms — 19 nodos, 18 conexiones
+[22:41:53.000] DIAGRAMA· render: 8.3 ms — 19 nodos, 18 conexiones
+[22:41:53.045] DIAGRAMA· render: 8.2 ms — 19 nodos, 18 conexiones
+[22:41:53.092] DIAGRAMA· render: 10.0 ms — 19 nodos, 18 conexiones
+[22:41:53.263] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:41:53.747] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[22:41:55.306] DIAGRAMA· render: 17.8 ms — 19 nodos, 18 conexiones
+[22:41:55.360] DIAGRAMA· render: 15.6 ms — 19 nodos, 18 conexiones
+[22:41:55.410] DIAGRAMA· render: 9.0 ms — 19 nodos, 18 conexiones
+[22:41:55.475] DIAGRAMA· render: 22.6 ms — 19 nodos, 18 conexiones
+[22:41:55.523] DIAGRAMA· render: 9.0 ms — 19 nodos, 18 conexiones
+[22:41:55.571] DIAGRAMA· render: 9.7 ms — 19 nodos, 18 conexiones
+[22:41:55.619] DIAGRAMA· render: 8.5 ms — 19 nodos, 18 conexiones
+[22:41:55.669] DIAGRAMA· render: 9.8 ms — 19 nodos, 18 conexiones
+[22:41:55.716] DIAGRAMA· render: 8.9 ms — 19 nodos, 18 conexiones
+[22:41:55.764] DIAGRAMA· render: 8.7 ms — 19 nodos, 18 conexiones
+[22:41:55.814] DIAGRAMA· render: 9.6 ms — 19 nodos, 18 conexiones
+[22:41:55.862] DIAGRAMA· render: 10.0 ms — 19 nodos, 18 conexiones
+[22:41:56.036] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[22:41:56.042] DIAGRAMA· query_conectores_bulk (activos): 6.5 ms — n=31
+[22:41:56.060] DIAGRAMA· render: 17.1 ms — 31 nodos, 31 conexiones
+[22:41:56.867] DIAGRAMA· render: 22.3 ms — 31 nodos, 31 conexiones
+[22:41:56.936] DIAGRAMA· render: 14.5 ms — 31 nodos, 31 conexiones
+[22:41:57.006] DIAGRAMA· render: 17.6 ms — 31 nodos, 31 conexiones
+[22:41:57.082] DIAGRAMA· render: 26.8 ms — 31 nodos, 31 conexiones
+[22:41:57.143] DIAGRAMA· render: 12.8 ms — 31 nodos, 31 conexiones
+[22:41:57.313] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[22:41:57.319] DIAGRAMA· query_conectores_bulk (activos): 5.8 ms — n=32
+[22:41:57.339] DIAGRAMA· render: 19.2 ms — 32 nodos, 32 conexiones
+[22:41:58.024] DIAGRAMA· render: 22.8 ms — 32 nodos, 32 conexiones
+[22:41:58.086] DIAGRAMA· render: 14.4 ms — 32 nodos, 32 conexiones
+[22:41:58.150] DIAGRAMA· render: 14.6 ms — 32 nodos, 32 conexiones
+[22:41:58.214] DIAGRAMA· render: 14.5 ms — 32 nodos, 32 conexiones
+[22:41:58.276] DIAGRAMA· render: 13.7 ms — 32 nodos, 32 conexiones
+[22:41:58.340] DIAGRAMA· render: 12.8 ms — 32 nodos, 32 conexiones
+[22:41:58.403] DIAGRAMA· render: 14.2 ms — 32 nodos, 32 conexiones
+[22:41:58.638] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[22:41:59.182] DIAGRAMA· render: 22.7 ms — 32 nodos, 32 conexiones
+[22:41:59.269] DIAGRAMA· render: 28.7 ms — 32 nodos, 32 conexiones
+[22:41:59.345] DIAGRAMA· render: 18.1 ms — 32 nodos, 32 conexiones
+[22:41:59.428] DIAGRAMA· render: 13.8 ms — 32 nodos, 32 conexiones
+[22:41:59.500] DIAGRAMA· render: 15.2 ms — 32 nodos, 32 conexiones
+[22:41:59.662] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:41:59.769] DIAGRAMA· render: 19.6 ms — 32 nodos, 32 conexiones
+[22:41:59.837] DIAGRAMA· render: 15.6 ms — 32 nodos, 32 conexiones
+[22:41:59.907] DIAGRAMA· render: 15.6 ms — 32 nodos, 32 conexiones
+[22:41:59.972] DIAGRAMA· render: 14.2 ms — 32 nodos, 32 conexiones
+[22:42:00.036] DIAGRAMA· render: 14.0 ms — 32 nodos, 32 conexiones
+[22:42:00.360] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:42:00.365] DIAGRAMA· query_conectores_bulk (activos): 5.1 ms — n=31
+[22:42:00.389] DIAGRAMA· render: 23.0 ms — 31 nodos, 31 conexiones
+[22:42:01.777] DIAGRAMA· render: 22.5 ms — 31 nodos, 31 conexiones
+[22:42:01.834] DIAGRAMA· render: 13.9 ms — 31 nodos, 31 conexiones
+[22:42:01.903] DIAGRAMA· render: 20.0 ms — 31 nodos, 31 conexiones
+[22:42:01.967] DIAGRAMA· render: 15.4 ms — 31 nodos, 31 conexiones
+[22:42:02.039] DIAGRAMA· render: 12.8 ms — 31 nodos, 31 conexiones
+[22:42:02.108] DIAGRAMA· render: 12.5 ms — 31 nodos, 31 conexiones
+[22:42:02.171] DIAGRAMA· render: 14.8 ms — 31 nodos, 31 conexiones
+[22:42:02.233] DIAGRAMA· render: 13.7 ms — 31 nodos, 31 conexiones
+[22:42:02.294] DIAGRAMA· render: 13.8 ms — 31 nodos, 31 conexiones
+[22:42:02.463] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[22:42:02.468] DIAGRAMA· query_conectores_bulk (activos): 5.3 ms — n=32
+[22:42:02.488] DIAGRAMA· render: 18.9 ms — 32 nodos, 32 conexiones
+[22:42:03.504] DIAGRAMA· render: 22.7 ms — 32 nodos, 32 conexiones
+[22:42:03.564] DIAGRAMA· render: 13.1 ms — 32 nodos, 32 conexiones
+[22:42:03.629] DIAGRAMA· render: 14.1 ms — 32 nodos, 32 conexiones
+[22:42:03.692] DIAGRAMA· render: 15.4 ms — 32 nodos, 32 conexiones
+[22:42:03.764] DIAGRAMA· render: 21.3 ms — 32 nodos, 32 conexiones
+[22:42:03.829] DIAGRAMA· render: 17.3 ms — 32 nodos, 32 conexiones
+[22:42:03.909] DIAGRAMA· render: 12.7 ms — 32 nodos, 32 conexiones
+[22:42:03.978] DIAGRAMA· render: 15.6 ms — 32 nodos, 32 conexiones
+[22:42:04.140] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[22:42:04.143] DIAGRAMA· query_conectores_bulk (activos): 2.8 ms — n=38
+[22:42:04.162] DIAGRAMA· render: 18.2 ms — 38 nodos, 37 conexiones
+[22:42:04.411] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[23:50:38.341] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[23:50:38.341] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[23:50:38.723] [inmersivo] === CableDocApp.build() ===
+[23:50:38.816] [inmersivo] === CableDocApp.on_start() ===
+[23:50:38.816] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[23:50:38.816] [inmersivo] platform != 'android' -> no hago nada
+[23:50:38.894] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[23:50:38.894] [inmersivo] platform != 'android' -> no hago nada
+[23:50:38.928] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f2cd5cea440>, 360, 800))) platform='linux'
+[23:50:38.928] [inmersivo] platform != 'android' -> no hago nada
+[23:50:39.375] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[23:50:39.375] [inmersivo] platform != 'android' -> no hago nada
+[23:50:40.374] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[23:50:40.374] [inmersivo] platform != 'android' -> no hago nada
+[12:11:09.301] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[12:11:09.302] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[12:11:09.691] [inmersivo] === CableDocApp.build() ===
+[12:11:09.781] [inmersivo] === CableDocApp.on_start() ===
+[12:11:09.782] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[12:11:09.782] [inmersivo] platform != 'android' -> no hago nada
+[12:11:09.843] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[12:11:09.843] [inmersivo] platform != 'android' -> no hago nada
+[12:11:09.874] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7fbadf17e440>, 360, 800))) platform='linux'
+[12:11:09.874] [inmersivo] platform != 'android' -> no hago nada
+[12:11:10.336] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[12:11:10.336] [inmersivo] platform != 'android' -> no hago nada
+[12:11:11.347] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[12:11:11.347] [inmersivo] platform != 'android' -> no hago nada
+[12:11:17.290] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7fbadf17e440>, 1920, 1023))) platform='linux'
+[12:11:17.290] [inmersivo] platform != 'android' -> no hago nada
+[12:11:33.393] DIAGRAMA· render: 0.0 ms — 0 nodos, 0 conexiones
+[12:11:33.395] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[12:11:33.396] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[12:11:33.621] DIAGRAMA· ids_equipos (global): 12.2 ms
+[12:11:33.626] DIAGRAMA· query_equipos_bulk: 4.2 ms — n=348
+[12:11:33.629] DIAGRAMA· query_posiciones_bulk: 2.9 ms — n=348
+[12:11:33.636] DIAGRAMA· query_conexiones_bulk (grafo completo): 6.8 ms
+[12:11:33.636] DIAGRAMA· layout (columnas, indice completo): 0.1 ms
+[12:11:33.639] DIAGRAMA· render: 0.3 ms — 0 nodos, 0 conexiones
+[12:11:33.641] DIAGRAMA· _cargar total: 32.0 ms — modo=global
+[12:11:33.645] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[12:11:33.647] DIAGRAMA· query_conectores_bulk (activos): 2.2 ms — n=50
+[12:11:33.656] DIAGRAMA· render: 7.4 ms — 50 nodos, 33 conexiones
+[12:11:34.495] DIAGRAMA· render: 5.9 ms — 50 nodos, 33 conexiones
+[12:11:34.515] DIAGRAMA· render: 4.6 ms — 50 nodos, 33 conexiones
+[12:11:34.535] DIAGRAMA· render: 4.8 ms — 50 nodos, 33 conexiones
+[12:11:34.556] DIAGRAMA· render: 5.3 ms — 50 nodos, 33 conexiones
+[12:11:34.576] DIAGRAMA· render: 4.7 ms — 50 nodos, 33 conexiones
+[12:11:34.601] DIAGRAMA· render: 4.6 ms — 50 nodos, 33 conexiones
+[12:11:34.623] DIAGRAMA· render: 6.1 ms — 50 nodos, 33 conexiones
+[12:11:34.653] DIAGRAMA· render: 8.4 ms — 50 nodos, 33 conexiones
+[12:11:34.852] DIAGRAMA· recalcular_visibles (filtro viewport): 0.7 ms — indice=347
+[12:11:34.859] DIAGRAMA· query_conectores_bulk (activos): 6.6 ms — n=26
+[12:11:34.872] DIAGRAMA· render: 12.4 ms — 26 nodos, 26 conexiones
+[12:11:35.558] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[12:11:35.602] DIAGRAMA· render: 9.0 ms — 26 nodos, 26 conexiones
+[12:11:35.622] DIAGRAMA· render: 4.6 ms — 26 nodos, 26 conexiones
+[12:11:35.640] DIAGRAMA· render: 5.4 ms — 26 nodos, 26 conexiones
+[12:11:35.658] DIAGRAMA· render: 5.0 ms — 26 nodos, 26 conexiones
+[12:11:35.676] DIAGRAMA· render: 4.1 ms — 26 nodos, 26 conexiones
+[12:11:35.694] DIAGRAMA· render: 4.4 ms — 26 nodos, 26 conexiones
+[12:11:35.713] DIAGRAMA· render: 3.9 ms — 26 nodos, 26 conexiones
+[12:11:35.731] DIAGRAMA· render: 4.0 ms — 26 nodos, 26 conexiones
+[12:11:35.749] DIAGRAMA· render: 3.9 ms — 26 nodos, 26 conexiones
+[12:11:35.767] DIAGRAMA· render: 3.9 ms — 26 nodos, 26 conexiones
+[12:11:35.785] DIAGRAMA· render: 4.0 ms — 26 nodos, 26 conexiones
+[12:11:35.893] DIAGRAMA· render: 9.7 ms — 26 nodos, 26 conexiones
+[12:11:36.008] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[12:11:36.026] DIAGRAMA· render: 6.0 ms — 26 nodos, 26 conexiones
+[12:11:36.049] DIAGRAMA· render: 3.5 ms — 26 nodos, 26 conexiones
+[12:11:36.057] DIAGRAMA· render: 4.7 ms — 26 nodos, 26 conexiones
+[12:11:36.080] DIAGRAMA· render: 3.4 ms — 26 nodos, 26 conexiones
+[12:11:36.087] DIAGRAMA· render: 4.5 ms — 26 nodos, 26 conexiones
+[12:11:36.112] DIAGRAMA· render: 5.4 ms — 26 nodos, 26 conexiones
+[12:11:36.126] DIAGRAMA· render: 10.1 ms — 26 nodos, 26 conexiones
+[12:11:36.151] DIAGRAMA· render: 3.6 ms — 26 nodos, 26 conexiones
+[12:11:36.159] DIAGRAMA· render: 3.0 ms — 26 nodos, 26 conexiones
+[12:11:36.189] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[12:11:36.196] DIAGRAMA· render: 3.3 ms — 26 nodos, 26 conexiones
+[12:11:36.216] DIAGRAMA· render: 3.6 ms — 26 nodos, 26 conexiones
+[12:11:36.223] DIAGRAMA· render: 2.5 ms — 26 nodos, 26 conexiones
+[12:11:36.241] DIAGRAMA· render: 4.8 ms — 26 nodos, 26 conexiones
+[12:11:36.247] DIAGRAMA· render: 2.4 ms — 26 nodos, 26 conexiones
+[12:11:36.420] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[12:11:36.423] DIAGRAMA· query_conectores_bulk (activos): 2.8 ms — n=50
+[12:11:36.433] DIAGRAMA· render: 9.9 ms — 50 nodos, 50 conexiones
+[12:11:36.641] DIAGRAMA· render: 11.9 ms — 50 nodos, 50 conexiones
+[12:11:36.668] DIAGRAMA· render: 5.9 ms — 50 nodos, 50 conexiones
+[12:11:36.677] DIAGRAMA· render: 5.9 ms — 50 nodos, 50 conexiones
+[12:11:36.707] DIAGRAMA· render: 7.1 ms — 50 nodos, 50 conexiones
+[12:11:36.716] DIAGRAMA· render: 4.6 ms — 50 nodos, 50 conexiones
+[12:11:36.740] DIAGRAMA· render: 6.8 ms — 50 nodos, 50 conexiones
+[12:11:36.749] DIAGRAMA· render: 5.4 ms — 50 nodos, 50 conexiones
+[12:11:36.780] DIAGRAMA· render: 10.2 ms — 50 nodos, 50 conexiones
+[12:11:36.789] DIAGRAMA· render: 5.8 ms — 50 nodos, 50 conexiones
+[12:11:36.827] DIAGRAMA· render: 5.9 ms — 50 nodos, 50 conexiones
+[12:11:36.835] DIAGRAMA· render: 4.3 ms — 50 nodos, 50 conexiones
+[12:11:36.860] DIAGRAMA· render: 6.0 ms — 50 nodos, 50 conexiones
+[12:11:36.867] DIAGRAMA· render: 4.2 ms — 50 nodos, 50 conexiones
+[12:11:36.893] DIAGRAMA· render: 8.2 ms — 50 nodos, 50 conexiones
+[12:11:36.902] DIAGRAMA· render: 4.5 ms — 50 nodos, 50 conexiones
+[12:11:36.925] DIAGRAMA· render: 6.3 ms — 50 nodos, 50 conexiones
+[12:11:36.934] DIAGRAMA· render: 4.4 ms — 50 nodos, 50 conexiones
+[12:11:36.958] DIAGRAMA· render: 6.5 ms — 50 nodos, 50 conexiones
+[12:11:36.966] DIAGRAMA· render: 4.4 ms — 50 nodos, 50 conexiones
+[12:11:37.168] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[12:11:37.173] DIAGRAMA· query_conectores_bulk (activos): 4.8 ms — n=25
+[12:11:37.185] DIAGRAMA· render: 11.3 ms — 25 nodos, 25 conexiones
+[12:11:37.299] DIAGRAMA· render: 9.4 ms — 25 nodos, 25 conexiones
+[12:11:37.323] DIAGRAMA· render: 4.8 ms — 25 nodos, 25 conexiones
+[12:11:37.345] DIAGRAMA· render: 9.2 ms — 25 nodos, 25 conexiones
+[12:11:37.364] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[12:11:37.383] DIAGRAMA· render: 4.2 ms — 25 nodos, 25 conexiones
+[12:11:37.413] DIAGRAMA· render: 4.1 ms — 25 nodos, 25 conexiones
+[12:11:37.431] DIAGRAMA· render: 4.1 ms — 25 nodos, 25 conexiones
+[12:11:37.717] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[12:11:37.723] DIAGRAMA· query_conectores_bulk (activos): 5.7 ms — n=28
+[12:11:37.734] DIAGRAMA· render: 10.3 ms — 28 nodos, 27 conexiones
+[12:11:37.754] DIAGRAMA· render: 5.2 ms — 28 nodos, 27 conexiones
+[12:11:37.774] DIAGRAMA· render: 5.6 ms — 28 nodos, 27 conexiones
+[12:11:37.793] DIAGRAMA· render: 5.5 ms — 28 nodos, 27 conexiones
+[12:11:37.812] DIAGRAMA· render: 4.5 ms — 28 nodos, 27 conexiones
+[12:11:37.831] DIAGRAMA· render: 4.6 ms — 28 nodos, 27 conexiones
+[12:11:37.851] DIAGRAMA· render: 4.2 ms — 28 nodos, 27 conexiones
+[12:11:37.871] DIAGRAMA· render: 5.1 ms — 28 nodos, 27 conexiones
+[12:11:37.891] DIAGRAMA· render: 5.2 ms — 28 nodos, 27 conexiones
+[12:11:37.910] DIAGRAMA· render: 4.9 ms — 28 nodos, 27 conexiones
+[12:11:37.931] DIAGRAMA· render: 4.4 ms — 28 nodos, 27 conexiones
+[12:11:37.951] DIAGRAMA· render: 4.3 ms — 28 nodos, 27 conexiones
+[12:11:37.971] DIAGRAMA· render: 4.8 ms — 28 nodos, 27 conexiones
+[12:11:37.992] DIAGRAMA· render: 5.5 ms — 28 nodos, 27 conexiones
+[12:11:38.012] DIAGRAMA· render: 4.7 ms — 28 nodos, 27 conexiones
+[12:11:38.032] DIAGRAMA· render: 4.3 ms — 28 nodos, 27 conexiones
+[12:11:38.051] DIAGRAMA· render: 4.7 ms — 28 nodos, 27 conexiones
+[12:11:38.072] DIAGRAMA· render: 5.2 ms — 28 nodos, 27 conexiones
+[12:11:38.092] DIAGRAMA· render: 4.8 ms — 28 nodos, 27 conexiones
+[12:11:38.128] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[12:11:38.131] DIAGRAMA· query_conectores_bulk (activos): 2.6 ms — n=50
+[12:11:38.137] DIAGRAMA· render: 5.7 ms — 50 nodos, 48 conexiones
+[12:11:38.166] DIAGRAMA· render: 6.5 ms — 50 nodos, 48 conexiones
+[12:11:38.201] DIAGRAMA· render: 17.3 ms — 50 nodos, 48 conexiones
+[12:11:38.226] DIAGRAMA· render: 6.5 ms — 50 nodos, 48 conexiones
+[12:11:38.250] DIAGRAMA· render: 6.0 ms — 50 nodos, 48 conexiones
+[12:11:38.275] DIAGRAMA· render: 7.0 ms — 50 nodos, 48 conexiones
+[12:11:38.300] DIAGRAMA· render: 6.1 ms — 50 nodos, 48 conexiones
+[12:11:38.324] DIAGRAMA· render: 6.7 ms — 50 nodos, 48 conexiones
+[12:11:38.349] DIAGRAMA· render: 6.1 ms — 50 nodos, 48 conexiones
+[12:11:38.374] DIAGRAMA· render: 6.9 ms — 50 nodos, 48 conexiones
+[12:11:38.412] DIAGRAMA· render: 10.0 ms — 50 nodos, 48 conexiones
+[12:11:38.445] DIAGRAMA· render: 6.1 ms — 50 nodos, 48 conexiones
+[12:11:38.648] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[12:11:38.654] DIAGRAMA· query_conectores_bulk (activos): 5.5 ms — n=25
+[12:11:38.668] DIAGRAMA· render: 12.9 ms — 25 nodos, 24 conexiones
+[12:11:38.676] DIAGRAMA· render: 2.2 ms — 25 nodos, 24 conexiones
+[12:11:38.696] DIAGRAMA· render: 3.9 ms — 25 nodos, 24 conexiones
+[12:11:38.713] DIAGRAMA· render: 3.9 ms — 25 nodos, 24 conexiones
+[12:11:38.736] DIAGRAMA· render: 4.0 ms — 25 nodos, 24 conexiones
+[12:11:38.754] DIAGRAMA· render: 4.5 ms — 25 nodos, 24 conexiones
+[12:11:38.783] DIAGRAMA· render: 14.6 ms — 25 nodos, 24 conexiones
+[12:11:38.801] DIAGRAMA· render: 3.9 ms — 25 nodos, 24 conexiones
+[12:11:38.819] DIAGRAMA· render: 4.5 ms — 25 nodos, 24 conexiones
+[12:11:39.003] DIAGRAMA· render: 9.9 ms — 25 nodos, 24 conexiones
+[12:11:39.018] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[12:11:39.027] DIAGRAMA· render: 4.0 ms — 25 nodos, 24 conexiones
+[12:11:39.046] DIAGRAMA· render: 4.4 ms — 25 nodos, 24 conexiones
+[12:11:39.067] DIAGRAMA· render: 4.0 ms — 25 nodos, 24 conexiones
+[12:11:39.090] DIAGRAMA· render: 5.5 ms — 25 nodos, 24 conexiones
+[12:11:39.112] DIAGRAMA· render: 4.9 ms — 25 nodos, 24 conexiones
+[12:11:39.131] DIAGRAMA· render: 4.0 ms — 25 nodos, 24 conexiones
+[12:11:39.151] DIAGRAMA· render: 4.3 ms — 25 nodos, 24 conexiones
+[12:11:39.170] DIAGRAMA· render: 4.5 ms — 25 nodos, 24 conexiones
+[12:11:39.189] DIAGRAMA· render: 4.8 ms — 25 nodos, 24 conexiones
+[12:11:39.207] DIAGRAMA· render: 5.0 ms — 25 nodos, 24 conexiones
+[12:11:39.225] DIAGRAMA· render: 4.9 ms — 25 nodos, 24 conexiones
+[12:11:39.243] DIAGRAMA· render: 4.6 ms — 25 nodos, 24 conexiones
+[12:11:39.261] DIAGRAMA· render: 4.4 ms — 25 nodos, 24 conexiones
+[12:11:39.473] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[12:11:39.479] DIAGRAMA· query_conectores_bulk (activos): 6.4 ms — n=25
+[12:11:39.491] DIAGRAMA· render: 11.0 ms — 25 nodos, 25 conexiones
+[12:11:39.503] DIAGRAMA· render: 3.4 ms — 25 nodos, 25 conexiones
+[12:11:39.525] DIAGRAMA· render: 5.1 ms — 25 nodos, 25 conexiones
+[12:11:39.543] DIAGRAMA· render: 6.2 ms — 25 nodos, 25 conexiones
+[12:11:39.569] DIAGRAMA· render: 3.8 ms — 25 nodos, 25 conexiones
+[12:11:39.587] DIAGRAMA· render: 4.4 ms — 25 nodos, 25 conexiones
+[12:11:39.616] DIAGRAMA· render: 14.7 ms — 25 nodos, 25 conexiones
+[12:11:39.634] DIAGRAMA· render: 4.6 ms — 25 nodos, 25 conexiones
+[12:11:39.652] DIAGRAMA· render: 4.2 ms — 25 nodos, 25 conexiones
+[12:11:39.670] DIAGRAMA· render: 4.3 ms — 25 nodos, 25 conexiones
+[12:11:39.697] DIAGRAMA· render: 3.4 ms — 25 nodos, 25 conexiones
+[12:11:39.810] DIAGRAMA· render: 3.2 ms — 25 nodos, 25 conexiones
+[12:11:39.982] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[12:11:40.037] DIAGRAMA· render: 5.7 ms — 25 nodos, 25 conexiones
+[12:11:40.052] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[12:11:40.054] DIAGRAMA· query_conectores_bulk (activos): 1.9 ms — n=28
+[12:11:40.061] DIAGRAMA· render: 6.4 ms — 28 nodos, 28 conexiones
+[12:11:40.406] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[12:11:40.428] DIAGRAMA· render: 9.8 ms — 28 nodos, 28 conexiones
+[12:11:40.460] DIAGRAMA· render: 3.8 ms — 28 nodos, 28 conexiones
+[12:11:40.492] DIAGRAMA· render: 3.8 ms — 28 nodos, 28 conexiones
+[12:11:40.549] DIAGRAMA· render: 8.6 ms — 28 nodos, 28 conexiones
+[12:11:40.572] DIAGRAMA· render: 4.8 ms — 28 nodos, 28 conexiones
+[12:11:40.590] DIAGRAMA· render: 4.9 ms — 28 nodos, 28 conexiones
+[12:11:40.609] DIAGRAMA· render: 4.7 ms — 28 nodos, 28 conexiones
+[12:11:40.628] DIAGRAMA· render: 4.2 ms — 28 nodos, 28 conexiones
+[12:11:40.649] DIAGRAMA· render: 4.3 ms — 28 nodos, 28 conexiones
+[12:11:40.667] DIAGRAMA· render: 4.1 ms — 28 nodos, 28 conexiones
+[12:11:40.685] DIAGRAMA· render: 4.4 ms — 28 nodos, 28 conexiones
+[12:11:40.884] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[12:11:40.889] DIAGRAMA· query_conectores_bulk (activos): 5.2 ms — n=25
+[12:11:40.901] DIAGRAMA· render: 10.5 ms — 25 nodos, 25 conexiones
+[12:11:41.085] DIAGRAMA· render: 7.3 ms — 25 nodos, 25 conexiones
+[12:11:41.130] DIAGRAMA· render: 3.2 ms — 25 nodos, 25 conexiones
+[12:11:41.164] DIAGRAMA· render: 5.6 ms — 25 nodos, 25 conexiones
+[12:11:41.191] DIAGRAMA· render: 5.5 ms — 25 nodos, 25 conexiones
+[12:11:41.222] DIAGRAMA· render: 15.1 ms — 25 nodos, 25 conexiones
+[12:11:41.240] DIAGRAMA· render: 4.8 ms — 25 nodos, 25 conexiones
+[12:11:41.259] DIAGRAMA· render: 4.7 ms — 25 nodos, 25 conexiones
+[12:11:41.277] DIAGRAMA· render: 4.4 ms — 25 nodos, 25 conexiones
+[12:11:41.295] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[12:11:41.314] DIAGRAMA· render: 3.9 ms — 25 nodos, 25 conexiones
+[12:11:41.335] DIAGRAMA· render: 4.2 ms — 25 nodos, 25 conexiones
+[12:11:41.354] DIAGRAMA· render: 5.1 ms — 25 nodos, 25 conexiones
+[12:11:41.372] DIAGRAMA· render: 5.2 ms — 25 nodos, 25 conexiones
+[12:11:41.391] DIAGRAMA· render: 4.9 ms — 25 nodos, 25 conexiones
+[12:11:41.410] DIAGRAMA· render: 4.2 ms — 25 nodos, 25 conexiones
+[12:11:41.438] DIAGRAMA· render: 4.2 ms — 25 nodos, 25 conexiones
+[12:11:41.478] DIAGRAMA· render: 4.5 ms — 25 nodos, 25 conexiones
+[12:11:41.506] DIAGRAMA· render: 4.3 ms — 25 nodos, 25 conexiones
+[12:11:41.525] DIAGRAMA· render: 4.9 ms — 25 nodos, 25 conexiones
+[12:11:41.543] DIAGRAMA· render: 4.3 ms — 25 nodos, 25 conexiones
+[12:11:41.562] DIAGRAMA· render: 4.3 ms — 25 nodos, 25 conexiones
+[12:11:41.581] DIAGRAMA· render: 4.1 ms — 25 nodos, 25 conexiones
+[12:11:41.599] DIAGRAMA· render: 3.9 ms — 25 nodos, 25 conexiones
+[12:11:41.618] DIAGRAMA· render: 4.4 ms — 25 nodos, 25 conexiones
+[12:11:41.637] DIAGRAMA· render: 5.2 ms — 25 nodos, 25 conexiones
+[12:11:41.659] DIAGRAMA· render: 9.5 ms — 25 nodos, 25 conexiones
+[12:11:41.677] DIAGRAMA· render: 4.2 ms — 25 nodos, 25 conexiones
+[12:11:41.697] DIAGRAMA· render: 5.5 ms — 25 nodos, 25 conexiones
+[12:11:41.726] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[12:11:41.731] DIAGRAMA· render: 2.0 ms — 25 nodos, 25 conexiones
+[12:11:41.748] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[12:11:41.767] DIAGRAMA· render: 4.0 ms — 25 nodos, 25 conexiones
+[12:11:41.793] DIAGRAMA· render: 3.2 ms — 25 nodos, 25 conexiones
+[12:11:41.832] DIAGRAMA· render: 3.3 ms — 25 nodos, 25 conexiones
+[12:11:41.839] DIAGRAMA· render: 2.3 ms — 25 nodos, 25 conexiones
+[12:11:41.848] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[12:11:41.851] DIAGRAMA· query_conectores_bulk (activos): 2.8 ms — n=28
+[12:11:41.856] DIAGRAMA· render: 4.1 ms — 28 nodos, 28 conexiones
+[12:11:41.876] DIAGRAMA· render: 5.3 ms — 28 nodos, 28 conexiones
+[12:11:41.903] DIAGRAMA· render: 3.8 ms — 28 nodos, 28 conexiones
+[12:11:41.945] DIAGRAMA· render: 6.0 ms — 28 nodos, 28 conexiones
+[12:11:42.243] DIAGRAMA· recalcular_visibles (filtro viewport): 0.3 ms — indice=347
+[12:11:42.616] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[12:11:42.877] DIAGRAMA· render: 11.3 ms — 28 nodos, 28 conexiones
+[12:11:42.907] DIAGRAMA· render: 4.3 ms — 28 nodos, 28 conexiones
+[12:11:42.926] DIAGRAMA· render: 4.5 ms — 28 nodos, 28 conexiones
+[12:11:42.946] DIAGRAMA· render: 4.7 ms — 28 nodos, 28 conexiones
+[12:11:42.965] DIAGRAMA· render: 4.7 ms — 28 nodos, 28 conexiones
+[12:11:42.984] DIAGRAMA· render: 4.2 ms — 28 nodos, 28 conexiones
+[12:11:43.004] DIAGRAMA· render: 4.8 ms — 28 nodos, 28 conexiones
+[12:11:43.024] DIAGRAMA· render: 4.7 ms — 28 nodos, 28 conexiones
+[12:11:43.043] DIAGRAMA· render: 4.1 ms — 28 nodos, 28 conexiones
+[12:11:43.062] DIAGRAMA· render: 4.6 ms — 28 nodos, 28 conexiones
+[12:11:43.086] DIAGRAMA· render: 4.3 ms — 28 nodos, 28 conexiones
+[12:11:43.106] DIAGRAMA· render: 4.9 ms — 28 nodos, 28 conexiones
+[12:11:43.138] DIAGRAMA· render: 16.6 ms — 28 nodos, 28 conexiones
+[12:11:43.157] DIAGRAMA· render: 4.8 ms — 28 nodos, 28 conexiones
+[12:11:43.177] DIAGRAMA· render: 5.5 ms — 28 nodos, 28 conexiones
+[12:11:43.207] DIAGRAMA· render: 4.0 ms — 28 nodos, 28 conexiones
+[12:11:43.235] DIAGRAMA· render: 3.7 ms — 28 nodos, 28 conexiones
+[12:11:43.254] DIAGRAMA· render: 4.9 ms — 28 nodos, 28 conexiones
+[12:11:43.294] DIAGRAMA· render: 3.8 ms — 28 nodos, 28 conexiones
+[12:11:43.322] DIAGRAMA· render: 4.4 ms — 28 nodos, 28 conexiones
+[12:11:43.363] DIAGRAMA· render: 4.2 ms — 28 nodos, 28 conexiones
+[12:11:43.381] DIAGRAMA· render: 4.2 ms — 28 nodos, 28 conexiones
+[12:11:43.400] DIAGRAMA· render: 4.5 ms — 28 nodos, 28 conexiones
+[12:11:43.420] DIAGRAMA· render: 5.3 ms — 28 nodos, 28 conexiones
+[12:11:43.439] DIAGRAMA· render: 5.2 ms — 28 nodos, 28 conexiones
+[12:11:43.458] DIAGRAMA· render: 5.1 ms — 28 nodos, 28 conexiones
+[12:11:43.477] DIAGRAMA· render: 4.8 ms — 28 nodos, 28 conexiones
+[12:11:43.496] DIAGRAMA· render: 4.1 ms — 28 nodos, 28 conexiones
+[12:11:43.515] DIAGRAMA· render: 4.4 ms — 28 nodos, 28 conexiones
+[12:11:43.534] DIAGRAMA· render: 4.6 ms — 28 nodos, 28 conexiones
+[12:11:43.552] DIAGRAMA· render: 4.5 ms — 28 nodos, 28 conexiones
+[12:11:43.572] DIAGRAMA· render: 5.1 ms — 28 nodos, 28 conexiones
+[12:11:43.591] DIAGRAMA· render: 4.7 ms — 28 nodos, 28 conexiones
+[12:11:43.789] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[12:11:44.560] DIAGRAMA· render: 7.6 ms — 28 nodos, 28 conexiones
+[12:11:44.591] DIAGRAMA· render: 3.9 ms — 28 nodos, 28 conexiones
+[12:11:44.614] DIAGRAMA· render: 4.5 ms — 28 nodos, 28 conexiones
+[12:11:44.633] DIAGRAMA· render: 4.2 ms — 28 nodos, 28 conexiones
+[12:11:44.664] DIAGRAMA· render: 15.0 ms — 28 nodos, 28 conexiones
+[12:11:44.683] DIAGRAMA· render: 4.2 ms — 28 nodos, 28 conexiones
+[12:11:44.701] DIAGRAMA· render: 4.2 ms — 28 nodos, 28 conexiones
+[12:11:44.721] DIAGRAMA· render: 4.6 ms — 28 nodos, 28 conexiones
+[12:11:44.748] DIAGRAMA· render: 3.9 ms — 28 nodos, 28 conexiones
+[12:11:44.775] DIAGRAMA· render: 3.7 ms — 28 nodos, 28 conexiones
+[12:11:44.817] DIAGRAMA· render: 5.6 ms — 28 nodos, 28 conexiones
+[12:11:44.836] DIAGRAMA· render: 4.1 ms — 28 nodos, 28 conexiones
+[12:11:44.856] DIAGRAMA· render: 5.4 ms — 28 nodos, 28 conexiones
+[12:11:44.875] DIAGRAMA· render: 4.3 ms — 28 nodos, 28 conexiones
+[12:11:44.894] DIAGRAMA· render: 4.7 ms — 28 nodos, 28 conexiones
+[12:11:44.913] DIAGRAMA· render: 4.1 ms — 28 nodos, 28 conexiones
+[12:11:44.932] DIAGRAMA· render: 4.3 ms — 28 nodos, 28 conexiones
+[12:11:44.951] DIAGRAMA· render: 4.4 ms — 28 nodos, 28 conexiones
+[12:11:44.970] DIAGRAMA· render: 4.4 ms — 28 nodos, 28 conexiones
+[12:11:44.989] DIAGRAMA· render: 5.2 ms — 28 nodos, 28 conexiones
+[12:11:45.008] DIAGRAMA· render: 4.8 ms — 28 nodos, 28 conexiones
+[12:11:45.027] DIAGRAMA· render: 4.4 ms — 28 nodos, 28 conexiones
+[12:11:45.201] DIAGRAMA· recalcular_visibles (filtro viewport): 0.5 ms — indice=347
+[12:11:45.206] DIAGRAMA· query_conectores_bulk (activos): 5.4 ms — n=26
+[12:11:45.216] DIAGRAMA· render: 9.5 ms — 26 nodos, 27 conexiones
+[12:11:45.504] DIAGRAMA· render: 10.7 ms — 26 nodos, 27 conexiones
+[12:11:45.570] DIAGRAMA· render: 3.6 ms — 26 nodos, 27 conexiones
+[12:11:45.611] DIAGRAMA· render: 3.6 ms — 26 nodos, 27 conexiones
+[12:11:45.922] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[12:11:52.839] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[12:11:52.839] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[12:11:53.111] [inmersivo] === CableDocApp.build() ===
+[12:11:53.186] [inmersivo] === CableDocApp.on_start() ===
+[12:11:53.186] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[12:11:53.186] [inmersivo] platform != 'android' -> no hago nada
+[12:11:53.245] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[12:11:53.245] [inmersivo] platform != 'android' -> no hago nada
+[12:11:53.275] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f0c1a6ea440>, 360, 800))) platform='linux'
+[12:11:53.275] [inmersivo] platform != 'android' -> no hago nada
+[12:11:53.854] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[12:11:53.854] [inmersivo] platform != 'android' -> no hago nada
+[12:11:54.870] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[12:11:54.870] [inmersivo] platform != 'android' -> no hago nada
+[00:56:06.771] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[00:56:06.773] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[00:56:07.246] [inmersivo] === CableDocApp.build() ===
+[00:56:07.344] [inmersivo] === CableDocApp.on_start() ===
+[00:56:07.344] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[00:56:07.344] [inmersivo] platform != 'android' -> no hago nada
+[00:56:07.426] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[00:56:07.427] [inmersivo] platform != 'android' -> no hago nada
+[00:56:07.473] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f5b52cea440>, 360, 800))) platform='linux'
+[00:56:07.473] [inmersivo] platform != 'android' -> no hago nada
+[00:56:07.819] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[00:56:07.820] [inmersivo] platform != 'android' -> no hago nada
+[00:56:08.811] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[00:56:08.812] [inmersivo] platform != 'android' -> no hago nada
+[00:57:38.334] [busqueda_global] _construir_arbol: 3957 nodos, 5 salas, 515 cables, 26 ms (consultas SQL, bulk fetch)
+[00:57:38.335] [busqueda_global] recargar(): armado de nodos en 27 ms
+[00:57:38.345] [busqueda_global] _rebuild: filtro='' clear_widgets(0)=0ms visibilidad=1ms render=10ms (8 filas creadas, 0 matches, tope=False) total=10ms
+[00:58:09.730] [busqueda_global] tecla → 'p' (reprograma debounce)
+[00:58:09.866] [busqueda_global] tecla → 'pr' (reprograma debounce)
+[00:58:09.941] [busqueda_global] tecla → 'pro' (reprograma debounce)
+[00:58:10.065] [busqueda_global] tecla → 'prod' (reprograma debounce)
+[00:58:10.162] [busqueda_global] tecla → 'produ' (reprograma debounce)
+[00:58:10.276] [busqueda_global] tecla → 'produc' (reprograma debounce)
+[00:58:10.412] [busqueda_global] tecla → 'producc' (reprograma debounce)
+[00:58:10.526] [busqueda_global] tecla → 'producci' (reprograma debounce)
+[00:58:10.668] [busqueda_global] tecla → 'produccio' (reprograma debounce)
+[00:58:10.730] [busqueda_global] tecla → 'produccion' (reprograma debounce)
+[00:58:11.104] [busqueda_global] _rebuild: filtro='produccion' clear_widgets(8)=0ms visibilidad=3ms render=69ms (51 filas creadas, 25 matches, tope=False) total=73ms
+[00:58:11.105] [busqueda_global] _aplicar_filtro('produccion'): total 73 ms
+[00:58:15.520] [busqueda_global] _rebuild: filtro='produccion' clear_widgets(51)=2ms visibilidad=3ms render=41ms (51 filas creadas, 25 matches, tope=False) total=46ms
+[00:58:17.520] [busqueda_global] _rebuild: filtro='produccion' clear_widgets(51)=1ms visibilidad=4ms render=82ms (51 filas creadas, 25 matches, tope=False) total=87ms
+[00:58:17.986] [busqueda_global] _rebuild: filtro='produccion' clear_widgets(51)=1ms visibilidad=4ms render=64ms (51 filas creadas, 25 matches, tope=False) total=68ms
+[00:58:18.166] [busqueda_global] _rebuild: filtro='produccion' clear_widgets(51)=1ms visibilidad=3ms render=75ms (51 filas creadas, 25 matches, tope=False) total=79ms
+[01:18:13.348] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[01:18:13.348] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[01:18:13.694] [inmersivo] === CableDocApp.build() ===
+[01:18:13.781] [inmersivo] === CableDocApp.on_start() ===
+[01:18:13.781] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[01:18:13.781] [inmersivo] platform != 'android' -> no hago nada
+[01:18:13.860] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[01:18:13.860] [inmersivo] platform != 'android' -> no hago nada
+[01:18:13.899] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f3a5ae92440>, 360, 800))) platform='linux'
+[01:18:13.899] [inmersivo] platform != 'android' -> no hago nada
+[01:18:14.369] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[01:18:14.370] [inmersivo] platform != 'android' -> no hago nada
+[01:18:15.532] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[01:18:15.532] [inmersivo] platform != 'android' -> no hago nada
+[01:20:53.020] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[01:20:53.021] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[01:20:53.378] [inmersivo] === CableDocApp.build() ===
+[01:20:53.469] [inmersivo] === CableDocApp.on_start() ===
+[01:20:53.469] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[01:20:53.469] [inmersivo] platform != 'android' -> no hago nada
+[01:20:53.553] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[01:20:53.553] [inmersivo] platform != 'android' -> no hago nada
+[01:20:53.588] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f90c178e440>, 360, 800))) platform='linux'
+[01:20:53.588] [inmersivo] platform != 'android' -> no hago nada
+[01:20:54.048] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[01:20:54.048] [inmersivo] platform != 'android' -> no hago nada
+[01:20:55.040] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[01:20:55.041] [inmersivo] platform != 'android' -> no hago nada

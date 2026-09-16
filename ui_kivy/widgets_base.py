@@ -33,6 +33,16 @@ import math
 
 from core.logger_cabledoc import log_error, log_debug
 
+# Fase 3.5 (ver plan_svg_pygame_nanosvg_v1.md): ruta primaria de
+# rasterizado SVG vía pygame/SDL_image, confirmada en dispositivo real
+# (Pydroid 3) más simple y sin la dependencia de compilación de
+# pycairo/rlPyCairo que exige la cadena svglib+reportlab de abajo. Import
+# a nivel de módulo (no perezoso): svg_raster_pygame ya encapsula su
+# propia detección de disponibilidad (svg_disponible()) sin llamar
+# pygame.init() completo, así que importarlo acá no tiene efectos
+# secundarios sobre la ventana de Kivy.
+import svg_raster_pygame
+
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.anchorlayout import AnchorLayout
@@ -1669,7 +1679,8 @@ class VisorImagenZoom(BoxLayout):
         self._MSG_SIN_IMAGEN = _("Sin imagen asignada al equipo/conector")
         self._MSG_SVG_NO_RENDERIZADO = _(
             "No se pudo mostrar la imagen SVG (revisar log.txt — "
-            "puede faltar svglib/reportlab/rlPyCairo)")
+            "puede faltar pygame o, en su defecto, svglib/reportlab/"
+            "rlPyCairo)")
         self._lbl_sin_imagen = Label(
             text=self._MSG_SIN_IMAGEN,
             color=(0.85, 0.85, 0.85, 1))
@@ -1807,8 +1818,11 @@ def dibujar_marcador_cuadrado(canvas_widget, cx, cy, lado, color_rgb,
 #  Rsvg+Cairo en cada frame; acá no hay Rsvg (gi no existe en Android/Pydroid
 #  3 — ver core/modelo.py._dimensiones_svg_sin_gi para el mismo problema
 #  aplicado a dimensiones en vez de a render), así que en cambio se
-#  RASTERIZA el símbolo una sola vez a una textura (con svglib+reportlab,
-#  igual que el fallback de dimensiones) y esa textura se reescala como
+#  RASTERIZA el símbolo una sola vez a una textura — desde Fase 3.5, vía
+#  pygame/SDL_image (NanoSVG, ver svg_raster_pygame.py y
+#  plan_svg_pygame_nanosvg_v1.md) como ruta primaria, con svglib+reportlab
+#  como fallback si pygame no está disponible o falla puntualmente — y
+#  esa textura se reescala como
 #  cualquier imagen de Kivy en cada frame — mismo patrón que ya usa este
 #  archivo para el número de marcador (Rectangle(texture=lbl_n.texture,...)
 #  en pantallas_avanzadas.py). Toda la lógica de negocio (qué símbolo
@@ -1853,13 +1867,30 @@ def crear_textura_simbolo(svg_fragmento, viewbox="0 0 24 24", color=None,
             f'{svg_fragmento}</svg>'
         )
         ET.fromstring(svg_completo)  # validar XML antes de gastar en rasterizar
+        datos_svg = svg_completo.encode("utf-8")
 
         from io import BytesIO
-        from svglib.svglib import svg2rlg
-        from reportlab.graphics import renderPM
         from kivy.core.image import Image as _CoreImage
 
-        drawing = svg2rlg(BytesIO(svg_completo.encode("utf-8")))
+        # Ruta primaria (Fase 3.5): pygame/SDL_image (NanoSVG). Confirmado
+        # en dispositivo real que rasteriza sin necesitar la cadena
+        # svglib+reportlab+rlPyCairo (esta última requiere compilar
+        # pycairo contra libcairo, riesgo no confirmado en Pydroid 3 — ver
+        # plan_svg_pygame_nanosvg_v1.md). Si pygame no está disponible en
+        # este entorno, o falla puntualmente para este fragmento (p.ej.
+        # <text> o gradientes que NanoSVG no soporta — auditoría
+        # pendiente), cae al fallback de abajo sin romper nada.
+        png_bytes = svg_raster_pygame.rasterizar_svg_bytes_a_png_bytes(
+            datos_svg, ancho_px=resolucion_px)
+        if png_bytes is not None:
+            textura = _CoreImage(BytesIO(png_bytes), ext="png").texture
+            _CACHE_TEXTURA_SIMBOLO[clave] = textura
+            return textura
+
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPM
+
+        drawing = svg2rlg(BytesIO(datos_svg))
         if drawing is None or not drawing.width or not drawing.height:
             return None
         escala = resolucion_px / max(drawing.width, drawing.height)
@@ -1912,10 +1943,11 @@ def dibujar_simbolo_conector_kivy(canvas_widget, textura, wx, wy, radio_px):
 #  regla de activación de los símbolos con forma real (§4 del plan: "sólo
 #  si el fondo es SVG") nunca podría cumplirse en mobile, porque la imagen
 #  de fondo ni siquiera se llegaría a mostrar. Mismo enfoque que
-#  crear_textura_simbolo (rasterizar una vez con svglib+reportlab a una
-#  Texture de Kivy), pero para el documento COMPLETO en vez de un
-#  fragmento chico, y reutilizando Modelo._dimensiones_svg_sin_gi (Fase
-#  3.3) para el tamaño intrínseco en vez de duplicar esa lógica acá.
+#  crear_textura_simbolo (rasterizar una vez a una Texture de Kivy, con
+#  pygame/SDL_image como ruta primaria desde Fase 3.5 y svglib+reportlab
+#  como fallback), pero para el documento COMPLETO en vez de un fragmento
+#  chico, y reutilizando Modelo._dimensiones_svg_sin_gi (Fase 3.3) para el
+#  tamaño intrínseco en vez de duplicar esa lógica acá.
 
 _CACHE_TEXTURA_IMAGEN_SVG = {}
 
@@ -2004,11 +2036,31 @@ def crear_textura_imagen_svg(ruta_archivo, resolucion_max_px=1600):
             raise ValueError("SVG sin tamaño intrínseco resoluble")
         ancho_px, alto_px = tam
         escala_final = min(1.0, resolucion_max_px / max(ancho_px, alto_px))
+        ancho_final_px = max(1, round(ancho_px * escala_final))
 
         from io import BytesIO
+        from kivy.core.image import Image as _CoreImage
+
+        # Ruta primaria (Fase 3.5) — ver el mismo comentario en
+        # crear_textura_simbolo y plan_svg_pygame_nanosvg_v1.md. Acá el
+        # ancho pedido ya viene acotado a resolucion_max_px (nunca agranda
+        # más allá de la resolución nativa del documento, mismo criterio
+        # que la ruta svglib de abajo).
+        try:
+            with open(ruta_archivo, "rb") as _f:
+                datos_svg = _f.read()
+        except OSError:
+            datos_svg = None
+        png_bytes = (svg_raster_pygame.rasterizar_svg_bytes_a_png_bytes(
+            datos_svg, ancho_px=ancho_final_px)
+            if datos_svg is not None else None)
+        if png_bytes is not None:
+            textura = _CoreImage(BytesIO(png_bytes), ext="png").texture
+            _CACHE_TEXTURA_IMAGEN_SVG[clave] = textura
+            return textura
+
         from svglib.svglib import svg2rlg
         from reportlab.graphics import renderPM
-        from kivy.core.image import Image as _CoreImage
 
         drawing = svg2rlg(ruta_archivo)
         if drawing is None or not drawing.width or not drawing.height:

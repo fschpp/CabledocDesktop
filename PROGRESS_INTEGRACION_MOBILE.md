@@ -79,7 +79,20 @@ core real.
       un rasterizador propio basado sólo en Pillow para el subconjunto de
       SVG que exporta la herramienta vectorial del proyecto (no
       implementado, es sólo una opción de respaldo si el camino actual
-      no es viable en Android).
+      no es viable en Android). **Actualización 2026-09-16T06:00 (Fase
+      3.5, ver plan_svg_pygame_nanosvg_v1.md y changelog.txt):** agregada
+      una ruta alternativa vía `pygame`/SDL_image (NanoSVG,
+      `ui_kivy/svg_raster_pygame.py`), probada como PRIMARIA en
+      `crear_textura_imagen_svg`/`crear_textura_simbolo`, con la cadena
+      svglib/reportlab/rlPyCairo como fallback. A diferencia de
+      rlPyCairo, pygame ya fue CONFIRMADO funcionando en Pydroid 3 real
+      contra 7 SVG del proyecto, sin compilar nada — esto probablemente
+      resuelve el riesgo de pycairo de arriba, pero sigue sin confirmarse
+      contra `catalogo_simbolo_conector.svg_fragmento` reales (sólo se
+      probó con imágenes de fondo completas + 3 símbolos sueltos, no con
+      el formato de fragmento exacto que usa la Fase 3.4) ni contra
+      `<text>`/gradientes complejos. No se cierra esta fase todavía por
+      eso.
 - [ ] Fase 3.4 — Símbolos de conector vectoriales escalados (`mm_por_pixel`,
       depende de que Fase 3.3 esté resuelta).
 - [ ] `requirements-mobile.txt` (todavía no existe; se agrega junto con
