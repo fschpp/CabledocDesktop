@@ -51,6 +51,33 @@ from core.modelo import Modelo, MANUALES_DIR, PICON_DIR
 from core.logger_cabledoc import log_debug
 
 
+def _fmt_mm(v):
+    """Formatea un valor en mm (float/None) para mostrarlo en un
+    TextInput: sin decimales de sobra (300.0 -> "300"), con hasta 1
+    decimal si hace falta (482.6 -> "482.6"). Port de
+    ui_gtk/pantallas_comunes.py._fmt_mm (plan_paneles_vectoriales_v3.md
+    §2.2)."""
+    if v is None or v == "":
+        return ""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return ""
+    return f"{v:.1f}".rstrip("0").rstrip(".") if v != int(v) else str(int(v))
+
+
+def _parse_mm(texto):
+    """Inverso de _fmt_mm: texto de TextInput -> float o None si está
+    vacío/no es numérico (nunca levanta excepción)."""
+    texto = (texto or "").strip().replace(",", ".")
+    if not texto:
+        return None
+    try:
+        return float(texto)
+    except ValueError:
+        return None
+
+
 # ─── Listado en tarjetas ────────────────────────────────────────────────────
 #
 # Rediseño 2.0: reemplaza la vieja tabla de columnas por tarjetas con foto
@@ -894,6 +921,39 @@ class DialogoEquipo(Popup):
         box_datos.bind(minimum_height=box_datos.setter("height"))
         box_datos.add_widget(seccion_tarjeta(_("Datos básicos"), g,
                                              icono="equipos"))
+
+        # ── Sección: Dimensiones físicas (plan_paneles_vectoriales_v3.md
+        # §2.2/§3) — se usan para calibrar la escala de los símbolos de
+        # conector reales sobre imágenes SVG (ver "Edición masiva de
+        # conectores en imagen"). Todo opcional: si no se carga nada, los
+        # símbolos siguen usando el tamaño genérico de siempre, o el
+        # equipo puede calibrarse igual con "Medir en la imagen". ──
+        g_dim = grid_formulario(cols=1)
+        lbl_dim_hint = Label(
+            text=_("(escala de símbolos de conector sobre imagen SVG)"),
+            font_size=FUENTE_CHICA, color=tema.c("texto_sub"),
+            halign="left", valign="middle", size_hint_y=None, height=dp(20))
+        lbl_dim_hint.bind(size=lambda w, *_a: setattr(w, "text_size", w.size))
+        g_dim.add_widget(lbl_dim_hint)
+
+        fila_etiqueta(g_dim, _("Ancho (mm):"))
+        self.e_ancho_mm = fila_entry(g_dim, "")
+        self.e_ancho_mm.input_filter = "float"
+        fila_etiqueta(g_dim, _("Alto (mm):"))
+        self.e_alto_mm = fila_entry(g_dim, "")
+        self.e_alto_mm.input_filter = "float"
+        fila_etiqueta(g_dim, _("Profundidad (mm):"))
+        self.e_profundidad_mm = fila_entry(g_dim, "")
+        self.e_profundidad_mm.input_filter = "float"
+
+        btn_ancho_19 = Button(text=_("Usar ancho estándar 19″"),
+                              size_hint_y=None, height=ALTO_BOTON,
+                              font_size=FUENTE_CHICA)
+        btn_ancho_19.bind(on_release=self._usar_ancho_19)
+        g_dim.add_widget(btn_ancho_19)
+
+        box_datos.add_widget(seccion_tarjeta(
+            _("📏 Dimensiones físicas"), g_dim, icono="equipos"))
         scroll_datos.add_widget(box_datos)
 
         # ── Tab "Configuración" ──
@@ -957,6 +1017,11 @@ class DialogoEquipo(Popup):
                 if len(r) > 15 and r[15]:
                     self.picon = s(r[15])
                     self.e_picon.text = self.picon
+                ancho_mm, alto_mm, profundidad_mm = \
+                    Modelo.obtener_dimensiones("equipo", id_equipo)
+                self.e_ancho_mm.text = _fmt_mm(ancho_mm)
+                self.e_alto_mm.text = _fmt_mm(alto_mm)
+                self.e_profundidad_mm.text = _fmt_mm(profundidad_mm)
         if not hasattr(self, "id_marca"):
             self.id_marca = ""
         if not hasattr(self, "id_tipo"):
@@ -1321,6 +1386,12 @@ class DialogoEquipo(Popup):
               "este equipo?"),
             on_si=_si)
 
+    def _usar_ancho_19(self, *_a):
+        """Atajo de §2.2 de plan_paneles_vectoriales_v3.md: precarga el
+        ancho estándar de rack de 19″ (EIA-310) en el campo Ancho, para
+        no tener que buscarlo en el manual cada vez."""
+        self.e_ancho_mm.text = _fmt_mm(Modelo.ANCHO_RACK_19_MM)
+
     def _guardar(self, *_a):
         nombre = self.e_nombre.text.strip()
         if not nombre:
@@ -1328,6 +1399,9 @@ class DialogoEquipo(Popup):
             return
         path_manual = self.e_manual.text.strip()
         configuraciones = self.tv_configuraciones.text.strip()
+        ancho_mm = _parse_mm(self.e_ancho_mm.text)
+        alto_mm = _parse_mm(self.e_alto_mm.text)
+        profundidad_mm = _parse_mm(self.e_profundidad_mm.text)
         args = (
             self.id_tipo or None, self.id_marca or None,
             self.e_inventario.text, self.e_serie.text, self.e_modelo.text,
@@ -1338,8 +1412,12 @@ class DialogoEquipo(Popup):
         )
         if self.id_equipo:
             Modelo.modificacion_equipo(self.id_equipo, *args)
+            Modelo.actualizar_dimensiones(
+                "equipo", self.id_equipo, ancho_mm, alto_mm, profundidad_mm)
         else:
-            Modelo.alta_equipo(*args)
+            nuevo_id = Modelo.alta_equipo_retorna_id(*args)
+            Modelo.actualizar_dimensiones(
+                "equipo", nuevo_id, ancho_mm, alto_mm, profundidad_mm)
         self.dismiss()
         if self._on_guardado:
             self._on_guardado()

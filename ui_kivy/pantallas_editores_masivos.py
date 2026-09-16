@@ -15,6 +15,7 @@ Diferencias respecto al original GTK:
 
 import math
 import os
+import re
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -23,6 +24,8 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
+from kivy.uix.checkbox import CheckBox
+from kivy.uix.spinner import Spinner
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle, Line, Ellipse
@@ -35,11 +38,40 @@ from widgets_base import (
     confirmar, s, _,
     ALTO_BOTON, ALTO_ENTRY, FUENTE_NORMAL, FUENTE_CHICA, fila_cerrar_arriba,
     barra_superior_dialogo, crear_textura_simbolo, dibujar_simbolo_conector_kivy,
+    grid_formulario, fila_etiqueta, SpinnerCantidad,
 )
 from pantallas_avanzadas import PALETA, _ruta_imagen, _ruta_desde_id_imagen
 from core.modelo import Modelo, IMG_DIR
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
+
+def _parse_int(texto, default=0):
+    """Parseo tolerante de un TextInput a entero: nunca levanta
+    excepción (vacío, no numérico, o con decimales de sobra tipo
+    "30.0" caen todos al default o se truncan). Mismo criterio que
+    widgets_base._parse_mm mencionado en pantallas_equipos.py."""
+    texto = (texto or "").strip()
+    if not texto:
+        return default
+    try:
+        return int(float(texto))
+    except ValueError:
+        return default
+
+
+def _clave_orden_natural(nombre):
+    """Clave de orden para nombres de conector tipo '01', '24', 'IN 3',
+    etc.: ordena por el último número que aparezca en el nombre (si hay),
+    y si no por el texto plano. Port de
+    ui_gtk/editor_masivo_conectores_ui.py._clave_orden_natural (Fase 2
+    de plan_paneles_vectoriales_v3.md) — usado por la colocación en
+    lote para ofrecer un orden ascendente/descendente sensato sin
+    depender de que los nombres estén ceropadeados."""
+    m = re.search(r"(\d+)(?!.*\d)", nombre or "")
+    if m:
+        return (0, int(m.group(1)), nombre)
+    return (1, 0, (nombre or "").lower())
+
 
 def _hex_to_rgb(h):
     h = h.lstrip("#")
@@ -66,6 +98,269 @@ def _draw_text_centered_on_canvas(canvas, texto, cx, cy, size=9,
         Rectangle(texture=tex,
                   pos=(cx - tw / 2, cy - th / 2),
                   size=(tw, th))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  _DialogoMedicion — herramienta "Medir en la imagen" (Fase 1 de
+#  ubicación física en planos, port de ui_gtk/editor_masivo_conectores_ui.py
+#  §3.4 de plan_paneles_vectoriales_v3.md)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _DialogoMedicion(Popup):
+    """Se abre después de que el usuario tocó dos puntos de referencia
+    sobre la imagen (dos toques en modo "Medir en la imagen"). Pide
+    cuánto mide esa distancia en la realidad, en mm, y con eso el
+    llamador calcula `imagen.mm_por_pixel = mm_reales / distancia_px`
+    (fuente 1 de la cascada de calibración — gana siempre sobre
+    ancho_mm del equipo y sobre el fallback genérico).
+
+    Equivalente a _DialogoMedicion de editor_masivo_conectores_ui.py
+    (GTK). on_aceptar(mm_reales) se llama solo si el usuario confirma
+    con un valor > 0.
+    """
+
+    def __init__(self, distancia_px, on_aceptar=None, **kwargs):
+        self._on_aceptar = on_aceptar
+
+        box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(14))
+        lbl_info = Label(
+            text=_("Distancia marcada: {px:.1f} px (píxeles nativos de "
+                   "la imagen, no de pantalla).\n"
+                   "¿Cuánto mide esa distancia en la realidad, en mm?")
+                .format(px=distancia_px),
+            size_hint_y=None, height=dp(70), font_size=FUENTE_CHICA,
+            halign="left", valign="top")
+        lbl_info.bind(size=lambda w, *_a: setattr(w, "text_size", w.size))
+        box.add_widget(lbl_info)
+
+        hbox = BoxLayout(size_hint_y=None, height=ALTO_ENTRY, spacing=dp(6))
+        hbox.add_widget(Label(text=_("Milímetros:"), size_hint_x=None,
+                              width=dp(90), font_size=FUENTE_NORMAL))
+        self.e_mm = TextInput(text="", multiline=False, input_filter="float",
+                              font_size=FUENTE_NORMAL)
+        hbox.add_widget(self.e_mm)
+        box.add_widget(hbox)
+
+        hb_btn = BoxLayout(size_hint_y=None, height=ALTO_BOTON, spacing=dp(8))
+        btn_cancelar = Button(text=_("Cancelar"), font_size=FUENTE_NORMAL)
+        btn_aceptar = Button(text=_("Aceptar"), font_size=FUENTE_NORMAL)
+        hb_btn.add_widget(btn_cancelar)
+        hb_btn.add_widget(btn_aceptar)
+        box.add_widget(hb_btn)
+
+        super().__init__(title=_("Medir en la imagen"), content=box,
+                         size_hint=(0.9, None), height=dp(230), **kwargs)
+        btn_cancelar.bind(on_release=lambda *_a: self.dismiss())
+        btn_aceptar.bind(on_release=self._aceptar)
+        self.e_mm.bind(on_text_validate=self._aceptar)
+
+    def _aceptar(self, *_a):
+        try:
+            v = float(self.e_mm.text.strip() or "0")
+        except ValueError:
+            v = 0
+        self.dismiss()
+        if v > 0 and self._on_aceptar:
+            self._on_aceptar(v)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  _DialogoColocacionLote — Fase 2 de plan_paneles_vectoriales_v3.md
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _DialogoColocacionLote(Popup):
+    """Coloca en una sola operación una fila o grilla de conectores del
+    mismo tipo, espaciados uniformemente a partir de un punto inicial.
+    Pensado para el caso típico de un patchbay de 24 conectores en
+    línea: sin esto, hay que tocar cada uno por separado.
+
+    El orden ascendente/descendente cubre la numeración espejada típica
+    de patchbays (la fila física va 24→1 en la cara trasera aunque los
+    nombres sigan siendo '1'..'24'): se ordena por _clave_orden_natural
+    y, si es descendente, se invierte antes de recorrer la grilla.
+
+    No crea conectores nuevos — sólo asigna posición a conectores que ya
+    existen en `conectores` (misma lista que usa
+    EditorMasivoConectoresImagen), filtrados por tipo y, opcionalmente,
+    sólo entre los que todavía no tienen posición. Equivalente a
+    _DialogoColocacionLote de ui_gtk/editor_masivo_conectores_ui.py.
+    on_colocar(ids_ordenados, columnas, sep_x, sep_y, ix0, iy0) se llama
+    solo si el usuario confirma con al menos un conector seleccionado.
+    """
+
+    def __init__(self, conectores, pendientes, punto_inicial=None,
+                 on_colocar=None, **kwargs):
+        # Evaluados acá (no como atributos de clase) porque el idioma
+        # puede cambiarse en caliente desde main.py sin reiniciar la
+        # app — un atributo de clase quedaría congelado con el _()
+        # vigente en el momento en que se importó este módulo, no el
+        # vigente cuando se abre el diálogo.
+        self._TODOS = _("(todos)")
+        self._ASCENDENTE = _("Ascendente (1, 2, 3…)")
+        self._DESCENDENTE = _("Descendente (…3, 2, 1)")
+
+        self._conectores = conectores
+        self._pendientes = pendientes
+        self._on_colocar = on_colocar
+        self._seleccionados = []
+
+        root = BoxLayout(orientation="vertical", spacing=dp(4), padding=dp(4))
+        root.add_widget(barra_superior_dialogo(
+            _("Colocar fila / grilla"), on_atras=lambda: self.dismiss()))
+
+        scroll = ScrollView()
+        g = grid_formulario(cols=1)
+
+        tipos = sorted({c["tipo"] for c in conectores if c["tipo"]})
+        fila_etiqueta(g, _("Tipo de conector:"))
+        self.c_tipo = Spinner(text=self._TODOS, values=[self._TODOS] + tipos,
+                              size_hint_y=None, height=ALTO_ENTRY,
+                              font_size=FUENTE_NORMAL)
+        self.c_tipo.bind(text=self._recalcular)
+        g.add_widget(self.c_tipo)
+
+        hb_libres = BoxLayout(size_hint_y=None, height=ALTO_ENTRY, spacing=dp(6))
+        self.chk_solo_libres = CheckBox(active=True, size_hint_x=None, width=dp(40))
+        self.chk_solo_libres.bind(active=self._recalcular)
+        hb_libres.add_widget(self.chk_solo_libres)
+        hb_libres.add_widget(Label(text=_("Sólo sin posición"),
+                                   font_size=FUENTE_NORMAL, halign="left",
+                                   valign="middle"))
+        g.add_widget(hb_libres)
+
+        fila_etiqueta(g, _("Orden de numeración:"))
+        self.c_orden = Spinner(text=self._ASCENDENTE,
+                               values=[self._ASCENDENTE, self._DESCENDENTE],
+                               size_hint_y=None, height=ALTO_ENTRY,
+                               font_size=FUENTE_CHICA)
+        self.c_orden.bind(text=self._recalcular)
+        g.add_widget(self.c_orden)
+
+        fila_etiqueta(g, _("Cantidad a colocar:"))
+        self.sp_cantidad = SpinnerCantidad(valor=1, minimo=1, maximo=500,
+                                           on_change=self._recalcular)
+        g.add_widget(self.sp_cantidad)
+
+        fila_etiqueta(g, _("Filas:"))
+        self.sp_filas = SpinnerCantidad(valor=1, minimo=1, maximo=100,
+                                        on_change=self._recalcular)
+        g.add_widget(self.sp_filas)
+
+        fila_etiqueta(g, _("Columnas:"))
+        self.sp_columnas = SpinnerCantidad(valor=1, minimo=1, maximo=100,
+                                           on_change=self._recalcular)
+        g.add_widget(self.sp_columnas)
+
+        ix0, iy0 = punto_inicial or (50, 50)
+        fila_etiqueta(g, _("Punto inicial X:"))
+        self.e_x0 = TextInput(text=str(ix0), multiline=False,
+                              input_filter="int", font_size=FUENTE_NORMAL,
+                              size_hint_y=None, height=ALTO_ENTRY)
+        g.add_widget(self.e_x0)
+        fila_etiqueta(g, _("Punto inicial Y:"))
+        self.e_y0 = TextInput(text=str(iy0), multiline=False,
+                              input_filter="int", font_size=FUENTE_NORMAL,
+                              size_hint_y=None, height=ALTO_ENTRY)
+        g.add_widget(self.e_y0)
+
+        fila_etiqueta(g, _("Separación X (px):"))
+        self.e_sep_x = TextInput(text="40", multiline=False,
+                                 input_filter="int", font_size=FUENTE_NORMAL,
+                                 size_hint_y=None, height=ALTO_ENTRY)
+        g.add_widget(self.e_sep_x)
+        fila_etiqueta(g, _("Separación Y (px):"))
+        self.e_sep_y = TextInput(text="40", multiline=False,
+                                 input_filter="int", font_size=FUENTE_NORMAL,
+                                 size_hint_y=None, height=ALTO_ENTRY)
+        g.add_widget(self.e_sep_y)
+
+        self._lbl_preview = Label(
+            text="", font_size=sp(10), color=(0.65, 0.65, 0.65, 1),
+            halign="left", valign="top", size_hint_y=None, height=dp(50))
+        self._lbl_preview.bind(size=lambda w, *_a: setattr(w, "text_size", w.size))
+        g.add_widget(self._lbl_preview)
+
+        scroll.add_widget(g)
+        root.add_widget(scroll)
+
+        hb_btn = BoxLayout(size_hint_y=None, height=ALTO_BOTON, spacing=dp(8))
+        btn_cancelar = Button(text=_("Cancelar"), font_size=FUENTE_NORMAL)
+        btn_colocar = Button(text=_("Colocar"), font_size=FUENTE_NORMAL)
+        hb_btn.add_widget(btn_cancelar)
+        hb_btn.add_widget(btn_colocar)
+        root.add_widget(hb_btn)
+
+        super().__init__(title="", separator_height=0, content=root,
+                         size_hint=(1, 1), **kwargs)
+        btn_cancelar.bind(on_release=lambda *_a: self.dismiss())
+        btn_colocar.bind(on_release=self._colocar)
+        self._recalcular()
+
+    def _candidatos(self):
+        """Conectores que matchean el tipo elegido y (si aplica) que
+        todavía no tienen posición, ordenados naturalmente por
+        nombre."""
+        tipo_sel = self.c_tipo.text
+        solo_libres = self.chk_solo_libres.active
+        out = []
+        for c in self._conectores:
+            if tipo_sel and tipo_sel != self._TODOS and c["tipo"] != tipo_sel:
+                continue
+            if solo_libres and self._pendientes.get(c["id"], {}).get("x"):
+                continue
+            out.append(c)
+        out.sort(key=lambda c: _clave_orden_natural(c["nombre"]))
+        return out
+
+    def _recalcular(self, *_a):
+        candidatos = self._candidatos()
+        max_cant = max(1, len(candidatos))
+        self.sp_cantidad.maximo = max_cant
+        # Igual que GTK: si la cantidad sigue en "1" (sentinel de "el
+        # usuario todavía no la tocó a mano") o quedó por encima del
+        # máximo disponible tras cambiar el filtro, saltar directo al
+        # máximo — el caso de uso típico es "quiero TODOS los que
+        # coincidan con el filtro", no ir subiendo de a uno.
+        if self.sp_cantidad.get_value() > max_cant or self.sp_cantidad.get_value() == 1:
+            self.sp_cantidad.set_value(max_cant)
+
+        cantidad = self.sp_cantidad.get_value()
+        filas = self.sp_filas.get_value()
+        cols = self.sp_columnas.get_value()
+        # Si la grilla no alcanza para "cantidad", ajustar filas para
+        # que sí (mismo criterio que GTK).
+        if filas * cols < cantidad:
+            filas = -(-cantidad // cols)   # ceil
+            self.sp_filas.set_value(filas)
+
+        seleccionados = candidatos[:cantidad]
+        if self.c_orden.text == self._DESCENDENTE:
+            seleccionados = list(reversed(seleccionados))
+
+        if not candidatos:
+            self._lbl_preview.text = _("No hay conectores que coincidan con el filtro.")
+        else:
+            nombres = ", ".join(c["nombre"] for c in seleccionados[:6])
+            if len(seleccionados) > 6:
+                nombres += f"… (+{len(seleccionados) - 6})"
+            self._lbl_preview.text = _(
+                "Se van a posicionar {n} conector(es): {nombres}").format(
+                n=len(seleccionados), nombres=nombres)
+        self._seleccionados = seleccionados
+
+    def _colocar(self, *_a):
+        if not self._seleccionados:
+            self.dismiss()
+            return
+        ids_ordenados = [c["id"] for c in self._seleccionados]
+        columnas = self.sp_columnas.get_value()
+        sep_x = _parse_int(self.e_sep_x.text, 40)
+        sep_y = _parse_int(self.e_sep_y.text, 40)
+        ix0 = _parse_int(self.e_x0.text, 0)
+        iy0 = _parse_int(self.e_y0.text, 0)
+        self.dismiss()
+        if self._on_colocar:
+            self._on_colocar(ids_ordenados, columnas, sep_x, sep_y, ix0, iy0)
 
 
 class _FilaConector(ButtonBehavior, BoxLayout):
@@ -152,6 +447,18 @@ class EditorMasivoConectoresImagen(Popup):
         self._simbolos_activos = False
         self._texturas_por_tipo = {}
         self._mm_por_pixel = None
+        # Herramienta "Medir en la imagen" (Fase 1 — ubicación física en
+        # planos), port de _toggle_medir/_on_clic_medir de
+        # ui_gtk/editor_masivo_conectores_ui.py. Sin clic derecho en
+        # mobile: cancelar la medición en curso es un botón aparte en
+        # vez de un segundo tipo de toque.
+        self._modo_medir = False
+        self._medir_p1 = None
+        # "Último click" (Fase 2 — colocación en lote): recuerda el
+        # último punto tocado en la imagen, aunque no haya seleccionado
+        # ningún conector, para prellenar el "punto inicial" del diálogo
+        # de colocación en lote. No se actualiza durante el modo medir.
+        self._ultimo_click = None
 
         # ── Layout ──────────────────────────────────────────────────────────
         # En desktop: imagen 62% + tabla 38% lado a lado. En 360dp de
@@ -213,6 +520,29 @@ class EditorMasivoConectoresImagen(Popup):
         btn_row.add_widget(btn_quitar)
         btn_row.add_widget(btn_todos)
         root.add_widget(btn_row)
+
+        # "Colocar fila / grilla" — Fase 2 de plan_paneles_vectoriales_v3.md,
+        # el mayor ahorro de tiempo real: coloca de una sola vez varios
+        # conectores del mismo tipo en vez de tocar uno por uno.
+        btn_lote = Button(text=_("▦ Colocar fila / grilla…"),
+                          size_hint_y=None, height=ALTO_BOTON,
+                          font_size=FUENTE_CHICA)
+        btn_lote.bind(on_release=lambda *_a: self._abrir_colocacion_lote())
+        root.add_widget(btn_lote)
+
+        # Herramienta "Medir en la imagen" — calibra mm_por_pixel de esta
+        # imagen para que los símbolos de conector salgan a su tamaño
+        # físico real en vez del tamaño genérico.
+        self._btn_medir = Button(text=_("📏 Medir en la imagen…"),
+                                 size_hint_y=None, height=ALTO_BOTON,
+                                 font_size=FUENTE_CHICA)
+        self._btn_medir.bind(on_release=lambda *_a: self._toggle_medir())
+        root.add_widget(self._btn_medir)
+
+        self._lbl_medir_estado = Label(
+            text="", size_hint_y=None, height=0, font_size=sp(10),
+            color=(0.65, 0.65, 0.65, 1))
+        root.add_widget(self._lbl_medir_estado)
 
         btn_guardar = Button(text=_("Guardar cambios"),
                              size_hint_y=None, height=ALTO_BOTON,
@@ -399,14 +729,29 @@ class EditorMasivoConectoresImagen(Popup):
     # ── Interacción imagen ────────────────────────────────────────────────────
 
     def _on_press_img(self, lx, ly):
-        if not self._sel_id:
-            return
         ix, iy = self._visor.w2i(lx, ly)
+        # Siempre coordenadas enteras de imagen (independiente de si ya
+        # hay textura cargada): _ultimo_click y las coordenadas de
+        # conector se guardan como texto entero en toda la pantalla, y
+        # un float acá rompería el parseo int() en _DialogoColocacionLote.
+        ix, iy = int(round(ix)), int(round(iy))
         if self._visor.textura:
             W = self._visor.textura.width
             H = self._visor.textura.height
-            ix = max(0, min(W, int(ix)))
-            iy = max(0, min(H, int(iy)))
+            ix = max(0, min(W, ix))
+            iy = max(0, min(H, iy))
+
+        if self._modo_medir:
+            self._on_clic_medir(ix, iy)
+            return
+
+        # Fase 2 de plan_paneles_vectoriales_v3.md: recordar el último
+        # punto tocado (aunque no haya conector seleccionado) para
+        # prellenar el "punto inicial" de la colocación en lote.
+        self._ultimo_click = (ix, iy)
+
+        if not self._sel_id:
+            return
 
         # id_imagen de la imagen activa
         img_nombre = self._e_img.text.strip()
@@ -438,6 +783,104 @@ class EditorMasivoConectoresImagen(Popup):
                 if fila:
                     fila.set_color((0.25, 0.45, 0.85, 0.6))
                 return
+
+    # ── Colocación en lote ("Colocar fila / grilla") ────────────────────────────
+
+    def _abrir_colocacion_lote(self):
+        """Fase 2 de plan_paneles_vectoriales_v3.md: colocar de una sola
+        vez una fila o grilla de conectores del mismo tipo, en vez de
+        tocar uno por uno. No requiere que haya imagen elegida para
+        abrir el diálogo, pero sí para poder guardar posiciones con
+        sentido (la imagen determina el sistema de coordenadas en el
+        que se ubican X/Y)."""
+        if self._visor.textura is None:
+            mostrar_error(_("Elegí una imagen primero."))
+            return
+        _DialogoColocacionLote(
+            self._conectores, self._pendientes,
+            punto_inicial=self._ultimo_click,
+            on_colocar=self._aplicar_colocacion_lote).open()
+
+    def _aplicar_colocacion_lote(self, ids_ordenados, columnas, sep_x, sep_y,
+                                  ix0, iy0):
+        img_nombre = self._e_img.text.strip()
+        rows = Modelo._query(
+            "SELECT id_imagen FROM imagen WHERE path_archivo=?",
+            (img_nombre,))
+        id_img = str(rows[0][0]) if rows else self._img_id_actual
+
+        for i, id_con in enumerate(ids_ordenados):
+            fila_grilla = i // columnas
+            col_grilla = i % columnas
+            x = ix0 + col_grilla * sep_x
+            y = iy0 + fila_grilla * sep_y
+            p = self._pendientes[id_con]
+            p["x"] = str(int(x))
+            p["y"] = str(int(y))
+            p["id_imagen"] = id_img
+            p["modificado"] = True
+            self._actualizar_fila_widget(id_con)
+
+        self._actualizar_overlay()
+
+    # ── Herramienta "Medir en la imagen" ────────────────────────────────────────
+
+    def _toggle_medir(self):
+        """Activa/desactiva el modo "Medir en la imagen". Mientras está
+        activo, los toques en la imagen no colocan conectores — se usan
+        para marcar los dos extremos del segmento a medir."""
+        self._modo_medir = not self._modo_medir
+        self._medir_p1 = None
+        if self._modo_medir:
+            self._btn_medir.text = _("✕ Cancelar medición")
+            self._lbl_medir_estado.text = _("Tocá el primer punto de referencia…")
+            self._lbl_medir_estado.height = dp(18)
+        else:
+            self._btn_medir.text = _("📏 Medir en la imagen…")
+            self._lbl_medir_estado.text = ""
+            self._lbl_medir_estado.height = 0
+        self._actualizar_overlay()
+
+    def _on_clic_medir(self, ix, iy):
+        if self._medir_p1 is None:
+            self._medir_p1 = (ix, iy)
+            self._lbl_medir_estado.text = _("Tocá el segundo punto de referencia…")
+            self._actualizar_overlay()
+            return
+
+        x1, y1 = self._medir_p1
+        self._medir_p1 = None
+        distancia_px = math.hypot(ix - x1, iy - y1)
+        self._actualizar_overlay()
+        if distancia_px < 1:
+            self._lbl_medir_estado.text = _("Tocá el primer punto de referencia…")
+            return
+
+        # Igual que en GTK: apagar el modo medición apenas se dispara el
+        # diálogo, sin esperar la respuesta (cancelar el diálogo también
+        # sale del modo, no reintenta con el mismo primer punto).
+        self._modo_medir = False
+        self._btn_medir.text = _("📏 Medir en la imagen…")
+        self._lbl_medir_estado.text = ""
+        self._lbl_medir_estado.height = 0
+
+        def _con_mm(mm_reales):
+            img_nombre = self._e_img.text.strip()
+            rows = Modelo._query(
+                "SELECT id_imagen FROM imagen WHERE path_archivo=?",
+                (img_nombre,))
+            id_img = str(rows[0][0]) if rows else self._img_id_actual
+            if not id_img:
+                mostrar_error(_(
+                    "No se pudo determinar la imagen actual — elegí una "
+                    "imagen guardada antes de calibrar."))
+                return
+
+            Modelo.actualizar_mm_por_pixel_imagen(id_img, mm_reales / distancia_px)
+            self._preparar_simbolos_conector(id_img)
+            self._actualizar_overlay()
+
+        _DialogoMedicion(distancia_px, on_aceptar=_con_mm).open()
 
     def _quitar_sel(self):
         if not self._sel_id:
@@ -547,6 +990,16 @@ class EditorMasivoConectoresImagen(Popup):
                 wx, wy - R - 8,
                 size=max(7, int(9 * z)),
                 color=(1, 1, 1, 0.9))
+
+        # Primer punto marcado de la herramienta "Medir en la imagen",
+        # a la espera del segundo toque.
+        if self._modo_medir and self._medir_p1:
+            wx, wy = canvas_widget.i2w(*self._medir_p1, z)
+            with canvas_widget.canvas:
+                Color(1, 0.15, 0.15, 0.9)
+                Ellipse(pos=(wx - 5, wy - 5), size=(10, 10))
+                Color(1, 1, 1, 1)
+                Line(circle=(wx, wy, 5), width=1.5)
 
     # ── Guardar ───────────────────────────────────────────────────────────────
 
