@@ -47,6 +47,7 @@ from pantallas_comunes import (
     _set_combo_id,
     _repopulate_combo,
     _pack_ultima_edicion,
+    _pack_auditoria,
 )
 
 
@@ -317,6 +318,7 @@ class _DialogoConector(Gtk.Dialog):
                 bool(Modelo.devolver_es_salida_referencia_frame_conector(id_conector)))
 
         _pack_ultima_edicion(self, "conector", "id_conector", id_conector)
+        _pack_auditoria(self, "conector", "id_conector", id_conector)
         self.show_all()
 
     def _sel_imagen(self, btn):

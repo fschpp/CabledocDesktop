@@ -45,6 +45,7 @@ from pantallas_comunes import (
     _set_combo_id,
     _repopulate_combo,
     _pack_ultima_edicion,
+    _pack_auditoria,
     _parse_float_opt,
     _fmt_float_opt,
 )
@@ -538,6 +539,7 @@ class _DialogoCable(Gtk.Dialog):
                         self.e_detalle_armado.set_text(s(fila_arm[0][1]))
 
         _pack_ultima_edicion(self, "cable", "id_cable", id_cable)
+        _pack_auditoria(self, "cable", "id_cable", id_cable)
         self.show_all()
 
     def _asignar_temporal(self, btn):
@@ -863,6 +865,7 @@ class _DialogoConexion(Gtk.Dialog):
             self.get_content_area().pack_start(btn_remocion, False, False, 4)
 
         _pack_ultima_edicion(self, "conexion", "id_conexion", id_conexion)
+        _pack_auditoria(self, "conexion", "id_conexion", id_conexion)
         self.show_all()
 
     def _simular_remocion(self, btn):
