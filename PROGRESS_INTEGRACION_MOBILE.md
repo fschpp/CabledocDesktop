@@ -58,9 +58,28 @@ core real.
       contrato viejo de coordenadas (mobile todavía trae su propio
       modelo.py de 1.365 líneas, muy atrás del de core/ — hay que revisar
       cada pantalla que dibuja/edita posiciones sobre imagen).
-- [ ] Fase 3.3 — Soporte SVG en Kivy (validar `svglib`+`reportlab` en
-      Pydroid 3 con una prueba chica de 15 minutos antes de comprometerse
-      al flujo completo — no asumir que instala limpio).
+- [/] Fase 3.3 — Soporte SVG en Kivy. Código de rasterización ya existe en
+      `ui_kivy/widgets_base.py` (`crear_textura_imagen_svg`,
+      `crear_textura_simbolo`), pero **no mostraba nada en mobile real**:
+      `requirements-mobile.txt` dejaba `svglib`/`reportlab` comentadas como
+      "opcionales" (correcto sólo para medir dimensiones vía
+      `Modelo._dimensiones_svg_sin_gi`, incorrecto para el rasterizado
+      real, que SIEMPRE las necesita). Entrega 2026-09-16 corrige el
+      requirements y agrega logging (`log_error`) + mensaje de UI
+      distinto para el caso "SVG no se pudo rasterizar" vs "sin imagen
+      asignada", que antes eran indistinguibles en pantalla. **HALLAZGO
+      NUEVO, sigue bloqueando el cierre de esta fase:** `reportlab` 4.x
+      necesita además `rlPyCairo` (→ `pycairo`, extensión C contra
+      libcairo del sistema) para el paso `renderPM.drawToFile` — no
+      alcanza con `svglib`+`reportlab` solas, como se creía antes. Sigue
+      pendiente la prueba de 15 minutos en Pydroid 3 real, ahora con el
+      nombre correcto del paquete de riesgo (`rlPyCairo`/`pycairo`, no
+      `reportlab`) — ver comentario extendido en requirements-mobile.txt.
+      Si `pycairo` no compila en el dispositivo, evaluar como Fase 3.3-bis
+      un rasterizador propio basado sólo en Pillow para el subconjunto de
+      SVG que exporta la herramienta vectorial del proyecto (no
+      implementado, es sólo una opción de respaldo si el camino actual
+      no es viable en Android).
 - [ ] Fase 3.4 — Símbolos de conector vectoriales escalados (`mm_por_pixel`,
       depende de que Fase 3.3 esté resuelta).
 - [ ] `requirements-mobile.txt` (todavía no existe; se agrega junto con
@@ -117,3 +136,35 @@ core real.
   (PatcherasVista)" — CRUD completo + 3 vistas gráficas migradas, más
   avanzado de lo que plan_integracion_cabledoc_v3.md daba por sentado al
   citar sólo el README viejo del mobile en su §1).
+- **2026-09-16, reporte de Papi: "el mobile no muestra los SVG".**
+  Investigado sobre `main` (`5ac63de`, ya con Fase 3.4/símbolos vectoriales
+  mergeada). La funcionalidad SÍ está implementada en
+  `ui_kivy/widgets_base.py` (`crear_textura_imagen_svg`/
+  `crear_textura_simbolo`, ya con su propia caché), pero nunca pudo
+  funcionar en un dispositivo real: `requirements-mobile.txt` dejaba
+  `svglib`/`reportlab` comentadas, tratándolas como el "último recurso"
+  que sólo hace falta para el caso raro de medir dimensiones sin
+  viewBox/width/height — eso es cierto para *medir* (`Modelo.
+  _dimensiones_svg_sin_gi`), pero el *rasterizado* real (kivy.core.image
+  no soporta SVG en absoluto) pasa siempre por esas dos librerías, sin
+  atajo. Resultado en cualquier instalación siguiendo el requirements tal
+  cual: el `except Exception` de ambas funciones atrapaba el `ImportError`
+  en silencio, la textura quedaba `None`, y la UI mostraba el mismo cartel
+  genérico "Sin imagen asignada al equipo/conector" que si el equipo
+  nunca hubiera tenido imagen — indistinguible para Papi/Fede del caso
+  real de "no hay imagen". Se corrigió: (1) `requirements-mobile.txt`
+  ahora declara `svglib`/`reportlab` como obligatorias, no opcionales;
+  (2) ambas funciones de rasterizado llaman a `core.logger_cabledoc.
+  log_error` en su except, dejando rastro real en `log.txt`;
+  (3) `VisorImagenZoom` distingue en el mensaje de UI "sin imagen
+  asignada" de "no se pudo mostrar la imagen SVG (revisar log.txt)".
+  **Hallazgo adicional, no trivial:** probando el pipeline completo en
+  este sandbox de escritorio, `svglib`+`reportlab` solas NO alcanzan —
+  `reportlab` 4.x removió su backend de rasterización propio y
+  `renderPM.drawToFile` ahora exige el paquete `rlPyCairo` (que a su vez
+  compila `pycairo` contra libcairo del sistema). Se agregó `rlPyCairo` a
+  `requirements-mobile.txt`, pero **queda sin confirmar si `pycairo`
+  compila en Pydroid 3 real** (Android normalmente no trae libcairo-dev
+  accesible a pip) — es la prueba de 15 minutos que este documento ya
+  pedía, ahora con el nombre correcto del paquete de riesgo. Ver Fase 3.3
+  arriba y el comentario extendido en requirements-mobile.txt.
