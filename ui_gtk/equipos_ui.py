@@ -214,12 +214,16 @@ class EquiposListado(VentanaListado):
                     "SELECT id_equipo FROM equipo WHERE es_modulo_de_frame=1")
             }
             todos = [f for f in todos if s(f[0]) not in ids_modulo]
-        todos, color_por_id = self._agregar_columna_riesgo(todos)
+        # Resaltado por riesgo desactivado a pedido — se sigue calculando
+        # y mostrando la columna "Riesgo" (texto "35 · Medio"), sólo se
+        # dejó de teñir la fila entera con el color del semáforo.
+        # _agregar_columna_riesgo() devuelve igual el color_por_id, pero
+        # ya no se lo pasamos a _poblar().
+        todos, _color_riesgo = self._agregar_columna_riesgo(todos)
         # Fase 4 de plan_desarrollo_hardcodes_idioma.md: ya no se filtra
         # comparando texto ("PATCHERA" in tipo) sino por rol_senal real.
         self._ids_patchera = {str(r[0]) for r in Modelo.devolver_equipos_patchera()}
-        self._poblar(todos, ids_resaltar=self._ids_resaltar, color_resaltar=color,
-                     color_por_id=color_por_id)
+        self._poblar(todos, ids_resaltar=self._ids_resaltar, color_resaltar=color)
         # Aplicar prefiltro de texto si hay filtro activo
         if self._filtro_pendiente:
             self.entry_filtro.set_text("")
