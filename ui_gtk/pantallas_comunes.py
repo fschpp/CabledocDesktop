@@ -1049,6 +1049,59 @@ def _pack_ultima_edicion(dialogo, tabla, pk_col, pk_val):
     dialogo.get_content_area().pack_end(lbl, False, False, 0)
 
 
+def _pack_auditoria(dialogo, tabla, pk_col, pk_val, on_marcado=None):
+    """Agrega, al pie del diálogo, el estado de auditoría de campo
+    ('Auditado: <fecha>' en verde, o 'Sin auditar' en naranja) y un botón
+    'Auditado' que llama a Modelo.marcar_auditado al tocarlo. No hace nada
+    si el registro todavía no existe (alta sin guardar).
+
+    Equivalente GTK de fila_auditoria() (ui_kivy/widgets_base.py) — misma
+    tabla-fuente (Modelo.TABLAS_AUDITABLES, core/modelo.py), sólo cambia
+    el widget toolkit. A diferencia de _pack_ultima_edicion (que es de
+    sólo lectura), acá el botón escribe: clickearlo no cierra el diálogo,
+    sólo refresca el label y dispara on_marcado(fecha) si se pasó uno
+    (para encadenar acciones, ej. preguntar si también se auditan
+    registros relacionados — ver _preguntar_auditar_conexiones en
+    equipos_ui.py).
+    """
+    if not pk_val:
+        return
+
+    lbl = Gtk.Label(xalign=1)
+
+    def _refrescar():
+        fecha = Modelo.devolver_fecha_ultima_auditoria(tabla, pk_col, pk_val)
+        if fecha:
+            lbl.set_markup(
+                f"<small><span color='#2e8b45'>{_('Auditado')}: {fecha}</span></small>")
+        else:
+            lbl.set_markup(
+                f"<small><span color='#c07a1e'>{_('Sin auditar')}</span></small>")
+
+    _refrescar()
+
+    btn = Gtk.Button(label=_("Auditado"))
+    btn.set_tooltip_text(
+        _("Confirma que el estado documentado de este registro sigue "
+          "siendo válido ahora mismo (relevamiento en terreno)."))
+
+    def _marcar(_btn):
+        fecha = Modelo.marcar_auditado(tabla, pk_col, pk_val)
+        _refrescar()
+        if on_marcado:
+            on_marcado(fecha)
+
+    btn.connect("clicked", _marcar)
+
+    fila = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    fila.set_margin_start(12)
+    fila.set_margin_end(12)
+    fila.set_margin_bottom(6)
+    fila.pack_start(lbl, True, True, 0)
+    fila.pack_start(btn, False, False, 0)
+    dialogo.get_content_area().pack_end(fila, False, False, 0)
+
+
 def _parse_float_opt(texto):
     """Convierte un Entry a float o None (campo vacío = sin dato, no 0)."""
     texto = (texto or "").strip().replace(",", ".")

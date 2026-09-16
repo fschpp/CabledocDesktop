@@ -47,6 +47,7 @@ from pantallas_comunes import (
     s,
     mostrar_error,
     mostrar_info,
+    confirmar,
     VentanaListado,
     DialogoNombre,
     _grid,
@@ -59,6 +60,7 @@ from pantallas_comunes import (
     _set_combo_id,
     _repopulate_combo,
     _pack_ultima_edicion,
+    _pack_auditoria,
 )
 from pantallas_avanzadas import (
     abrir_historial_diagnosticos,
@@ -721,6 +723,8 @@ class _DialogoEquipo(Gtk.Dialog):
         self._actualizar_seccion_riesgo()
         self._actualizar_picon_preview()
         _pack_ultima_edicion(self, "equipo", "id_equipo", id_equipo)
+        _pack_auditoria(self, "equipo", "id_equipo", id_equipo,
+                        on_marcado=self._preguntar_auditar_conexiones)
         self.show_all()
         
         # Por defecto: mostrar solo el visor (renderizado), ocultar el editor
@@ -1044,6 +1048,24 @@ class _DialogoEquipo(Gtk.Dialog):
             _repopulate_combo(self.c_tipo, Modelo.devolver_todos_los_tipos())
             _set_combo_id(self.c_tipo, id_)
         dlg.destroy()
+
+    def _preguntar_auditar_conexiones(self, fecha):
+        """Al marcar el equipo como auditado, ofrece extender la misma
+        fecha a todas sus conexiones (mismo criterio que 'auditar equipo'
+        del lado mobile — ver _preguntar_auditar_conexiones en
+        ui_kivy/pantallas_equipos.py)."""
+        if not self.id_equipo:
+            return
+        if confirmar(
+                self,
+                _("¿Marcar también como auditadas todas las conexiones de "
+                  "este equipo?")):
+            _fecha, cantidad = Modelo.marcar_auditadas_conexiones_de_equipo(
+                self.id_equipo, fecha)
+            mostrar_info(
+                self,
+                _("Se marcaron {} conexión(es) como auditadas.").format(
+                    cantidad))
 
     def _ver_conectores(self, btn):
         from cabledoc import ConectoresListado
