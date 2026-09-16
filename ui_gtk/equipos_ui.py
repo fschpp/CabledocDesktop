@@ -77,7 +77,7 @@ from pantallas_avanzadas import (
 # ─── Equipos ──────────────────────────────────────────────────────────────────
 
 class EquiposListado(VentanaListado):
-    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_img_conectores'
+    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_img_conectores' | 'sin_auditar'
     def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None,
                  excluir_modulos_de_frame=False):
         self._ocultar_patcheras = True   # debe existir antes de super().__init__
@@ -97,6 +97,8 @@ class EquiposListado(VentanaListado):
             titulo = _("Equipos — Sin imagen")
         elif filtro_pendiente == "sin_img_conectores":
             titulo = _("Equipos — Sin imagen c/ conectores")
+        elif filtro_pendiente == "sin_auditar":
+            titulo = _("Equipos — Sin auditar")
         super().__init__(
             titulo,
             [_("ID"), _("Nombre"), _("Marca"), _("Modelo"), _("Inventario"), _("Serie"), _("Tipo"),
@@ -196,6 +198,13 @@ class EquiposListado(VentanaListado):
                 "SELECT e.id_equipo FROM equipo e WHERE id_equipo != 0 "
                 "AND NOT EXISTS (SELECT 1 FROM conector c "
                 "WHERE c.id_equipo=e.id_equipo AND c.id_imagen IS NOT NULL)")
+            self._ids_resaltar = {str(r[0]) for r in rows}
+            color = "#c8a800"
+        elif self._filtro_pendiente == "sin_auditar":
+            # Mismo criterio que ui_kivy/pantallas_equipos.py (mobile).
+            rows = Modelo._query(
+                "SELECT id_equipo FROM equipo WHERE id_equipo != 0 "
+                "AND (ultima_auditoria_fecha IS NULL OR ultima_auditoria_fecha = '')")
             self._ids_resaltar = {str(r[0]) for r in rows}
             color = "#c8a800"
         todos = Modelo.devolver_todos_los_equipos()
