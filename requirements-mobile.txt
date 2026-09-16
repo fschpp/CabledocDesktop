@@ -13,19 +13,58 @@ Kivy>=2.3.0
 # su posición en mobile.
 Pillow>=10.0.0
 
-# Fase 3.3: soporte de SVG sin gi/Rsvg. La mayoría de los símbolos (los
-# que declaran width/height o viewBox, que es el caso típico de un SVG
-# exportado de una herramienta vectorial) se resuelven con regex puro,
-# sin ninguna dependencia adicional — ver
-# Modelo._dimensiones_svg_sin_gi/_svg_ancho_alto_atributos/_svg_viewbox_size
-# en core/modelo.py. svglib+reportlab son sólo el ÚLTIMO recurso, para
-# el caso raro de un SVG sin viewBox ni width/height explícitos (p.ej.
-# sólo width="100%"/height="100%"), y son opcionales: si no están
-# instaladas, ese caso raro sigue fallando con DimensionesImagenError en
-# vez de romper el resto de la migración de coordenadas. PENDIENTE:
-# confirmar en una prueba chica en Pydroid 3 real que reportlab (que
-# arrastra su propio tooling de fuentes/PDF) instala limpio antes de
-# sumarlas acá de forma incondicional — no asumir que sí sólo porque
-# funcionó en este sandbox de escritorio.
-#   svglib>=1.5.0
-#   reportlab>=4.0.0
+# Fase 3.3/3.4: soporte de SVG sin gi/Rsvg.
+#
+# OJO — distinción importante entre dos cosas que este comentario tenía
+# mezcladas antes (2026-09-16, investigando por qué el fondo/los símbolos
+# SVG no se veían en mobile real):
+#
+#   (a) MEDIR el tamaño de un SVG (ancho/alto en px) — esto sí se resuelve
+#       con regex puro la mayoría de las veces (SVGs con width/height o
+#       viewBox explícitos, el caso típico de un export de herramienta
+#       vectorial), sin ninguna dependencia adicional. Ver
+#       Modelo._dimensiones_svg_sin_gi/_svg_ancho_alto_atributos/
+#       _svg_viewbox_size en core/modelo.py. Sólo el caso raro (SVG sin
+#       viewBox ni width/height, p.ej. sólo width="100%") necesita
+#       svglib+reportlab para esto.
+#
+#   (b) DIBUJAR el SVG (rasterizarlo a una textura que Kivy pueda pintar)
+#       — esto es SIEMPRE necesario en mobile, porque kivy.core.image.Image
+#       no soporta SVG en absoluto (a diferencia de GdkPixbuf en GTK). Acá
+#       NO hay atajo de regex: ui_kivy/widgets_base.py.crear_textura_imagen_svg
+#       (fondo de equipo/frame) y .crear_textura_simbolo (símbolo de
+#       conector) SIEMPRE pasan por svglib+reportlab. Sin estas dos
+#       instaladas, CUALQUIER imagen de fondo .svg (no sólo el caso raro
+#       de arriba) se muestra como "Sin imagen asignada" — este es el bug
+#       reportado, no el caso raro de (a). Por eso dejarlas comentadas
+#       como "opcionales" era incorrecto: son obligatorias para (b).
+#
+#   (c) HALLAZGO NUEVO (2026-09-16, probado en sandbox de escritorio):
+#       svglib+reportlab NO alcanzan solas. reportlab 4.x ya no trae un
+#       backend de rasterización propio (el viejo `_rl_renderPM`, C
+#       precompilado sin cairo, fue discontinuado) — `renderPM.drawToFile`
+#       ahora requiere el paquete `rlPyCairo`, que a su vez instala
+#       `pycairo`: una extensión C que se compila contra libcairo del
+#       sistema (necesita headers de desarrollo de Cairo + un compilador
+#       C funcionando, vía pkg-config). Confirmado con una prueba mínima:
+#       sin rlPyCairo, renderPM.drawToFile revienta con
+#       "cannot import desired renderPM backend rlPyCairo"; instalando
+#       rlPyCairo (que compiló pycairo sin problema en ESTE sandbox de
+#       escritorio, que sí trae libcairo-dev) el render a PNG funciona.
+#
+#       PENDIENTE REAL (no resuelto en esta entrega, es la prueba de 15
+#       minutos que este mismo archivo pedía desde antes): confirmar en
+#       Pydroid 3 sobre el dispositivo real si `pip install rlPyCairo`
+#       logra compilar pycairo ahí. Android/Termux/Pydroid normalmente NO
+#       trae libcairo-dev accesible a pip por defecto — es el escenario de
+#       riesgo real que este comentario ya sospechaba, ahora con el
+#       nombre exacto del paquete que hay que probar. Si pycairo NO
+#       compila en el dispositivo, el fondo SVG seguirá sin mostrarse
+#       incluso con esta entrega instalada, y hace falta evaluar una
+#       alternativa que no dependa de cairo (p.ej. un rasterizador propio
+#       basado sólo en Pillow para el subconjunto de SVG que exporta la
+#       herramienta vectorial del proyecto) — no implementado todavía,
+#       ver PROGRESS_INTEGRACION_MOBILE.md.
+svglib>=1.5.0
+reportlab>=4.0.0
+rlPyCairo>=0.3.0

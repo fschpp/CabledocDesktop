@@ -31,6 +31,8 @@ import os
 import re
 import math
 
+from core.logger_cabledoc import log_error
+
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.anchorlayout import AnchorLayout
@@ -1664,8 +1666,12 @@ class VisorImagenZoom(BoxLayout):
         self._scroll = ScrollView()
         self.canvas_widget = ImagenCanvas(size=(600, 400))
         self.canvas_widget.on_pinch_zoom = self._on_pinch_zoom
+        self._MSG_SIN_IMAGEN = _("Sin imagen asignada al equipo/conector")
+        self._MSG_SVG_NO_RENDERIZADO = _(
+            "No se pudo mostrar la imagen SVG (revisar log.txt — "
+            "puede faltar svglib/reportlab/rlPyCairo)")
         self._lbl_sin_imagen = Label(
-            text=_("Sin imagen asignada al equipo/conector"),
+            text=self._MSG_SIN_IMAGEN,
             color=(0.85, 0.85, 0.85, 1))
         self._contenedor = FloatLayout(size=(600, 400), size_hint=(None, None))
         self._contenedor.add_widget(self.canvas_widget)
@@ -1696,10 +1702,18 @@ class VisorImagenZoom(BoxLayout):
         SVG, igual que en desktop)."""
         self.textura = None
         self.es_svg = False
+        # Fase 3.4 fix (2026-09-16): un .svg que EXISTE pero no se pudo
+        # rasterizar (típicamente por faltar svglib/reportlab/rlPyCairo —
+        # ver requirements-mobile.txt) es un caso distinto de "no hay
+        # imagen asignada", y hasta ahora se mostraban con el mismo
+        # mensaje genérico. self._svg_no_renderizado distingue ambos para
+        # que el mensaje en pantalla apunte al problema real.
+        svg_no_renderizado = False
         if ruta_archivo and os.path.exists(ruta_archivo):
             if ruta_archivo.lower().endswith(".svg"):
                 self.textura = crear_textura_imagen_svg(ruta_archivo)
                 self.es_svg = self.textura is not None
+                svg_no_renderizado = self.textura is None
             else:
                 try:
                     from kivy.core.image import Image as CoreImage
@@ -1707,6 +1721,9 @@ class VisorImagenZoom(BoxLayout):
                 except Exception:
                     self.textura = None
         self.canvas_widget.set_textura(self.textura)
+        self._lbl_sin_imagen.text = (
+            self._MSG_SVG_NO_RENDERIZADO if svg_no_renderizado
+            else self._MSG_SIN_IMAGEN)
         self._lbl_sin_imagen.opacity = 0 if self.textura else 1
         self._update_size()
 
@@ -1855,7 +1872,14 @@ def crear_textura_simbolo(svg_fragmento, viewbox="0 0 24 24", color=None,
             "transparent": (0, 0, 0)})
         buf.seek(0)
         textura = _CoreImage(buf, ext="png").texture
-    except Exception:
+    except Exception as e:
+        # No romper el render del panel por un símbolo puntual (mismo
+        # contrato que antes), pero SÍ dejar rastro: sin esto, un fallo
+        # de svglib/reportlab/rlPyCairo (paquetes opcionales según
+        # requirements-mobile.txt) es indistinguible de "no hay símbolo
+        # cargado" — bug real reportado 2026-09-16, resuelto acá con el
+        # logueo, no con el silencio.
+        log_error("crear_textura_simbolo", e)
         textura = None
     _CACHE_TEXTURA_SIMBOLO[clave] = textura
     return textura
@@ -1948,7 +1972,15 @@ def crear_textura_imagen_svg(ruta_archivo, resolucion_max_px=1600):
         renderPM.drawToFile(drawing, buf, fmt="PNG", bg=0xFFFFFF)
         buf.seek(0)
         textura = _CoreImage(buf, ext="png").texture
-    except Exception:
+    except Exception as e:
+        # Mismo criterio que crear_textura_simbolo: nunca romper el
+        # visor por un SVG puntual, pero dejar rastro en log.txt en vez
+        # de tragarse el error en silencio — es la única forma de
+        # distinguir "el equipo no tiene imagen" de "el equipo tiene una
+        # imagen SVG pero faltan svglib/reportlab/rlPyCairo" (ver
+        # requirements-mobile.txt), que hasta esta entrega se veían
+        # exactamente igual en pantalla.
+        log_error("crear_textura_imagen_svg", e)
         textura = None
     _CACHE_TEXTURA_IMAGEN_SVG[clave] = textura
     return textura
