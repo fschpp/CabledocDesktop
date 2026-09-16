@@ -31,7 +31,7 @@ import os
 import re
 import math
 
-from core.logger_cabledoc import log_error
+from core.logger_cabledoc import log_error, log_debug
 
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
@@ -1879,6 +1879,7 @@ def crear_textura_simbolo(svg_fragmento, viewbox="0 0 24 24", color=None,
         # requirements-mobile.txt) es indistinguible de "no hay símbolo
         # cargado" — bug real reportado 2026-09-16, resuelto acá con el
         # logueo, no con el silencio.
+        _diagnosticar_dependencias_svg()
         log_error("crear_textura_simbolo", e)
         textura = None
     _CACHE_TEXTURA_SIMBOLO[clave] = textura
@@ -1917,6 +1918,62 @@ def dibujar_simbolo_conector_kivy(canvas_widget, textura, wx, wy, radio_px):
 #  3.3) para el tamaño intrínseco en vez de duplicar esa lógica acá.
 
 _CACHE_TEXTURA_IMAGEN_SVG = {}
+
+# Diagnóstico de dependencias SVG (svglib/reportlab/rlPyCairo+pycairo) ──────
+#
+# El traceback normal de crear_textura_imagen_svg/crear_textura_simbolo sólo
+# delata la PRIMERA import que revienta en la cadena `from svglib.svglib
+# import svg2rlg` / `from reportlab.graphics import renderPM` — las
+# siguientes ni se llegan a intentar. En Pydroid 3 eso deja a ciegas sobre
+# si el problema es que falta svglib/reportlab (pip puro, no debería fallar)
+# o específicamente rlPyCairo — que a su vez necesita compilar `pycairo`
+# contra libcairo del sistema, algo que Pydroid/Android normalmente no trae
+# accesible a pip (ver nota 2026-09-16 en requirements-mobile.txt). Esta
+# función prueba las 4 por separado, una sola vez por proceso, y deja en
+# log.txt cuál de ellas está instalada (con versión) y cuál falla (con el
+# error puntual) — para no tener que adivinar con una sola línea de
+# ModuleNotFoundError cuál de las 3 (o 4) hace falta reinstalar/buscar wheel.
+_DIAG_DEPENDENCIAS_SVG_LOGUEADO = False
+
+
+def _diagnosticar_dependencias_svg():
+    """Loguea (una sola vez por proceso, vía log_debug) el estado individual
+    de svglib, reportlab.graphics, rlPyCairo y pycairo — ver comentario de
+    arriba. Nunca levanta excepción: es puro diagnóstico best-effort, no
+    debe poder romper el camino de fallback existente."""
+    global _DIAG_DEPENDENCIAS_SVG_LOGUEADO
+    if _DIAG_DEPENDENCIAS_SVG_LOGUEADO:
+        return
+    _DIAG_DEPENDENCIAS_SVG_LOGUEADO = True
+    try:
+        from importlib.metadata import version as _pkg_version
+        from importlib.metadata import PackageNotFoundError as _PkgNotFound
+    except Exception:
+        _pkg_version = None
+        _PkgNotFound = Exception
+
+    def _probar(nombre_paquete, importar):
+        try:
+            importar()
+        except Exception as e:
+            log_debug(f"diag_svg: {nombre_paquete} FALTA — "
+                      f"{type(e).__name__}: {e}")
+            return
+        try:
+            v = _pkg_version(nombre_paquete) if _pkg_version else "?"
+        except _PkgNotFound:
+            v = "instalado (sin metadata de versión)"
+        except Exception:
+            v = "?"
+        log_debug(f"diag_svg: {nombre_paquete} OK (version {v})")
+
+    try:
+        _probar("svglib", lambda: __import__("svglib.svglib", fromlist=["svg2rlg"]))
+        _probar("reportlab", lambda: __import__("reportlab.graphics", fromlist=["renderPM"]))
+        _probar("rlPyCairo", lambda: __import__("rlPyCairo"))
+        _probar("pycairo", lambda: __import__("cairo"))
+    except Exception:
+        pass  # diagnóstico best-effort — nunca debe romper el camino normal
 
 
 def crear_textura_imagen_svg(ruta_archivo, resolucion_max_px=1600):
@@ -1980,6 +2037,7 @@ def crear_textura_imagen_svg(ruta_archivo, resolucion_max_px=1600):
         # imagen SVG pero faltan svglib/reportlab/rlPyCairo" (ver
         # requirements-mobile.txt), que hasta esta entrega se veían
         # exactamente igual en pantalla.
+        _diagnosticar_dependencias_svg()
         log_error("crear_textura_imagen_svg", e)
         textura = None
     _CACHE_TEXTURA_IMAGEN_SVG[clave] = textura
