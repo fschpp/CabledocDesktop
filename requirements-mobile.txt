@@ -13,7 +13,29 @@ Kivy>=2.3.0
 # su posición en mobile.
 Pillow>=10.0.0
 
-# Fase 3.3/3.4: soporte de SVG sin gi/Rsvg.
+# Fase 3.5 (2026-09-16, ver plan_svg_pygame_nanosvg_v1.md): ruta PRIMARIA
+# de rasterizado SVG en mobile — ui_kivy/svg_raster_pygame.py.
+#
+# CONFIRMADO en dispositivo real (Pydroid 3, pygame 2.6.1 clásico —no
+# pygame-ce—, SDL_image (2, 6, 3)): pygame.image.load() carga .svg
+# directamente vía SDL_image/NanoSVG, probado OK sobre 7 SVG reales del
+# proyecto (fondos de equipo/plano + símbolos), sin necesitar compilar
+# nada (a diferencia de rlPyCairo/pycairo más abajo). Pydroid 3 YA trae
+# pygame por defecto en la mayoría de sus instalaciones — si `pip install
+# pygame` fallara ahí por falta de toolchain, primero probar si ya está
+# disponible sin instalar nada (`import pygame` desde la consola de
+# Pydroid) antes de pelear con el compilador.
+#
+# Limitación conocida (confirmada por los mantenedores de pygame, no
+# probada todavía contra fragmentos reales del catálogo — ver
+# PROGRESS.md): el motor NanoSVG no soporta <text> y está sin
+# mantenimiento activo; gradientes complejos pueden fallar. Cuando esto
+# pasa, ui_kivy/widgets_base.py cae automáticamente al fallback
+# svglib+reportlab+rlPyCairo de abajo — no rompe la pantalla.
+pygame>=2.0.0
+
+# Fase 3.3/3.4: FALLBACK de SVG sin gi/Rsvg, para cuando pygame no está
+# disponible o falla puntualmente con un SVG que NanoSVG no soporta.
 #
 # OJO — distinción importante entre dos cosas que este comentario tenía
 # mezcladas antes (2026-09-16, investigando por qué el fondo/los símbolos
@@ -33,11 +55,13 @@ Pillow>=10.0.0
 #       no soporta SVG en absoluto (a diferencia de GdkPixbuf en GTK). Acá
 #       NO hay atajo de regex: ui_kivy/widgets_base.py.crear_textura_imagen_svg
 #       (fondo de equipo/frame) y .crear_textura_simbolo (símbolo de
-#       conector) SIEMPRE pasan por svglib+reportlab. Sin estas dos
-#       instaladas, CUALQUIER imagen de fondo .svg (no sólo el caso raro
-#       de arriba) se muestra como "Sin imagen asignada" — este es el bug
-#       reportado, no el caso raro de (a). Por eso dejarlas comentadas
-#       como "opcionales" era incorrecto: son obligatorias para (b).
+#       conector) pasan primero por pygame (Fase 3.5, ver más abajo) y, si
+#       eso no está disponible o falla, por svglib+reportlab como
+#       fallback. Sin NINGUNA de las dos rutas instalada, CUALQUIER imagen
+#       de fondo .svg (no sólo el caso raro de arriba) se muestra como
+#       "Sin imagen asignada" — este es el bug reportado, no el caso raro
+#       de (a). Por eso dejarlas comentadas como "opcionales" era
+#       incorrecto: al menos una de las dos rutas es obligatoria para (b).
 #
 #   (c) HALLAZGO NUEVO (2026-09-16, probado en sandbox de escritorio):
 #       svglib+reportlab NO alcanzan solas. reportlab 4.x ya no trae un
