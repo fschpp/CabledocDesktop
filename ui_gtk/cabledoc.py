@@ -687,6 +687,8 @@ class VentanaPrincipal(Gtk.Window):
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_imagen")),
             (_("📍 Sin imagen c/ conect."),  p["sin_img_conectores"],"#4a4a00",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_img_conectores")),
+            (_("🔍 Sin auditar"),           p["sin_auditar"],       "#1a4a6a",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_auditar")),
         ]
         for col, (titulo, valor, color, cb) in enumerate(items):
             frame = Gtk.Frame()
