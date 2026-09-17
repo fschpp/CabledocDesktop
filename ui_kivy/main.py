@@ -133,6 +133,7 @@ from pantallas_racks import RacksListado, PosicionEnRackListado, FramesListado
 from pantallas_salas import (
     SalasListado, RackPorSalaListado, EquiposNoRackSalaListado,
 )
+from pantallas_planos import PlanosListado
 from pantallas_vistas import VistaRack, PatcherasVista
 from pantallas_diagrama import abrir_diagrama_conexiones
 # El asistente de diagnóstico ("🩺 Diagnóstico") ya no se abre desde un
@@ -383,6 +384,10 @@ def abrir_equipos_no_rack_sala(*_a):
     EquiposNoRackSalaListado().open()
 
 
+def abrir_planos(*_a):
+    PlanosListado().open()
+
+
 def abrir_vista_rack_elegir(*_a):
     VistaRack().open()
 
@@ -468,6 +473,7 @@ def _abrir_menu_completo():
             (_("Rack por Sala"), abrir_rack_por_sala),
             (_("Equipos sueltos por Sala"), abrir_equipos_no_rack_sala),
             (_("Vista gráfica de rack…"), abrir_vista_rack_elegir),
+            (_("Planos"), abrir_planos),
         ]),
         (_("Catálogos"), [
             (_("Marcas"), abrir_marcas),

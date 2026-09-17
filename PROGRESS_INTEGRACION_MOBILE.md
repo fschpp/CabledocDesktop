@@ -120,11 +120,36 @@ core real.
 - [ ] Fase 5 — Roadmap de paridad de pantallas nuevas (Diagnóstico, Riesgo
       analógico, Señal, Escenarios, Ubicación física en planos). Fases
       5.1-5.4 y el fix de integración de Vista Previa ya mergeados a
-      `main` (ver changelog.txt 2026-09-16) — este checklist no se había
-      actualizado en su momento, corregido acá. Sigue: Fase 5.2 (Riesgo,
-      `riesgo_diagrama_ui.py`/`signal_risk_diagrama_ui.py`, sin empezar
-      en `ui_kivy/`) y, por tamaño/riesgo, Ubicación física en planos
-      (`ui_gtk/planos_ui.py`, sin empezar en mobile).
+      `main` (ver changelog.txt 2026-09-16). Esta entrega (2026-09-17)
+      cierra la Fase 5.2 (Riesgo): `ui_kivy/pantallas_riesgo.py` nuevo
+      (funciones puras de caché/color + `PopupResultadoSimulacion`,
+      unifica `riesgo_diagrama_ui.py` + `signal_risk_diagrama_ui.py` de
+      desktop en un solo archivo mobile) integrado en
+      `ui_kivy/pantallas_diagrama.py` (toolbar "🎨 Riesgo equipo"/"🎨
+      Riesgo señal"/"🔺 Simular falla", hooks en `_draw_node` y
+      `_calc_conn_colors`). Sigue: Ubicación física en planos — arrancado
+      con el sub-paso más chico, el catálogo `PlanosListado` (ver debajo);
+      falta el visor interactivo (`VistaPlanoInteractivo`, overlay de
+      salas/racks/muebles/equipos sueltos), que es "de perfil canvas/
+      editor" y no se aborda en esta entrega (ver `plan_integracion_
+      cabledoc_v3.md` §5, ítem 5).
+- [ ] Fase 5 (cont.) — `ui_kivy/pantallas_planos.py` nuevo: `PlanosListado`/
+      `DialogoPlano`, catálogo simple (nombre + imagen + orden), mismo
+      patrón que `ImagenesListado`/`DialogoImagen`. Wireado en `main.py`
+      (grupo "Infraestructura" del menú, junto a Salas/Rack por Sala,
+      mismo lugar que en GTK). Los métodos de `core/modelo.py` ya
+      existían, sin cambios ahí. **Bug encontrado y corregido del lado
+      mobile** (smoke test): `imagen.path_archivo` es NOT NULL en el
+      schema, pero tanto `ui_gtk/planos_ui.py._DialogoPlano.
+      run_and_destroy` como el primer borrador de `DialogoPlano._guardar`
+      en mobile permitían guardar un plano sin imagen — revienta con
+      `IntegrityError` en vez del aviso ("se va a guardar igual...") que
+      decía el mensaje. Mobile ahora bloquea antes de llamar a `Modelo`
+      con un mensaje que explica el motivo real; **el mismo bug sigue
+      presente en GTK, sin tocar (fuera de alcance de esta entrega) —
+      queda para que Papi decida si lo corrige igual o si el
+      comportamiento correcto es otro** (p.ej. permitir plano sin imagen
+      y sacar el NOT NULL del schema).
 - [ ] Fase 6/7 — Sync + pruebas cruzadas end-to-end.
 
 ## Latest Blockers/Discoveries
