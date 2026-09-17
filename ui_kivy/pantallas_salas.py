@@ -18,7 +18,7 @@ from widgets_base import (
     ListadoPopup, grid_formulario, fila_etiqueta, etiqueta_ultima_edicion,
     titulo_con_nombre,
     mostrar_error, entry_selector, s, _,
-    ALTO_BOTON, ALTO_ENTRY, FUENTE_NORMAL,
+    ALTO_BOTON, ALTO_ENTRY, FUENTE_NORMAL, seccion_tarjeta,
 )
 from pantallas_catalogos import _crear_listado_simple
 from core.modelo import Modelo
@@ -83,7 +83,8 @@ class DialogoRackPorSala(Popup):
         btn_rack.bind(on_release=self._sel_rack)
         hb_rack.add_widget(self.e_rack); hb_rack.add_widget(btn_rack)
         g.add_widget(hb_rack)
-        box.add_widget(g)
+        box.add_widget(seccion_tarjeta(_("Asignación Rack-Sala"), g,
+                                       icono="ubicacion"))
 
         if id_:
             rows = Modelo.devolver_rack_por_sala(id_)
@@ -194,7 +195,8 @@ class DialogoEquipoNoRackSala(Popup):
         btn_eq.bind(on_release=self._sel_equipo)
         hb_eq.add_widget(self.e_equipo); hb_eq.add_widget(btn_eq)
         g.add_widget(hb_eq)
-        box.add_widget(g)
+        box.add_widget(seccion_tarjeta(_("Equipo suelto en sala"), g,
+                                       icono="ubicacion"))
 
         if id_:
             rows = Modelo.devolver_equipo_no_rack_sala(id_)
