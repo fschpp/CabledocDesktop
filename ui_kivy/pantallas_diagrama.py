@@ -115,6 +115,11 @@ from pantallas_escenario import (
     C_CORTADO, C_VIRTUAL,
 )
 from pantallas_senal import cargar_cache_senal, PanelLeyendaSenal
+from pantallas_riesgo import (
+    cargar_cache_riesgo_equipo, cargar_cache_riesgo_senal,
+    color_y_borde_por_riesgo, conn_colors_por_riesgo_senal,
+    simular_falla_equipo, PopupResultadoSimulacion,
+)
 from pantallas_vista_previa import PopupVistaPrevia
 
 try:
@@ -894,15 +899,24 @@ class _CanvasDiagrama(StencilView):
         Color(*(C_NODE_SEL if sel else C_NODE), 1)
         Rectangle(pos=(sx, sy), size=(sw, sh))
 
-        # Cabecera (borde superior del nodo en Kivy: sy + sh - HDR_H*z)
+        # Cabecera (borde superior del nodo en Kivy: sy + sh - HDR_H*z),
+        # ajustada por riesgo de impacto/falla si el toggle está activo
+        # (ver pantallas_riesgo.color_y_borde_por_riesgo) — no-op si el
+        # toggle está apagado o no hay caché para este equipo.
         hdr_sy = sy + sh - HDR_H * z
-        Color(rc * 0.85, gc * 0.85, bc * 0.85, 1)
+        ancho_borde_base = max(1.0, (2.0 if sel else 1.0) * z)
+        if self._popup._riesgo_color_activo:
+            rc_h, gc_h, bc_h, ancho_borde = color_y_borde_por_riesgo(
+                nodo["id"], self._popup._riesgo_cache, rc, gc, bc,
+                ancho_borde_base)
+        else:
+            rc_h, gc_h, bc_h, ancho_borde = rc, gc, bc, ancho_borde_base
+        Color(rc_h * 0.85, gc_h * 0.85, bc_h * 0.85, 1)
         Rectangle(pos=(sx, hdr_sy), size=(sw, HDR_H * z))
 
         # Borde
         Color(*(C_NODE_BSEL if sel else C_NODE_B), 1)
-        Line(rectangle=(sx, sy, sw, sh),
-             width=max(1.0, (2.0 if sel else 1.0) * z))
+        Line(rectangle=(sx, sy, sw, sh), width=ancho_borde)
 
         # Nombre en cabecera
         self._draw_text_centered(
@@ -955,15 +969,20 @@ class _CanvasDiagrama(StencilView):
                     size=max(7, int(8 * z)), color=(*C_TXT_PORT, 1))
 
     def _calc_conn_colors(self):
-        if not self._sel_id:
-            return {}
-        sel_conns = [c for c in self._conns
-                     if c["src_eq"] == self._sel_id
-                     or c["dst_eq"] == self._sel_id]
         colors = {}
-        n = len(sel_conns)
-        for i, conn in enumerate(sel_conns):
-            colors[conn["id"]] = PALETA_CONNS[i % len(PALETA_CONNS)]
+        if self._sel_id:
+            sel_conns = [c for c in self._conns
+                         if c["src_eq"] == self._sel_id
+                         or c["dst_eq"] == self._sel_id]
+            for i, conn in enumerate(sel_conns):
+                colors[conn["id"]] = PALETA_CONNS[i % len(PALETA_CONNS)]
+        # Riesgo de calidad de señal tiene prioridad sobre el color de
+        # selección (mismo criterio que GTK, ver docstring de
+        # signal_risk_diagrama_ui.py) — se fusiona último, pisando lo
+        # que haya quedado de la selección.
+        if self._popup._riesgo_senal_color_activo:
+            colors.update(conn_colors_por_riesgo_senal(
+                self._popup._riesgo_senal_cache))
         return colors
 
     # ── Encuadrar todo (nodos activos) ────────────────────────────────────────
@@ -1439,6 +1458,20 @@ class DiagramaConexiones(Popup):
         self._senal_color_por_id = {}      # id_senal(str) -> (r,g,b)
         self._senal_panel = None           # PanelLeyendaSenal | None
 
+        # ── Colorear por riesgo — roadmap de cierre mobile, ítem 3,
+        # equivalente a RiesgoDiagramaMixin (impacto/falla de equipo,
+        # cabecera del nodo) + RiesgoSenalDiagramaMixin (calidad de
+        # señal, cable) de ui_gtk/*_diagrama_ui.py. Ver
+        # pantallas_riesgo.py para las funciones puras de cálculo.
+        self._riesgo_color_activo = False        # toggle "🎨 Riesgo equipo"
+        self._riesgo_cache = {}                  # id_equipo(str) -> (riesgo, impacto, nivel)
+        self._riesgo_senal_color_activo = False  # toggle "🎨 Riesgo señal"
+        self._riesgo_senal_cache = {}            # id_cable(str) -> [(eje, detalle), ...]
+        # Poblada tras "🔺 Simular falla" — ya contemplada por
+        # _senal_conectores_caidos (ver ese método, getattr con default
+        # {}), así que la leyenda de señal tacha solo sin cambios acá.
+        self._riesgo_senales_cache_dict = {}
+
         # ── Vista previa de imagen — Fase 5.4 parte 2 del roadmap,
         # equivalente a VistaPreviaMixin (GTK, senal_visual_ui.py). Sin
         # exclusión mutua con nada (mismo criterio que "📡 Señal": modo
@@ -1558,6 +1591,26 @@ class DiagramaConexiones(Popup):
                                                width=dp(100), font_size=FUENTE_CHICA)
         self._btn_senal_leyenda.bind(on_press=self._senal_on_toggle_leyenda)
         tb_inner.add_widget(self._btn_senal_leyenda)
+
+        # ── Colorear por riesgo (roadmap de cierre mobile, ítem 3) ────────
+        self._btn_riesgo_color = ToggleButton(
+            text=_("🎨 Riesgo equipo"), size_hint_x=None, width=dp(140),
+            font_size=FUENTE_CHICA)
+        self._btn_riesgo_color.bind(on_press=self._riesgo_on_toggle_color)
+        tb_inner.add_widget(self._btn_riesgo_color)
+
+        self._btn_riesgo_senal_color = ToggleButton(
+            text=_("🎨 Riesgo señal"), size_hint_x=None, width=dp(130),
+            font_size=FUENTE_CHICA)
+        self._btn_riesgo_senal_color.bind(
+            on_press=self._riesgo_senal_on_toggle_color)
+        tb_inner.add_widget(self._btn_riesgo_senal_color)
+
+        btn_riesgo_simular = Button(text=_("🔺 Simular falla"),
+                                    size_hint_x=None, width=dp(130),
+                                    font_size=FUENTE_CHICA)
+        btn_riesgo_simular.bind(on_release=self._riesgo_on_simular_falla)
+        tb_inner.add_widget(btn_riesgo_simular)
 
         # ── Vista previa de imagen (Fase 5.4, parte 2) ───────────────────
         self._btn_visp_modo = ToggleButton(text=_("🖼 Vista previa"), size_hint_x=None,
@@ -2594,6 +2647,55 @@ class DiagramaConexiones(Popup):
         self._senal_panel.actualizar(
             self._senal_cache, self._senal_color_por_id,
             self._senal_conectores_caidos())
+
+    # ── Colorear por riesgo — roadmap de cierre mobile, ítem 3 ────────────
+    # Equivalente a RiesgoDiagramaMixin/RiesgoSenalDiagramaMixin (GTK). Ver
+    # pantallas_riesgo.py para las funciones puras que hacen el cálculo —
+    # acá sólo el manejo de estado del toggle/caché, mismo patrón que
+    # _senal_on_toggle_color/_senal_cargar_cache más arriba.
+    def _riesgo_on_toggle_color(self, btn) -> None:
+        self._riesgo_color_activo = btn.state == "down"
+        if self._riesgo_color_activo:
+            self._riesgo_cache = cargar_cache_riesgo_equipo()
+        self._canvas._redraw()
+
+    def _riesgo_senal_on_toggle_color(self, btn) -> None:
+        self._riesgo_senal_color_activo = btn.state == "down"
+        if self._riesgo_senal_color_activo:
+            self._riesgo_senal_cache = cargar_cache_riesgo_senal(
+                self._esc_db_path)
+        self._canvas._redraw()
+
+    def _riesgo_on_simular_falla(self, *_a) -> None:
+        sel_id = self._canvas._sel_id
+        if not sel_id:
+            mostrar_info(_("Seleccioná un equipo en el diagrama primero "
+                          "(toque simple sobre su cabecera)."))
+            return
+        (resultado, analyzer, nombres_afectados, senales_perdidas,
+         senales_cache_dict) = simular_falla_equipo(self._esc_db_path, sel_id)
+        if resultado is None:
+            mostrar_error(_("No se pudo simular la falla (¿está disponible "
+                           "el análisis de impacto?)."))
+            return
+
+        # "Simular falla" es de un solo disparo, sin "modo persistente"
+        # (a diferencia de Escenario) — mismo criterio que GTK: se
+        # limpia el tachado al cerrar el popup para no dejar un rastro
+        # "fantasma" si algo repinta el diagrama después.
+        self._riesgo_senales_cache_dict = senales_cache_dict
+        self._canvas._redraw()
+
+        popup = PopupResultadoSimulacion(
+            nombre_equipo=resultado.nombre_equipo, resultado=resultado,
+            nombres_afectados=nombres_afectados,
+            senales_perdidas=senales_perdidas)
+
+        def _al_cerrar(*_a):
+            self._riesgo_senales_cache_dict = {}
+            self._canvas._redraw()
+        popup.bind(on_dismiss=_al_cerrar)
+        popup.open()
 
     # ── Integración con _draw_node ("colorear puerto") ────────────────────
     def _senal_color_puerto(self, id_conector, color_defecto) -> tuple:
