@@ -46,7 +46,6 @@ from pantallas_comunes import (
     _get_combo_id,
     _set_combo_id,
     _repopulate_combo,
-    _pack_ultima_edicion,
     _pack_auditoria,
 )
 
@@ -317,7 +316,9 @@ class _DialogoConector(Gtk.Dialog):
             self.chk_salida_referencia_frame.set_active(
                 bool(Modelo.devolver_es_salida_referencia_frame_conector(id_conector)))
 
-        _pack_ultima_edicion(self, "conector", "id_conector", id_conector)
+        # _pack_auditoria ya incluye la fecha de última edición en la
+        # misma línea (ver docstring en pantallas_comunes.py) — no
+        # llamar también a _pack_ultima_edicion, quedaría duplicada.
         _pack_auditoria(self, "conector", "id_conector", id_conector)
         self.show_all()
 
