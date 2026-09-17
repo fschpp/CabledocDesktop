@@ -98,10 +98,33 @@ core real.
 - [ ] `requirements-mobile.txt` (todavía no existe; se agrega junto con
       `ui_kivy/`).
 - [ ] `README.md` de la raíz del repo integrado (arquitectura nueva).
-- [ ] Fase 4 — Consistencia visual del ABM en mobile (tarjeta + pestañas)
-      para Cables/Conectores/Racks/Frames/Slots/Salas.
+- [x] Fase 4 — Consistencia visual del ABM en mobile (tarjeta + pestañas)
+      para Cables/Conectores/Racks/Frames/Slots/Salas. Cables/Conectores/
+      Equipos ya envueltos en `seccion_tarjeta()` desde antes; esta entrega
+      (2026-09-16) suma los 6 diálogos restantes: `DialogoRack`,
+      `DialogoPosicionRack`, `DialogoFrame`, `DialogoSlot` (dos secciones:
+      "Datos del slot" + "Rectángulo en imagen") en `ui_kivy/pantallas_
+      racks.py`, y `DialogoRackPorSala`, `DialogoEquipoNoRackSala` en
+      `ui_kivy/pantallas_salas.py`. Sin tabs — ningún diálogo tuvo
+      suficientes secciones lógicas para justificarlas, mismo criterio que
+      preveía PLAN_CIERRE_ROADMAP_MOBILE.md (documento de Papi, no
+      versionado en este repo). Sin backend nuevo, sólo envoltorio visual.
+      Validado: ast.parse + py_compile + pyflakes (contra git stash, cero
+      advertencias nuevas en ambos archivos) + smoke test real con Kivy
+      2.3.1 bajo Xvfb (fixture SQLite desde schema_db.sql +
+      `Modelo.asegurar_tablas_plano()` para la columna `sala.id_plano`
+      que la vista de Rack por Sala necesita) — los 6 diálogos abren sin
+      excepción y los que se probaron en modo edición (Rack/Posición/
+      Frame/Slot/RackPorSala) poblan sus campos igual que antes del
+      cambio.
 - [ ] Fase 5 — Roadmap de paridad de pantallas nuevas (Diagnóstico, Riesgo
-      analógico, Señal, Escenarios, Ubicación física en planos).
+      analógico, Señal, Escenarios, Ubicación física en planos). Fases
+      5.1-5.4 y el fix de integración de Vista Previa ya mergeados a
+      `main` (ver changelog.txt 2026-09-16) — este checklist no se había
+      actualizado en su momento, corregido acá. Sigue: Fase 5.2 (Riesgo,
+      `riesgo_diagrama_ui.py`/`signal_risk_diagrama_ui.py`, sin empezar
+      en `ui_kivy/`) y, por tamaño/riesgo, Ubicación física en planos
+      (`ui_gtk/planos_ui.py`, sin empezar en mobile).
 - [ ] Fase 6/7 — Sync + pruebas cruzadas end-to-end.
 
 ## Latest Blockers/Discoveries

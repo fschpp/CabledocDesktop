@@ -24,6 +24,7 @@ from widgets_base import (
     ListadoPopup, ComboBuscable, grid_formulario, fila_etiqueta, fila_entry,
     etiqueta_ultima_edicion, fila_auditoria, titulo_con_nombre, mostrar_error, mostrar_info, entry_selector,
     s, _, ALTO_BOTON, ALTO_ENTRY, FUENTE_NORMAL, FUENTE_CHICA, fila_botones_pill,
+    seccion_tarjeta,
 )
 from core.modelo import Modelo
 
@@ -66,7 +67,7 @@ class DialogoRack(Popup):
         self.e_nombre = fila_entry(g, "")
         fila_etiqueta(g, _("Capacidad (UR):"))
         self.e_cap = fila_entry(g, "")
-        box.add_widget(g)
+        box.add_widget(seccion_tarjeta(_("Datos del rack"), g, icono="racks"))
 
         if id_rack:
             rows = Modelo.devolver_rack(id_rack)
@@ -216,7 +217,8 @@ class DialogoPosicionRack(Popup):
         hb_fr.add_widget(self.e_frame); hb_fr.add_widget(btn_fr)
         g.add_widget(hb_fr)
 
-        box.add_widget(g)
+        box.add_widget(seccion_tarjeta(_("Datos de la posición"), g,
+                                       icono="racks"))
 
         if id_rack:
             rows = Modelo.devolver_rack(id_rack)
@@ -419,7 +421,7 @@ class DialogoFrame(Popup):
         btn_img.bind(on_release=self._sel_imagen)
         hb_img.add_widget(self.e_imagen); hb_img.add_widget(btn_img)
         g.add_widget(hb_img)
-        box.add_widget(g)
+        box.add_widget(seccion_tarjeta(_("Datos del frame"), g, icono="frame"))
 
         if id_frame:
             # 3 botones de texto largo no entran en 360dp de ancho:
@@ -569,23 +571,26 @@ class DialogoSlot(Popup):
         btn_img.bind(on_release=self._sel_imagen)
         hb_img.add_widget(self.e_imagen); hb_img.add_widget(btn_img)
         g.add_widget(hb_img)
+        box.add_widget(seccion_tarjeta(_("Datos del slot"), g, icono="frame"))
 
         # Rect X/Y y Ancho/Alto agrupados de a dos por fila (campos
         # chicos, entran bien juntos y ahorran espacio vertical).
-        fila_etiqueta(g, _("Rectángulo — X, Y (px):"))
+        g2 = grid_formulario(cols=1)
+        fila_etiqueta(g2, _("Rectángulo — X, Y (px):"))
         hb_xy = BoxLayout(size_hint_y=None, height=ALTO_ENTRY, spacing=dp(4))
         self.e_x = TextInput(multiline=False, font_size=FUENTE_NORMAL)
         self.e_y = TextInput(multiline=False, font_size=FUENTE_NORMAL)
         hb_xy.add_widget(self.e_x); hb_xy.add_widget(self.e_y)
-        g.add_widget(hb_xy)
+        g2.add_widget(hb_xy)
 
-        fila_etiqueta(g, _("Rectángulo — Ancho, Alto (px):"))
+        fila_etiqueta(g2, _("Rectángulo — Ancho, Alto (px):"))
         hb_wh = BoxLayout(size_hint_y=None, height=ALTO_ENTRY, spacing=dp(4))
         self.e_ancho = TextInput(multiline=False, font_size=FUENTE_NORMAL)
         self.e_alto = TextInput(multiline=False, font_size=FUENTE_NORMAL)
         hb_wh.add_widget(self.e_ancho); hb_wh.add_widget(self.e_alto)
-        g.add_widget(hb_wh)
-        box.add_widget(g)
+        g2.add_widget(hb_wh)
+        box.add_widget(seccion_tarjeta(_("Rectángulo en imagen"), g2,
+                                       icono="imagen"))
 
         btn_coords = Button(text=_("Elegir rectángulo en imagen"),
                            size_hint_y=None, height=ALTO_BOTON,
