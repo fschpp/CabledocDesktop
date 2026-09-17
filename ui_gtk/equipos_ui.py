@@ -59,7 +59,6 @@ from pantallas_comunes import (
     _get_combo_id,
     _set_combo_id,
     _repopulate_combo,
-    _pack_ultima_edicion,
     _pack_auditoria,
 )
 from pantallas_avanzadas import (
@@ -364,7 +363,11 @@ class _DialogoEquipo(Gtk.Dialog):
         
         self.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
                          _("Aceptar"), Gtk.ResponseType.OK)
-        self.set_default_size(700, 620)
+        # 760×560: un poco más ancho que antes (para que 4 botones por
+        # fila entren cómodos en "Acciones") y algo más bajo, porque
+        # ahora cada pestaña scrollea de forma independiente y ya no
+        # hace falta alto extra para que "entre todo junto".
+        self.set_default_size(760, 560)
         self.id_equipo = id_equipo
         self.id_marca = ""
         self.id_tipo = ""
@@ -404,30 +407,39 @@ class _DialogoEquipo(Gtk.Dialog):
         _lbl_entry(g, _("Serie:"), 5)
         self.e_serie = _entry(g, 5)
         _lbl_entry(g, _("Manual (PDF):"), 6)
-        # Entry para el manual PDF
+        # Entry para el manual PDF. Antes ocupaba sólo la columna 1 y
+        # los dos botones ("…" seleccionar + "Ver") se attacheaban en
+        # las columnas 2 y 3 por separado — esa 3ra columna no la usa
+        # ninguna otra fila del grid (las de arriba terminan en la 2),
+        # así que quedaba como una columna extra sobresaliendo sólo acá
+        # y en "Foto". Ahora los dos botones van juntos en una sola
+        # Gtk.Box en la columna 2, igual que el resto de las filas.
         self.e_manual = Gtk.Entry(hexpand=True)
         g.attach(self.e_manual, 1, 6, 1, 1)
-        # Botón para seleccionar manual
+        box_btns_manual = Gtk.Box(spacing=4)
         btn_sel_manual = Gtk.Button(label="…")
         btn_sel_manual.connect("clicked", self._sel_manual)
-        g.attach(btn_sel_manual, 2, 6, 1, 1)
-        # Botón para ver el PDF
+        box_btns_manual.pack_start(btn_sel_manual, False, False, 0)
         btn_view_manual = Gtk.Button(label="👁 " + _("Ver"))
         btn_view_manual.connect("clicked", self._ver_manual)
-        g.attach(btn_view_manual, 3, 6, 1, 1)
+        box_btns_manual.pack_start(btn_view_manual, False, False, 0)
+        g.attach(box_btns_manual, 2, 6, 1, 1)
+
         _lbl_entry(g, _("Foto (Picon):"), 7)
         # Entry para el nombre de archivo de la foto del equipo (picon)
+        # — mismo criterio que Manual: los dos botones juntos en la
+        # columna 2, sin columna 3 extra.
         self.e_picon = Gtk.Entry(hexpand=True)
         g.attach(self.e_picon, 1, 7, 1, 1)
-        # Botón para seleccionar la foto
+        box_btns_picon = Gtk.Box(spacing=4)
         btn_sel_picon = Gtk.Button(label="…")
         btn_sel_picon.connect("clicked", self._sel_picon)
-        g.attach(btn_sel_picon, 2, 7, 1, 1)
-        # Botón para quitar la foto
+        box_btns_picon.pack_start(btn_sel_picon, False, False, 0)
         btn_quitar_picon = Gtk.Button(label="✖")
         btn_quitar_picon.set_tooltip_text(_("Quitar foto"))
         btn_quitar_picon.connect("clicked", self._quitar_picon)
-        g.attach(btn_quitar_picon, 3, 7, 1, 1)
+        box_btns_picon.pack_start(btn_quitar_picon, False, False, 0)
+        g.attach(box_btns_picon, 2, 7, 1, 1)
         # Miniatura de vista previa de la foto
         self.img_picon = Gtk.Image()
         self.img_picon.set_size_request(140, 140)
@@ -440,54 +452,70 @@ class _DialogoEquipo(Gtk.Dialog):
         self.chk_equipo_usado = Gtk.CheckButton(label=_("Equipo usado (no nuevo)"))
         g.attach(self.chk_equipo_usado, 1, 10, 2, 1)
 
-        # ── Sección: Dimensiones físicas (§2.2/§3 de
-        # plan_paneles_vectoriales_v3.md) — se usan para calibrar la
-        # escala de los símbolos de conector reales sobre imágenes SVG
-        # (ver "Edición masiva conectores en imagen"). Todo opcional: si
-        # no se carga nada, los símbolos siguen usando el tamaño
-        # genérico de siempre. ──
-        sep_dim = Gtk.Separator()
-        g.attach(sep_dim, 0, 11, 4, 1)
+        # La pestaña "Datos" termina acá (identidad básica del equipo).
+        # Dimensiones/Riesgo/Ubicación se separaron a su propia pestaña
+        # (ver más abajo) para que ninguna de las dos crezca tanto que
+        # no entre en pantalla — cada una vive en su propio
+        # Gtk.ScrolledWindow, así que el diálogo nunca se corta aunque
+        # la ventana sea chica.
+        scroll_datos = Gtk.ScrolledWindow()
+        scroll_datos.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll_datos.add(g)
+        nb.append_page(scroll_datos, Gtk.Label(label=_("Datos")))
+
+        # ── Pestaña Riesgo y Ubicación ──────────────────────────────────
+        # Agrupa lo que antes vivía apilado al final de "Datos":
+        # Dimensiones físicas, Riesgo de falla (IRF) y la marca de
+        # "módulo de frame". Es contenido de consulta ocasional, no
+        # identidad básica, así que tener su propia pestaña además
+        # acorta "Datos" a lo que se edita en el 90% de los casos.
+        g2 = _grid()
+
+        # Dimensiones físicas (§2.2/§3 de plan_paneles_vectoriales_v3.md)
+        # — se usan para calibrar la escala de los símbolos de conector
+        # reales sobre imágenes SVG (ver "Edición masiva conectores en
+        # imagen"). Todo opcional: si no se carga nada, los símbolos
+        # siguen usando el tamaño genérico de siempre.
         lbl_dim_titulo = Gtk.Label()
         lbl_dim_titulo.set_markup(
             "<b>📏 " + _("Dimensiones físicas") + "</b>  <small>" +
             _("(escala de símbolos de conector sobre imagen SVG)") +
             "</small>")
         lbl_dim_titulo.set_xalign(0)
-        g.attach(lbl_dim_titulo, 0, 12, 4, 1)
+        g2.attach(lbl_dim_titulo, 0, 0, 4, 1)
 
         lbl_ancho = Gtk.Label(label=_("Ancho (mm):"), xalign=1)
-        g.attach(lbl_ancho, 0, 13, 1, 1)
+        g2.attach(lbl_ancho, 0, 1, 1, 1)
         self.e_ancho_mm = Gtk.Entry(hexpand=True)
-        g.attach(self.e_ancho_mm, 1, 13, 1, 1)
+        g2.attach(self.e_ancho_mm, 1, 1, 1, 1)
         lbl_alto = Gtk.Label(label=_("Alto (mm):"), xalign=1)
-        g.attach(lbl_alto, 2, 13, 1, 1)
+        g2.attach(lbl_alto, 2, 1, 1, 1)
         self.e_alto_mm = Gtk.Entry(hexpand=True)
-        g.attach(self.e_alto_mm, 3, 13, 1, 1)
+        g2.attach(self.e_alto_mm, 3, 1, 1, 1)
 
         lbl_prof = Gtk.Label(label=_("Profundidad (mm):"), xalign=1)
-        g.attach(lbl_prof, 0, 14, 1, 1)
+        g2.attach(lbl_prof, 0, 2, 1, 1)
         self.e_profundidad_mm = Gtk.Entry(hexpand=True)
-        g.attach(self.e_profundidad_mm, 1, 14, 1, 1)
+        g2.attach(self.e_profundidad_mm, 1, 2, 1, 1)
         btn_ancho_19 = Gtk.Button(label=_("Usar ancho estándar 19″"))
         btn_ancho_19.set_tooltip_text(
             _("Precarga {mm:.1f} mm (19 pulgadas, ancho estándar EIA-310 "
               "de rack) en el campo Ancho.").format(
                   mm=Modelo.ANCHO_RACK_19_MM))
         btn_ancho_19.connect("clicked", self._usar_ancho_19)
-        g.attach(btn_ancho_19, 2, 14, 2, 1)
+        g2.attach(btn_ancho_19, 2, 2, 2, 1)
 
         # ── Sección: Riesgo de falla (IRF) ──
         sep_riesgo = Gtk.Separator()
-        g.attach(sep_riesgo, 0, 15, 4, 1)
+        g2.attach(sep_riesgo, 0, 3, 4, 1)
         lbl_riesgo_titulo = Gtk.Label()
         lbl_riesgo_titulo.set_markup("<b>🔺 " + _("Riesgo de falla") + "</b>")
         lbl_riesgo_titulo.set_xalign(0)
-        g.attach(lbl_riesgo_titulo, 0, 16, 4, 1)
+        g2.attach(lbl_riesgo_titulo, 0, 4, 4, 1)
 
         self.lbl_riesgo_score = Gtk.Label(label="—")
         self.lbl_riesgo_score.set_xalign(0)
-        g.attach(self.lbl_riesgo_score, 0, 17, 4, 1)
+        g2.attach(self.lbl_riesgo_score, 0, 5, 4, 1)
 
         self.chk_equipo_critico = Gtk.CheckButton(
             label="⭐ " + _("Equipo crítico de la cadena"))
@@ -500,13 +528,13 @@ class _DialogoEquipo(Gtk.Dialog):
               "diagrama de conexiones (seleccioná con rectángulo o "
               "Shift/Ctrl+clic y usá '⭐ Marcar críticos')."))
         self.chk_equipo_critico.connect("toggled", self._on_toggle_critico)
-        g.attach(self.chk_equipo_critico, 0, 18, 4, 1)
+        g2.attach(self.chk_equipo_critico, 0, 6, 4, 1)
 
         self.lbl_riesgo_detalle = Gtk.Label(label="")
         self.lbl_riesgo_detalle.set_xalign(0)
         self.lbl_riesgo_detalle.set_line_wrap(True)
         self.lbl_riesgo_detalle.get_style_context().add_class("dim-label")
-        g.attach(self.lbl_riesgo_detalle, 0, 19, 4, 2)
+        g2.attach(self.lbl_riesgo_detalle, 0, 7, 4, 2)
 
         hbox_riesgo = Gtk.Box(spacing=6)
         btn_recalc_riesgo = Gtk.Button(label="🔄 " + _("Recalcular"))
@@ -521,12 +549,12 @@ class _DialogoEquipo(Gtk.Dialog):
             "falla (no destructivo, no toca la base)."))
         btn_ver_afectados.connect("clicked", self._ver_equipos_afectados)
         hbox_riesgo.pack_start(btn_ver_afectados, False, False, 0)
-        g.attach(hbox_riesgo, 0, 21, 4, 1)
+        g2.attach(hbox_riesgo, 0, 9, 4, 1)
 
         # ── Ubicación física en planos (Fase 8 de
         # plan_desarrollo_ubicacion_fisica_planos.md) ──
         sep_ubicacion = Gtk.Separator()
-        g.attach(sep_ubicacion, 0, 22, 4, 1)
+        g2.attach(sep_ubicacion, 0, 10, 4, 1)
         self.chk_es_modulo_frame = Gtk.CheckButton(
             label=_("Es módulo de frame (requiere estar instalado en un "
                     "frame para tener ubicación física)"))
@@ -536,9 +564,17 @@ class _DialogoEquipo(Gtk.Dialog):
               "marcarse como equipo suelto ni ubicarse sobre un mueble: "
               "su ubicación en el plano se hereda automáticamente del "
               "rack cuando el frame que lo contiene está rackeado."))
-        g.attach(self.chk_es_modulo_frame, 0, 23, 4, 1)
+        g2.attach(self.chk_es_modulo_frame, 0, 11, 4, 1)
 
-        nb.append_page(g, Gtk.Label(label=_("Datos")))
+        scroll_riesgo = Gtk.ScrolledWindow()
+        scroll_riesgo.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll_riesgo.add(g2)
+        # El orden de pestañas en el Notebook es el orden de las
+        # llamadas a append_page, no el de construcción del contenido:
+        # esta pestaña se arma acá (junto a "Datos", de la que se
+        # separó) pero se agrega al Notebook al final, después de
+        # "Acciones" — pedido explícito de Fede, es la pestaña de
+        # consulta más ocasional de las cuatro.
 
         # ── Pestaña Configuraciones ──
         box_conf = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -611,92 +647,99 @@ class _DialogoEquipo(Gtk.Dialog):
         # Añadir Notebook al contenedor principal (expande para ocupar espacio)
         vbox_main.pack_start(nb, True, True, 0)
 
-        # ── Botones extra abajo del Notebook (2 filas de 5) ──
-        vbox_botones = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        vbox_botones.set_margin_start(12)
-        vbox_botones.set_margin_end(12)
-        vbox_botones.set_margin_bottom(6)
-
-        hbox_fila1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        hbox_fila2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        hbox_fila3 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        vbox_botones.pack_start(hbox_fila1, False, False, 0)
-        vbox_botones.pack_start(hbox_fila2, False, False, 0)
-        vbox_botones.pack_start(hbox_fila3, False, False, 0)
-
+        # ── Pestaña Acciones ──────────────────────────────────────────
+        # Antes estos ~12 botones iban en 3 filas fijas de Gtk.Box
+        # apiladas debajo del Notebook: con etiquetas largas ("Edición
+        # masiva conectores en imagen") no entraban en el ancho del
+        # diálogo y quedaban cortados o forzaban scroll horizontal.
+        # Ahora viven en su propia pestaña, agrupados por tema, dentro
+        # de Gtk.FlowBox: un FlowBox reacomoda automáticamente cuántos
+        # botones entran por fila según el ancho disponible (se
+        # recalcula solo al redimensionar la ventana), así que nunca
+        # se cortan. Solo se agrega la pestaña si el equipo ya existe
+        # (en alta nueva no hay nada para estas acciones todavía).
         if id_equipo:
-            btn_con = Gtk.Button(label="🔌 " + _("Ver Conectores"))
-            btn_con.connect("clicked", self._ver_conectores)
-            hbox_fila1.pack_start(btn_con, False, False, 0)
+            def _grupo_acciones(caja, titulo, botones):
+                """Agrega a `caja` un subtítulo en negrita y un
+                Gtk.FlowBox con los botones de ese grupo. `botones` es
+                una lista de (etiqueta, tooltip_o_None, callback)."""
+                lbl = Gtk.Label()
+                lbl.set_markup(f"<b>{titulo}</b>")
+                lbl.set_xalign(0)
+                caja.pack_start(lbl, False, False, 0)
 
-            btn_img_con = Gtk.Button(label="🖼 " + _("Imagen c/ conectores"))
-            btn_img_con.connect("clicked", self._ver_imagen_conectores)
-            hbox_fila1.pack_start(btn_img_con, False, False, 0)
+                flow = Gtk.FlowBox()
+                flow.set_selection_mode(Gtk.SelectionMode.NONE)
+                flow.set_homogeneous(True)
+                flow.set_row_spacing(6)
+                flow.set_column_spacing(6)
+                flow.set_min_children_per_line(1)
+                flow.set_max_children_per_line(4)
+                for etiqueta, tooltip, callback in botones:
+                    btn = Gtk.Button(label=etiqueta)
+                    if tooltip:
+                        btn.set_tooltip_text(tooltip)
+                    btn.connect("clicked", callback)
+                    flow.add(btn)
+                caja.pack_start(flow, False, False, 0)
 
-            btn_ed_masivo = Gtk.Button(label="📍 " + _("Edición masiva conectores en imagen"))
-            btn_ed_masivo.connect("clicked", self._ver_editor_masivo_conectores)
-            hbox_fila1.pack_start(btn_ed_masivo, False, False, 0)
+            box_acciones = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            box_acciones.set_margin_start(12)
+            box_acciones.set_margin_end(12)
+            box_acciones.set_margin_top(12)
+            box_acciones.set_margin_bottom(12)
 
-            btn_arbol = Gtk.Button(label="🌳 " + _("Árbol de conexiones"))
-            btn_arbol.connect("clicked", self._ver_arbol)
-            hbox_fila1.pack_start(btn_arbol, False, False, 0)
-
-            btn_patch = Gtk.Button(label="🔌 " + _("Patcheras"))
-            btn_patch.connect("clicked", self._ver_patcheras)
-            hbox_fila2.pack_start(btn_patch, False, False, 0)
-
-            btn_diag = Gtk.Button(label="🔗 " + _("Diagrama de conexiones"))
-            btn_diag.connect("clicked", self._ver_diagrama)
-            hbox_fila2.pack_start(btn_diag, False, False, 0)
-
-            btn_rename = Gtk.Button(label="🏷 " + _("Renombrar conectores"))
-            btn_rename.connect("clicked", self._renombrar_conectores)
-            hbox_fila2.pack_start(btn_rename, False, False, 0)
-
-            btn_rack = Gtk.Button(label="🗄 " + _("Rack del equipo"))
-            btn_rack.set_tooltip_text(
-                _("Buscar en qué rack está montado este equipo (directo o dentro de un frame) y abrir su vista gráfica"))
-            btn_rack.connect("clicked", self._ver_rack)
-            hbox_fila2.pack_start(btn_rack, False, False, 0)
-
-            btn_reglas = Gtk.Button(label="🔀 " + _("Reglas lógicas"))
-            btn_reglas.set_tooltip_text(
-                _("Definir condiciones AND/OR sobre los conectores de entrada "
-                  "(ej. \"requiere todas estas entradas para que funcionen las "
-                  "salidas\", o \"alcanza con una de estas dos\")"))
-            btn_reglas.connect("clicked", self._ver_reglas_logicas)
-            hbox_fila2.pack_start(btn_reglas, False, False, 0)
-
-            btn_template = Gtk.Button(label="🧬 " + _("Equipo a template"))
-            btn_template.set_tooltip_text(
-                _("Crear un molde de catálogo reutilizable a partir de "
-                  "este equipo y sus conectores (sin inventario/serie)"))
-            btn_template.connect("clicked", self._equipo_a_template)
-            hbox_fila3.pack_start(btn_template, False, False, 0)
-
-        if id_equipo:
-            btn_coords = Gtk.Button(label="📍 " + _("Ver ubicación"))
-            btn_coords.set_tooltip_text(
-                _("Muestra dónde está este equipo en el plano (propia o "
-                  "heredada de su rack/mueble/frame) — de sólo lectura, "
-                  "la ubicación se carga desde Infraestructura → Racks "
-                  "y Salas / Muebles."))
-            btn_coords.connect("clicked", self._ver_ubicacion_fisica)
-            hbox_fila3.pack_start(btn_coords, False, False, 0)
-
-        if id_equipo:
             n_problemas = Modelo.devolver_cantidad_problemas_de_equipo(id_equipo)
-            etiqueta_problemas = "⚠ Problemas del equipo"
+            etiqueta_problemas = "⚠ " + _("Problemas del equipo")
             if n_problemas:
                 etiqueta_problemas += f" ({n_problemas})"
-            btn_problemas = Gtk.Button(label=etiqueta_problemas)
-            btn_problemas.set_tooltip_text(
-                _("Ver y cargar los problemas reportados para este equipo "
-                  "(categoría, gravedad y descripción)"))
-            btn_problemas.connect("clicked", self._ver_problemas)
-            hbox_fila3.pack_start(btn_problemas, False, False, 0)
 
-        vbox_main.pack_start(vbox_botones, False, False, 0)
+            _grupo_acciones(box_acciones, "🔌 " + _("Conectores"), [
+                ("🔌 " + _("Ver Conectores"), None, self._ver_conectores),
+                ("🖼 " + _("Imagen c/ conectores"), None, self._ver_imagen_conectores),
+                ("📍 " + _("Editor masivo (imagen)"),
+                 _("Edición masiva de conectores sobre la imagen del equipo"),
+                 self._ver_editor_masivo_conectores),
+                ("🏷 " + _("Renombrar conectores"), None, self._renombrar_conectores),
+            ])
+            _grupo_acciones(box_acciones, "🔗 " + _("Conexiones"), [
+                ("🔗 " + _("Diagrama de conexiones"), None, self._ver_diagrama),
+                ("🌳 " + _("Árbol de conexiones"), None, self._ver_arbol),
+                ("🔌 " + _("Patcheras"), None, self._ver_patcheras),
+                ("🗄 " + _("Rack del equipo"),
+                 _("Buscar en qué rack está montado este equipo (directo "
+                   "o dentro de un frame) y abrir su vista gráfica"),
+                 self._ver_rack),
+            ])
+            _grupo_acciones(box_acciones, "⚙️ " + _("Otros"), [
+                ("🔀 " + _("Reglas lógicas"),
+                 _("Definir condiciones AND/OR sobre los conectores de "
+                   "entrada (ej. \"requiere todas estas entradas para "
+                   "que funcionen las salidas\", o \"alcanza con una de "
+                   "estas dos\")"),
+                 self._ver_reglas_logicas),
+                ("🧬 " + _("Equipo a template"),
+                 _("Crear un molde de catálogo reutilizable a partir de "
+                   "este equipo y sus conectores (sin inventario/serie)"),
+                 self._equipo_a_template),
+                ("📍 " + _("Ver ubicación"),
+                 _("Muestra dónde está este equipo en el plano (propia o "
+                   "heredada de su rack/mueble/frame) — de sólo lectura, "
+                   "la ubicación se carga desde Infraestructura → Racks "
+                   "y Salas / Muebles."),
+                 self._ver_ubicacion_fisica),
+                (etiqueta_problemas,
+                 _("Ver y cargar los problemas reportados para este "
+                   "equipo (categoría, gravedad y descripción)"),
+                 self._ver_problemas),
+            ])
+
+            scroll_acciones = Gtk.ScrolledWindow()
+            scroll_acciones.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            scroll_acciones.add(box_acciones)
+            nb.append_page(scroll_acciones, Gtk.Label(label=_("Acciones")))
+
+        nb.append_page(scroll_riesgo, Gtk.Label(label=_("Riesgo y ubicación")))
 
         # Cargar datos si es edición
         if id_equipo:
@@ -735,7 +778,9 @@ class _DialogoEquipo(Gtk.Dialog):
 
         self._actualizar_seccion_riesgo()
         self._actualizar_picon_preview()
-        _pack_ultima_edicion(self, "equipo", "id_equipo", id_equipo)
+        # _pack_auditoria ya incluye la fecha de última edición en la
+        # misma línea (ver docstring en pantallas_comunes.py) — no
+        # llamar también a _pack_ultima_edicion, quedaría duplicada.
         _pack_auditoria(self, "equipo", "id_equipo", id_equipo,
                         on_marcado=self._preguntar_auditar_conexiones)
         self.show_all()

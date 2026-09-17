@@ -2171,3 +2171,150 @@ mecanismo sí funciona bien.
   predecible a cualquier zoom) o si es el mismo bug agazapado en el
   fallback — no se tocó en esta entrega porque Papi no lo reportó y no
   es lo que rompía el smoke test.
+
+## Reorganización de la ficha de equipo (_DialogoEquipo) — botones y campos no entraban en pantalla — 2026-09-17T03:15
+
+### Current Focus
+Fede mandó una captura de pantalla de "Editar Equipo" pidiendo mejorar la
+presentación: demasiados botones y texto apilados, no entraban en la
+ventana. El diálogo real (`ui_gtk/equipos_ui.py`, rama `main` en GitHub)
+está bastante más avanzado que el checkout que se venía usando en el
+sandbox en sesiones previas de este proyecto — ya incluye Dimensiones
+físicas (`plan_paneles_vectoriales_v3.md`) y Auditoría de campo, no
+documentadas hasta ahora en este log con ese nivel de detalle.
+
+### Cómo se resolvió
+- Causa: la pestaña "Datos" de `_DialogoEquipo` era un único `Gtk.Grid` de
+  ~24 filas (identidad básica + Dimensiones físicas + Riesgo de falla (IRF)
+  + "Es módulo de frame") sin `Gtk.ScrolledWindow` propio — sólo la pestaña
+  "Configuraciones" scrolleaba. Debajo del `Gtk.Notebook`, 3 filas fijas de
+  `Gtk.Box` horizontal metían hasta 12 botones (algunos con etiquetas
+  largas, ej. "Edición masiva conectores en imagen") que no entraban en el
+  ancho del diálogo (700×620) y se cortaban.
+- Fix, todo dentro de `_DialogoEquipo.__init__`, sin tocar lógica de
+  negocio ni callbacks:
+  - "Datos" se acortó a identidad básica y se envolvió en su propio
+    `Gtk.ScrolledWindow`.
+  - Dimensiones físicas + Riesgo de falla + "Es módulo de frame" pasaron a
+    una pestaña nueva "Riesgo y ubicación", con su propio scroll.
+  - Los ~12 botones de acción pasaron a una pestaña nueva "Acciones",
+    agrupados por tema (🔌 Conectores / 🔗 Conexiones / ⚙️ Otros) dentro de
+    `Gtk.FlowBox` (antes `Gtk.Box`+`HBox` fijas) — un FlowBox reacomoda
+    solo cuántos botones entran por fila según el ancho disponible, así
+    que ninguna etiqueta se corta aunque la ventana sea angosta. La
+    etiqueta "Edición masiva conectores en imagen" se acortó a "Editor
+    masivo (imagen)" (texto completo al tooltip). La pestaña "Acciones"
+    sólo se agrega si `id_equipo` (alta nueva no tiene acciones todavía).
+  - `set_default_size` bajó de (700, 620) a (760, 560): ya no hace falta
+    tanto alto porque cada pestaña scrollea por separado.
+- Sin cambios de schema, de orden de guardado, ni del pie del diálogo
+  (auditoría / última edición / Cancelar-Aceptar), que siguen viviendo
+  fuera del Notebook como antes.
+
+### Todo List
+- [x] Localizar el diálogo real: el `/mnt/project` cargado en el sandbox
+      no tenía Dimensiones físicas/Auditado — se clonó `main` desde
+      GitHub (`ui_gtk/equipos_ui.py`) para trabajar sobre el código
+      vigente.
+- [x] Dividir "Datos" en "Datos" + "Riesgo y ubicación", cada una con
+      `Gtk.ScrolledWindow` propio.
+- [x] Mover los botones de acción a pestaña "Acciones" con `Gtk.FlowBox`
+      agrupado por tema.
+- [x] `ast.parse` sobre el archivo modificado: OK.
+- [x] `pyflakes` comparado contra baseline (`git stash`): mismos 7 avisos
+      preexistentes, cero hallazgos nuevos.
+- [x] `APP_VERSION` → `1.20260917031500` + `changelog.txt` actualizado.
+- [x] Patch (`mejora_dialogo_equipo.patch`) y archivo completo
+      (`equipos_ui.py`) entregados en `/mnt/user-data/outputs/`.
+- [ ] **Pendiente — a cargo de Fede:** aplicar el patch sobre su propio
+      checkout (`ui_gtk/equipos_ui.py`) y confirmar visualmente en su
+      máquina que las 4 pestañas ("Datos" / "Riesgo y ubicación" /
+      "Configuraciones" / "Acciones") abren bien y que el FlowBox de
+      "Acciones" reacomoda los botones al redimensionar la ventana —
+      no hay typelib de Gtk 3.0 en este sandbox para smoke test real.
+
+### Latest Blockers/Discoveries
+- **El `/mnt/project` de este sandbox está desactualizado respecto al
+  `main` real de GitHub** para `equipos_ui.py` (y probablemente otros
+  archivos del refactor a `ui_gtk/`+`core/`): le faltan Dimensiones
+  físicas, Auditoría de campo, y la reestructuración misma en carpetas
+  `ui_gtk/`/`core/`/`ui_kivy/` (el repo ya tiene puerto Kivy/mobile activo,
+  ver `requirements-mobile.txt`/`lanzar_mobile.sh`/`PROGRESS_INTEGRACION_MOBILE.md`,
+  no reflejado todavía en el resumen de "Contexto general" al principio de
+  este documento). Vale la pena, en la próxima sesión, confirmar con Fede
+  si conviene resincronizar los archivos que se montan en el sandbox o
+  seguir clonando de GitHub cuando haga falta certeza sobre el estado
+  real del código.
+
+## Ajustes de detalle sobre la reorganización de _DialogoEquipo — 2026-09-17T04:10
+
+### Current Focus
+Fede probó/revisó el patch de la sesión anterior (reorganización de
+`_DialogoEquipo`) y pidió 3 ajustes puntuales: (1) unificar en una sola
+línea el label de última edición, la fecha de auditoría y el botón
+"Auditado" (hoy en dos filas apiladas); (2) mover la pestaña nueva
+"Riesgo y ubicación" al final del Notebook; (3) que los botones "Ver"
+(manual) y "✖ Quitar foto" (picon) no generen una columna extra en el
+grid — deben quedar alineados con las columnas de las filas de
+arriba/abajo.
+
+### Cómo se resolvió
+- **(1) Línea única de auditoría:** `_pack_ultima_edicion` y
+  `_pack_auditoria` son helpers compartidos de `pantallas_comunes.py`
+  usados por 4 diálogos a la vez (equipo/cable/conexión/conector) —
+  en vez de armar la línea combinada sólo en `equipos_ui.py`, se llevó
+  el fix al helper (`_pack_auditoria` ahora arma internamente la fila
+  con [fecha edición] + [estado auditoría] + [botón], reutilizando
+  `Modelo.devolver_fecha_ultima_edicion` que antes sólo llamaba
+  `_pack_ultima_edicion`) y se sacó la llamada duplicada de los 4
+  diálogos que llamaban a ambas funciones. Los diálogos que sólo usan
+  `_pack_ultima_edicion` sola (entidades no auditables: frame, slot,
+  rack, sala, tipo_cable, tipo_ficha, problema_equipo, imagen,
+  catalogo_simbolo_conector) no se tocaron — siguen con una sola fila
+  de sólo lectura, comportamiento sin cambios.
+- **(2) Orden de pestañas:** el orden visual del `Gtk.Notebook` lo
+  define el orden de las llamadas a `append_page()`, no el orden en que
+  se construye el contenido de cada página — alcanzó con mover esa
+  única línea (`nb.append_page(scroll_riesgo, ...)`) a después de la
+  de "Acciones", sin tocar dónde se arma `g2`/`scroll_riesgo`. Orden
+  final: Datos / Configuraciones / Acciones / Riesgo y ubicación.
+- **(3) Columna extra en Manual/Foto:** esas dos filas tenían el patrón
+  entry(col1) + botón(col2) + botón(col3), mientras que el resto del
+  grid nunca usa la columna 3 (las filas con combo+botón terminan en
+  col2, las de sólo entry ocupan col1-2). Se agruparon los dos botones
+  de cada fila (seleccionar + Ver/Quitar) en un único `Gtk.Box`
+  horizontal en la columna 2, quedando entry(col1) + caja-de-botones
+  (col2) — mismo ancho final que cualquier otra fila del formulario.
+  Sin cambios en los callbacks (`_sel_manual`/`_ver_manual`/
+  `_sel_picon`/`_quitar_picon`).
+
+### Todo List
+- [x] `_pack_auditoria()` en `pantallas_comunes.py`: fila única
+      (edición + auditoría + botón).
+- [x] Sacar la llamada duplicada a `_pack_ultima_edicion` (+ import
+      donde quedaba sin otro uso) en `equipos_ui.py`,
+      `cables_conexiones_ui.py` (cable y conexión) y `conectores_ui.py`.
+- [x] Reordenar pestañas: "Riesgo y ubicación" al final.
+- [x] Agrupar botones de Manual y Foto en una sola columna (Gtk.Box).
+- [x] `ast.parse` sobre los 4 archivos tocados: OK.
+- [x] `pyflakes` comparado contra baseline (`git stash`) en los 4
+      archivos: cero hallazgos nuevos; `pantallas_comunes.py`,
+      `cables_conexiones_ui.py` y `conectores_ui.py` quedaron sin
+      ningún warning.
+- [x] `APP_VERSION` → `1.20260917041000` + `changelog.txt` actualizado.
+- [x] Patch y archivos completos entregados en
+      `/mnt/user-data/outputs/`.
+- [ ] **Pendiente — a cargo de Fede:** confirmar visualmente que la
+      fila de auditoría se ve bien en una sola línea en los 4 diálogos
+      afectados (no sólo equipo), que el orden de pestañas quedó como
+      se pidió, y que Manual/Foto ya no sobresalen como columna extra.
+
+### Latest Blockers/Discoveries
+- El pedido original mencionaba sólo la ficha de equipo, pero
+  `_pack_ultima_edicion`/`_pack_auditoria` son helpers compartidos —
+  se optó por corregir el helper una sola vez (criterio DRY ya
+  establecido en el proyecto) en vez de duplicar la fila combinada
+  sólo en `equipos_ui.py`. Esto significa que el fix de la línea de
+  auditoría también se ve reflejado, sin pedirlo explícitamente, en
+  las fichas de Cable, Conexión y Conector — vale la pena que Fede lo
+  confirme en esos 3 diálogos también al validar en su máquina.

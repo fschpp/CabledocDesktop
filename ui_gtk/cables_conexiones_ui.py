@@ -44,7 +44,6 @@ from pantallas_comunes import (
     _get_combo_id,
     _set_combo_id,
     _repopulate_combo,
-    _pack_ultima_edicion,
     _pack_auditoria,
     _parse_float_opt,
     _fmt_float_opt,
@@ -538,7 +537,9 @@ class _DialogoCable(Gtk.Dialog):
                     if fila_arm and fila_arm[0][1]:
                         self.e_detalle_armado.set_text(s(fila_arm[0][1]))
 
-        _pack_ultima_edicion(self, "cable", "id_cable", id_cable)
+        # _pack_auditoria ya incluye la fecha de última edición en la
+        # misma línea (ver docstring en pantallas_comunes.py) — no
+        # llamar también a _pack_ultima_edicion, quedaría duplicada.
         _pack_auditoria(self, "cable", "id_cable", id_cable)
         self.show_all()
 
@@ -864,7 +865,9 @@ class _DialogoConexion(Gtk.Dialog):
             btn_remocion.connect("clicked", self._simular_remocion)
             self.get_content_area().pack_start(btn_remocion, False, False, 4)
 
-        _pack_ultima_edicion(self, "conexion", "id_conexion", id_conexion)
+        # _pack_auditoria ya incluye la fecha de última edición en la
+        # misma línea (ver docstring en pantallas_comunes.py) — no
+        # llamar también a _pack_ultima_edicion, quedaría duplicada.
         _pack_auditoria(self, "conexion", "id_conexion", id_conexion)
         self.show_all()
 

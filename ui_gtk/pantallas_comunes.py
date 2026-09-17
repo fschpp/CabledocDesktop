@@ -1050,15 +1050,29 @@ def _pack_ultima_edicion(dialogo, tabla, pk_col, pk_val):
 
 
 def _pack_auditoria(dialogo, tabla, pk_col, pk_val, on_marcado=None):
-    """Agrega, al pie del diálogo, el estado de auditoría de campo
-    ('Auditado: <fecha>' en verde, o 'Sin auditar' en naranja) y un botón
-    'Auditado' que llama a Modelo.marcar_auditado al tocarlo. No hace nada
-    si el registro todavía no existe (alta sin guardar).
+    """Agrega, al pie del diálogo, en una única línea: la fecha de
+    última edición (si existe), el estado de auditoría de campo
+    ('Auditado: <fecha>' en verde, o 'Sin auditar' en naranja) y un
+    botón 'Auditado' que llama a Modelo.marcar_auditado al tocarlo. No
+    hace nada si el registro todavía no existe (alta sin guardar).
+
+    Antes de este cambio, la fecha de última edición vivía en su
+    propia fila aparte (agregada por separado con
+    _pack_ultima_edicion) arriba de esta — quedaban dos líneas apiladas
+    al pie del diálogo cuando en realidad son datos relacionados
+    (metadata de auditoría del mismo registro). Se unificaron en una
+    sola fila acá adentro; los diálogos que llaman a _pack_auditoria ya
+    NO deben llamar también a _pack_ultima_edicion por separado (ver
+    equipos_ui.py/cables_conexiones_ui.py/conectores_ui.py). Los
+    diálogos que sólo necesitan la fecha de edición, sin auditoría
+    (frames_slots_ui.py, racks_salas_ui.py, catalogos_basicos_ui.py,
+    catalogo_simbolo_conector_ui.py — entidades no auditables), siguen
+    usando _pack_ultima_edicion solo, sin cambios.
 
     Equivalente GTK de fila_auditoria() (ui_kivy/widgets_base.py) — misma
     tabla-fuente (Modelo.TABLAS_AUDITABLES, core/modelo.py), sólo cambia
-    el widget toolkit. A diferencia de _pack_ultima_edicion (que es de
-    sólo lectura), acá el botón escribe: clickearlo no cierra el diálogo,
+    el widget toolkit. A diferencia de la fecha de edición (de sólo
+    lectura), acá el botón escribe: clickearlo no cierra el diálogo,
     sólo refresca el label y dispara on_marcado(fecha) si se pasó uno
     (para encadenar acciones, ej. preguntar si también se auditan
     registros relacionados — ver _preguntar_auditar_conexiones en
@@ -1066,6 +1080,12 @@ def _pack_auditoria(dialogo, tabla, pk_col, pk_val, on_marcado=None):
     """
     if not pk_val:
         return
+
+    lbl_edicion = Gtk.Label(xalign=0)
+    fecha_edicion = Modelo.devolver_fecha_ultima_edicion(tabla, pk_col, pk_val)
+    if fecha_edicion:
+        lbl_edicion.set_markup(
+            f"<small><i>{_('ULTIMA EDICIÓN')}: {fecha_edicion}</i></small>")
 
     lbl = Gtk.Label(xalign=1)
 
@@ -1097,7 +1117,8 @@ def _pack_auditoria(dialogo, tabla, pk_col, pk_val, on_marcado=None):
     fila.set_margin_start(12)
     fila.set_margin_end(12)
     fila.set_margin_bottom(6)
-    fila.pack_start(lbl, True, True, 0)
+    fila.pack_start(lbl_edicion, True, True, 0)
+    fila.pack_start(lbl, False, False, 0)
     fila.pack_start(btn, False, False, 0)
     dialogo.get_content_area().pack_end(fila, False, False, 0)
 
