@@ -4885,20 +4885,29 @@ class Modelo:
 
     # ── Conexiones ────────────────────────────────────────────────────────────
     @staticmethod
-    def devolver_todas_las_conexiones(id_cable=None):
+    def devolver_todas_las_conexiones(id_cable=None, id_equipo=None):
+        """Filtro opcional por id_cable y/o id_equipo (ambas columnas de
+        CONEXIONES); sin argumentos devuelve todas. NO confundir con
+        devolver_conexiones_de_equipo(), que usa la vista
+        CONEXIONES_AMBOS_EXTREMOS (esquema de 14 columnas, para
+        ConexionesDeEquipoVentana en GTK) — esta sigue devolviendo el
+        esquema de 9 columnas de CONEXIONES que espera ConexionesListado
+        (GTK y mobile)."""
+        condiciones = []
+        params = []
         if id_cable:
-            return Modelo._query(
-                "SELECT id_conexion, equipo_nombre, conector_nombre, "
-                "cable_codigo, tipo_conector, tipo_equipo, "
-                "id_cable, id_conector, id_equipo "
-                "FROM CONEXIONES WHERE id_cable=? ORDER BY cable_codigo",
-                (id_cable,)
-            )
+            condiciones.append("id_cable=?")
+            params.append(id_cable)
+        if id_equipo:
+            condiciones.append("id_equipo=?")
+            params.append(id_equipo)
+        where = f" WHERE {' AND '.join(condiciones)}" if condiciones else ""
         return Modelo._query(
             "SELECT id_conexion, equipo_nombre, conector_nombre, "
             "cable_codigo, tipo_conector, tipo_equipo, "
             "id_cable, id_conector, id_equipo "
-            "FROM CONEXIONES ORDER BY cable_codigo"
+            f"FROM CONEXIONES{where} ORDER BY cable_codigo",
+            tuple(params)
         )
 
     @staticmethod
