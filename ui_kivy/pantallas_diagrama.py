@@ -46,6 +46,14 @@ Lo que sí está implementado:
     toques, sólo cambia el color de los puertos en _draw_node() y
     muestra un panel de leyenda opcional (pantallas_senal.py), así que
     convive con cualquier otro modo activo sin exclusión mutua.
+  - Vista previa de imagen (toggle "🖼 Vista previa" — ver
+    DiagramaConexiones._visp_on_toggle_modo, equivalente a
+    VistaPreviaMixin de GTK). Fase 5.4 del roadmap, parte 2 — tocar un
+    puerto con el modo activo abre pantallas_vista_previa.PopupVistaPrevia
+    con la imagen resuelta para ese conector. Tampoco es un modo
+    exclusivo (mismo criterio que "📡 Señal"): si el toque no cae sobre un
+    puerto, se deja pasar sin consumir, así que convive con cualquier
+    otro modo sin exclusión mutua.
 
 Vista global (sin equipo raíz) — virtualización por viewport
 --------------------------------------------------------------
@@ -107,6 +115,7 @@ from pantallas_escenario import (
     C_CORTADO, C_VIRTUAL,
 )
 from pantallas_senal import cargar_cache_senal, PanelLeyendaSenal
+from pantallas_vista_previa import PopupVistaPrevia
 
 try:
     from core.logger_cabledoc import log_debug
@@ -1050,6 +1059,18 @@ class _CanvasDiagrama(StencilView):
                 return True
             return True  # toque en vacío: mantiene el modo activo (sin pan)
 
+        # Vista previa de imagen (Fase 5.4, parte 2 — equivalente a
+        # VistaPreviaMixin._visp_on_press GTK): a diferencia de Escenario,
+        # NUNCA bloquea el resto de los gestos — si el toque no cae sobre
+        # un puerto, se deja pasar sin consumir (selección normal de
+        # nodo, paneo, etc. siguen andando igual que con el modo apagado).
+        if getattr(self._popup, "_visp_modo", False):
+            hit_puerto = self._hit_port(wx, wy)
+            if hit_puerto:
+                id_conector, _lado, _id_nodo = hit_puerto
+                PopupVistaPrevia(id_conector, diagrama=self._popup).open()
+                return True
+
         hit = self._hit_node(wx, wy)
 
         if hit:
@@ -1418,6 +1439,13 @@ class DiagramaConexiones(Popup):
         self._senal_color_por_id = {}      # id_senal(str) -> (r,g,b)
         self._senal_panel = None           # PanelLeyendaSenal | None
 
+        # ── Vista previa de imagen — Fase 5.4 parte 2 del roadmap,
+        # equivalente a VistaPreviaMixin (GTK, senal_visual_ui.py). Sin
+        # exclusión mutua con nada (mismo criterio que "📡 Señal": modo
+        # pasivo, no consume el resto de los gestos — ver docstring de
+        # pantallas_vista_previa.py).
+        self._visp_modo = False
+
         # ── Layout ──────────────────────────────────────────────────────────
         root = BoxLayout(orientation="vertical", spacing=0)
 
@@ -1530,6 +1558,12 @@ class DiagramaConexiones(Popup):
                                                width=dp(100), font_size=FUENTE_CHICA)
         self._btn_senal_leyenda.bind(on_press=self._senal_on_toggle_leyenda)
         tb_inner.add_widget(self._btn_senal_leyenda)
+
+        # ── Vista previa de imagen (Fase 5.4, parte 2) ───────────────────
+        self._btn_visp_modo = ToggleButton(text=_("🖼 Vista previa"), size_hint_x=None,
+                                           width=dp(120), font_size=FUENTE_CHICA)
+        self._btn_visp_modo.bind(on_press=self._visp_on_toggle_modo)
+        tb_inner.add_widget(self._btn_visp_modo)
 
         tb_inner.add_widget(Label(text=_("Zoom:"), size_hint_x=None,
                                   width=dp(44), font_size=FUENTE_CHICA))
@@ -2616,6 +2650,15 @@ class DiagramaConexiones(Popup):
 
     def _senal_puerto_caido(self, id_conector) -> bool:
         return str(id_conector) in self._senal_conectores_caidos()
+
+    # ── Vista previa de imagen (Fase 5.4, parte 2) ───────────────────────
+    # Equivalente a VistaPreviaMixin (GTK, ui_gtk/senal_visual_ui.py). Sin
+    # estado propio más allá del toggle — toda la lógica (resolver imagen,
+    # asignar/quitar manual, configurar composición) vive en
+    # pantallas_vista_previa.PopupVistaPrevia, abierto directamente desde
+    # _CanvasDiagrama.on_touch_down (ver ese archivo).
+    def _visp_on_toggle_modo(self, btn) -> None:
+        self._visp_modo = btn.state == "down"
 
     def _centrar_en_equipo(self, id_equipo) -> None:
         """Centra pan+zoom del canvas en el equipo dado. Usado por
