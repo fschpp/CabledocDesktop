@@ -59,7 +59,6 @@ from pantallas_comunes import (
     _get_combo_id,
     _set_combo_id,
     _repopulate_combo,
-    _pack_ultima_edicion,
     _pack_auditoria,
 )
 from pantallas_avanzadas import (
@@ -408,30 +407,39 @@ class _DialogoEquipo(Gtk.Dialog):
         _lbl_entry(g, _("Serie:"), 5)
         self.e_serie = _entry(g, 5)
         _lbl_entry(g, _("Manual (PDF):"), 6)
-        # Entry para el manual PDF
+        # Entry para el manual PDF. Antes ocupaba sólo la columna 1 y
+        # los dos botones ("…" seleccionar + "Ver") se attacheaban en
+        # las columnas 2 y 3 por separado — esa 3ra columna no la usa
+        # ninguna otra fila del grid (las de arriba terminan en la 2),
+        # así que quedaba como una columna extra sobresaliendo sólo acá
+        # y en "Foto". Ahora los dos botones van juntos en una sola
+        # Gtk.Box en la columna 2, igual que el resto de las filas.
         self.e_manual = Gtk.Entry(hexpand=True)
         g.attach(self.e_manual, 1, 6, 1, 1)
-        # Botón para seleccionar manual
+        box_btns_manual = Gtk.Box(spacing=4)
         btn_sel_manual = Gtk.Button(label="…")
         btn_sel_manual.connect("clicked", self._sel_manual)
-        g.attach(btn_sel_manual, 2, 6, 1, 1)
-        # Botón para ver el PDF
+        box_btns_manual.pack_start(btn_sel_manual, False, False, 0)
         btn_view_manual = Gtk.Button(label="👁 " + _("Ver"))
         btn_view_manual.connect("clicked", self._ver_manual)
-        g.attach(btn_view_manual, 3, 6, 1, 1)
+        box_btns_manual.pack_start(btn_view_manual, False, False, 0)
+        g.attach(box_btns_manual, 2, 6, 1, 1)
+
         _lbl_entry(g, _("Foto (Picon):"), 7)
         # Entry para el nombre de archivo de la foto del equipo (picon)
+        # — mismo criterio que Manual: los dos botones juntos en la
+        # columna 2, sin columna 3 extra.
         self.e_picon = Gtk.Entry(hexpand=True)
         g.attach(self.e_picon, 1, 7, 1, 1)
-        # Botón para seleccionar la foto
+        box_btns_picon = Gtk.Box(spacing=4)
         btn_sel_picon = Gtk.Button(label="…")
         btn_sel_picon.connect("clicked", self._sel_picon)
-        g.attach(btn_sel_picon, 2, 7, 1, 1)
-        # Botón para quitar la foto
+        box_btns_picon.pack_start(btn_sel_picon, False, False, 0)
         btn_quitar_picon = Gtk.Button(label="✖")
         btn_quitar_picon.set_tooltip_text(_("Quitar foto"))
         btn_quitar_picon.connect("clicked", self._quitar_picon)
-        g.attach(btn_quitar_picon, 3, 7, 1, 1)
+        box_btns_picon.pack_start(btn_quitar_picon, False, False, 0)
+        g.attach(box_btns_picon, 2, 7, 1, 1)
         # Miniatura de vista previa de la foto
         self.img_picon = Gtk.Image()
         self.img_picon.set_size_request(140, 140)
@@ -561,7 +569,12 @@ class _DialogoEquipo(Gtk.Dialog):
         scroll_riesgo = Gtk.ScrolledWindow()
         scroll_riesgo.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll_riesgo.add(g2)
-        nb.append_page(scroll_riesgo, Gtk.Label(label=_("Riesgo y ubicación")))
+        # El orden de pestañas en el Notebook es el orden de las
+        # llamadas a append_page, no el de construcción del contenido:
+        # esta pestaña se arma acá (junto a "Datos", de la que se
+        # separó) pero se agrega al Notebook al final, después de
+        # "Acciones" — pedido explícito de Fede, es la pestaña de
+        # consulta más ocasional de las cuatro.
 
         # ── Pestaña Configuraciones ──
         box_conf = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -726,6 +739,8 @@ class _DialogoEquipo(Gtk.Dialog):
             scroll_acciones.add(box_acciones)
             nb.append_page(scroll_acciones, Gtk.Label(label=_("Acciones")))
 
+        nb.append_page(scroll_riesgo, Gtk.Label(label=_("Riesgo y ubicación")))
+
         # Cargar datos si es edición
         if id_equipo:
             rows = Modelo.devolver_equipo(id_equipo)
@@ -763,7 +778,9 @@ class _DialogoEquipo(Gtk.Dialog):
 
         self._actualizar_seccion_riesgo()
         self._actualizar_picon_preview()
-        _pack_ultima_edicion(self, "equipo", "id_equipo", id_equipo)
+        # _pack_auditoria ya incluye la fecha de última edición en la
+        # misma línea (ver docstring en pantallas_comunes.py) — no
+        # llamar también a _pack_ultima_edicion, quedaría duplicada.
         _pack_auditoria(self, "equipo", "id_equipo", id_equipo,
                         on_marcado=self._preguntar_auditar_conexiones)
         self.show_all()
