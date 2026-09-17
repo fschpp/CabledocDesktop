@@ -2171,3 +2171,77 @@ mecanismo sí funciona bien.
   predecible a cualquier zoom) o si es el mismo bug agazapado en el
   fallback — no se tocó en esta entrega porque Papi no lo reportó y no
   es lo que rompía el smoke test.
+
+## Reorganización de la ficha de equipo (_DialogoEquipo) — botones y campos no entraban en pantalla — 2026-09-17T03:15
+
+### Current Focus
+Fede mandó una captura de pantalla de "Editar Equipo" pidiendo mejorar la
+presentación: demasiados botones y texto apilados, no entraban en la
+ventana. El diálogo real (`ui_gtk/equipos_ui.py`, rama `main` en GitHub)
+está bastante más avanzado que el checkout que se venía usando en el
+sandbox en sesiones previas de este proyecto — ya incluye Dimensiones
+físicas (`plan_paneles_vectoriales_v3.md`) y Auditoría de campo, no
+documentadas hasta ahora en este log con ese nivel de detalle.
+
+### Cómo se resolvió
+- Causa: la pestaña "Datos" de `_DialogoEquipo` era un único `Gtk.Grid` de
+  ~24 filas (identidad básica + Dimensiones físicas + Riesgo de falla (IRF)
+  + "Es módulo de frame") sin `Gtk.ScrolledWindow` propio — sólo la pestaña
+  "Configuraciones" scrolleaba. Debajo del `Gtk.Notebook`, 3 filas fijas de
+  `Gtk.Box` horizontal metían hasta 12 botones (algunos con etiquetas
+  largas, ej. "Edición masiva conectores en imagen") que no entraban en el
+  ancho del diálogo (700×620) y se cortaban.
+- Fix, todo dentro de `_DialogoEquipo.__init__`, sin tocar lógica de
+  negocio ni callbacks:
+  - "Datos" se acortó a identidad básica y se envolvió en su propio
+    `Gtk.ScrolledWindow`.
+  - Dimensiones físicas + Riesgo de falla + "Es módulo de frame" pasaron a
+    una pestaña nueva "Riesgo y ubicación", con su propio scroll.
+  - Los ~12 botones de acción pasaron a una pestaña nueva "Acciones",
+    agrupados por tema (🔌 Conectores / 🔗 Conexiones / ⚙️ Otros) dentro de
+    `Gtk.FlowBox` (antes `Gtk.Box`+`HBox` fijas) — un FlowBox reacomoda
+    solo cuántos botones entran por fila según el ancho disponible, así
+    que ninguna etiqueta se corta aunque la ventana sea angosta. La
+    etiqueta "Edición masiva conectores en imagen" se acortó a "Editor
+    masivo (imagen)" (texto completo al tooltip). La pestaña "Acciones"
+    sólo se agrega si `id_equipo` (alta nueva no tiene acciones todavía).
+  - `set_default_size` bajó de (700, 620) a (760, 560): ya no hace falta
+    tanto alto porque cada pestaña scrollea por separado.
+- Sin cambios de schema, de orden de guardado, ni del pie del diálogo
+  (auditoría / última edición / Cancelar-Aceptar), que siguen viviendo
+  fuera del Notebook como antes.
+
+### Todo List
+- [x] Localizar el diálogo real: el `/mnt/project` cargado en el sandbox
+      no tenía Dimensiones físicas/Auditado — se clonó `main` desde
+      GitHub (`ui_gtk/equipos_ui.py`) para trabajar sobre el código
+      vigente.
+- [x] Dividir "Datos" en "Datos" + "Riesgo y ubicación", cada una con
+      `Gtk.ScrolledWindow` propio.
+- [x] Mover los botones de acción a pestaña "Acciones" con `Gtk.FlowBox`
+      agrupado por tema.
+- [x] `ast.parse` sobre el archivo modificado: OK.
+- [x] `pyflakes` comparado contra baseline (`git stash`): mismos 7 avisos
+      preexistentes, cero hallazgos nuevos.
+- [x] `APP_VERSION` → `1.20260917031500` + `changelog.txt` actualizado.
+- [x] Patch (`mejora_dialogo_equipo.patch`) y archivo completo
+      (`equipos_ui.py`) entregados en `/mnt/user-data/outputs/`.
+- [ ] **Pendiente — a cargo de Fede:** aplicar el patch sobre su propio
+      checkout (`ui_gtk/equipos_ui.py`) y confirmar visualmente en su
+      máquina que las 4 pestañas ("Datos" / "Riesgo y ubicación" /
+      "Configuraciones" / "Acciones") abren bien y que el FlowBox de
+      "Acciones" reacomoda los botones al redimensionar la ventana —
+      no hay typelib de Gtk 3.0 en este sandbox para smoke test real.
+
+### Latest Blockers/Discoveries
+- **El `/mnt/project` de este sandbox está desactualizado respecto al
+  `main` real de GitHub** para `equipos_ui.py` (y probablemente otros
+  archivos del refactor a `ui_gtk/`+`core/`): le faltan Dimensiones
+  físicas, Auditoría de campo, y la reestructuración misma en carpetas
+  `ui_gtk/`/`core/`/`ui_kivy/` (el repo ya tiene puerto Kivy/mobile activo,
+  ver `requirements-mobile.txt`/`lanzar_mobile.sh`/`PROGRESS_INTEGRACION_MOBILE.md`,
+  no reflejado todavía en el resumen de "Contexto general" al principio de
+  este documento). Vale la pena, en la próxima sesión, confirmar con Fede
+  si conviene resincronizar los archivos que se montan en el sandbox o
+  seguir clonando de GitHub cuando haga falta certeza sobre el estado
+  real del código.
