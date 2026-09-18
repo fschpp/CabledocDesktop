@@ -2347,3 +2347,9 @@ arriba/abajo.
   auditoría también se ve reflejado, sin pedirlo explícitamente, en
   las fichas de Cable, Conexión y Conector — vale la pena que Fede lo
   confirme en esos 3 diálogos también al validar en su máquina.
+
+**Sesión 2026-09-18 (cont.) — Fase E de `plan_ux_botonera_mobile_v1.md`** (sobre `main` dfd8bbf, ya con PR #55: Inicio con confirmación, "Cerrar ventana actual", lupa en `DialogoEquipo`)
+- [x] Fase E: `DiagramaConexiones.grupos_menu_mas()` (Analizar / Escenario, con ✓ de estado); los 15 botones salen de la toolbar y viven en "Más"
+- [x] "Más" ya no repite el menú hamburguesa: sólo "Cerrar ventana actual" + grupos contextuales de la pantalla activa (duck typing)
+- [ ] Pendiente: lupa en `DialogoConexion`/`DialogoCable` (usan título de Popup, requiere rediseñar cabecera); confirmación también en cambio de tema; íconos PNG nuevos (§5, metáfora visual sin definir); smoke test Xvfb/dispositivo real de la Fase E
+- Hallazgo: los .pyc de `__pycache__/` están versionados en `main` — conviene agregarlos a `.gitignore` y sacarlos del índice.

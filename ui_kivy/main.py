@@ -861,9 +861,10 @@ def _abrir_menu_rapido():
 
 
 def _abrir_menu_mas():
-    """Popup con todos los grupos del menú — disparado por 'Más' en la
-    barra de navegación inferior (equivalente al menú hamburguesa de la
-    barra superior, pero accesible desde cualquier pantalla)."""
+    """Popup contextual — disparado por 'Más' en la barra de navegación
+    inferior: 'Cerrar ventana actual' + los grupos que exponga la
+    pantalla activa (`grupos_menu_mas`). El menú completo NO se repite
+    acá: vive en el hamburguesa de la barra superior."""
     box_outer = BoxLayout(orientation="vertical")
     scroll = ScrollView()
     contenido = BoxLayout(orientation="vertical", size_hint_y=None,
@@ -872,7 +873,21 @@ def _abrir_menu_mas():
     scroll.add_widget(contenido)
     box_outer.add_widget(scroll)
 
-    popup = Popup(title=_("Menú"), content=box_outer, size_hint=(0.9, 0.85))
+    # Fase E de plan_ux_botonera_mobile_v1.md (§4): "Más" deja de repetir
+    # el menú completo (Catálogos, Preferencias, Salir, etc.) — eso ya
+    # vive en el menú hamburguesa de la barra superior, también global
+    # y siempre al frente. Acá sólo va lo CONTEXTUAL: si la pantalla de
+    # más arriba expone `grupos_menu_mas()` (hoy `DiagramaConexiones`),
+    # sus grupos; si no, sólo "Cerrar ventana actual". Duck typing en
+    # vez de isinstance para que una pantalla futura (p.ej. el editor de
+    # planos) se sume sin tocar este archivo.
+    objetivo_cierre = _popup_activo()
+    _f = getattr(objetivo_cierre, "grupos_menu_mas", None)
+    grupos_ctx = _f() if callable(_f) else []
+    n_filas = 1 + sum(len(items) + 1 for _t, items in grupos_ctx)
+
+    popup = Popup(title=_("Más"), content=box_outer,
+                  size_hint=(0.9, min(0.85, 0.16 + 0.075 * n_filas)))
 
     # agregado_extra.txt: ítem fijo "Cerrar ventana actual" — salida
     # segura que cierra SOLO la pantalla de más arriba (no todo el stack
@@ -881,7 +896,6 @@ def _abrir_menu_mas():
     # `Window.children` (animación de cierre) y `_popup_activo()` lo
     # devolvería a sí mismo. Sin pantalla abierta (parado en el
     # dashboard) queda deshabilitado, no oculto, para no mover el resto.
-    objetivo_cierre = _popup_activo()
     b_cerrar = Button(text=_("Cerrar ventana actual"), size_hint_y=None,
                       height=ALTO_FILA, font_size=FUENTE_CHICA,
                       halign="left", valign="middle",
@@ -892,7 +906,7 @@ def _abrir_menu_mas():
         popup.dismiss(), objetivo_cierre.dismiss()))
     contenido.add_widget(b_cerrar)
 
-    for etiqueta_grupo, items in _abrir_menu_completo():
+    for etiqueta_grupo, items in grupos_ctx:
         contenido.add_widget(Label(
             text=f"[b]{etiqueta_grupo}[/b]", markup=True,
             size_hint_y=None, height=dp(32), font_size=FUENTE_NORMAL,
