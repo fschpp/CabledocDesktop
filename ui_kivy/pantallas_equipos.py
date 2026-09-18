@@ -390,13 +390,21 @@ class EquiposListado(Popup):
     """
 
     def __init__(self, filtro_pendiente=None, modo_seleccion=False,
-                on_seleccionar=None, **kwargs):
+                on_seleccionar=None, excluir_modulos_de_frame=False,
+                **kwargs):
         self._filtro_pendiente = filtro_pendiente
         self._ocultar_patcheras = True
         self._ocultar_fantasmas = True
         self._filtro_tipos = set()  # vacío = "Todos"
         self.modo_seleccion = modo_seleccion
         self._on_seleccionar_cb = on_seleccionar
+        # roadmap de cierre mobile ítem 4b ("Muebles"): equivalente al
+        # excluir_modulos_de_frame de EquiposListado en GTK — un módulo de
+        # frame no puede ubicarse sobre un mueble (ver
+        # Modelo.asignar_equipo_a_mueble), así que no tiene sentido
+        # ofrecerlo en el selector de _DialogoMueble._agregar_equipo.
+        self._excluir_modulos_de_frame = excluir_modulos_de_frame
+        self._ids_modulos_frame = set()
         self._filas_completas = []
         self._ids_resaltar = set()
         self._ubicaciones = {}
@@ -645,6 +653,10 @@ class EquiposListado(Popup):
             self._ids_resaltar = {str(r[0]) for r in rows}
         self._filas_completas = Modelo.devolver_equipos_tarjetas()
         self._ubicaciones = Modelo.devolver_ubicaciones_equipos()
+        if self._excluir_modulos_de_frame:
+            rows = Modelo._query(
+                "SELECT id_equipo FROM equipo WHERE es_modulo_de_frame=1")
+            self._ids_modulos_frame = {str(r[0]) for r in rows}
         self._poblar_carrusel_tipos()
         self._refiltrar()
 
@@ -663,6 +675,9 @@ class EquiposListado(Popup):
             id_eq, nombre, marca, modelo, tipo, picon = (
                 s(id_eq), s(nombre), s(marca), s(modelo), s(tipo), s(picon))
             if self._ocultar_patcheras and "PATCHERA" in tipo.upper():
+                continue
+            if (self._excluir_modulos_de_frame and
+                    id_eq in self._ids_modulos_frame):
                 continue
             if self._ocultar_fantasmas and self._es_fantasma(
                     marca, modelo, picon, n_con):

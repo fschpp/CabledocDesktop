@@ -1811,6 +1811,189 @@ def dibujar_marcador_cuadrado(canvas_widget, cx, cy, lado, color_rgb,
         Line(rectangle=(cx - hl, cy - hl, lado, lado), width=1.2)
 
 
+def dibujar_marcador_rectangulo(canvas_widget, x, y, ancho, alto, color_rgb,
+                                alpha_relleno=0.16, resaltado=False,
+                                grosor=None):
+    """Equivalente a dibujar_marcador_cuadrado pero con ancho/alto
+    independientes (roadmap de cierre mobile, ítem 4c — overlay de
+    muebles: rectángulo con geometría propia, a diferencia del cuadrado
+    de tamaño fijo de un rack). x, y, ancho, alto ya en coordenadas
+    locales del widget (post i2w)."""
+    grosor = grosor or max(2, min(ancho, alto) * 0.06 or 2)
+    with canvas_widget.canvas:
+        Color(*color_rgb, alpha_relleno)
+        Rectangle(pos=(x, y), size=(ancho, alto))
+        Color(*color_rgb, 0.95 if not resaltado else 1.0)
+        Line(rectangle=(x, y, ancho, alto),
+            width=grosor * (1.4 if resaltado else 1.0))
+
+
+class SelectorCoordenadasImagen(Popup):
+    """Selector de coordenadas sobre una imagen — equivalente Kivy de
+    CoordenadasImagenSeleccion/abrir_coords_imagen (GTK), reutilizado por
+    el roadmap de cierre mobile ítem 4c ("Ubicación física en planos":
+    ubicar racks/definir rectángulo de mueble/ubicar equipo dentro de un
+    mueble). A diferencia de GTK (Gtk.Dialog.run() bloqueante), acá el
+    resultado llega vía on_aceptar(dict|None) — None si se canceló.
+
+    solo_xy=True  (default) → toque simple            → {"x":px,"y":px}
+    solo_xy=False            → toque + arrastre        →
+        {"x":px,"y":px,"ancho":px,"alto":px}
+
+    No implementa el modo polígono de GTK (contorno de sala, Fase 4 del
+    plan original de planos) — deliberadamente fuera de esta entrega,
+    ver docstring de VistaPlanoInteractivo en pantallas_planos.py.
+
+    rect_referencia=(x1,y1,x2,y2) en píxeles de la imagen (opcional):
+    dibuja un marco de referencia — mismo uso que en GTK, p.ej. el
+    rectángulo de un mueble al ubicar un equipo dentro."""
+
+    def __init__(self, ruta_imagen, solo_xy=True, x=None, y=None,
+                ancho=None, alto=None, rect_referencia=None,
+                etiqueta_referencia=None, on_aceptar=None, **kwargs):
+        self.solo_xy = solo_xy
+        self._on_aceptar_cb = on_aceptar
+        self._rect_referencia = rect_referencia
+        self._x = float(x) if x not in (None, "") else None
+        self._y = float(y) if y not in (None, "") else None
+        self._ancho = float(ancho) if ancho not in (None, "") else None
+        self._alto = float(alto) if alto not in (None, "") else None
+        self._press_ix = None
+        self._press_iy = None
+
+        root = BoxLayout(orientation="vertical", spacing=dp(4), padding=dp(4))
+        titulo = _("Seleccionar punto en imagen") if solo_xy \
+            else _("Seleccionar rectángulo en imagen")
+        root.add_widget(barra_superior_dialogo(titulo, on_atras=self._cancelar))
+
+        if etiqueta_referencia:
+            root.add_widget(Label(
+                text=etiqueta_referencia, size_hint_y=None, height=dp(20),
+                font_size=FUENTE_CHICA, bold=True,
+                color=(1, 0.85, 0.2, 1)))
+
+        self._visor = VisorImagenZoom(size_hint=(1, 1))
+        self._visor.set_overlay_fn(self._dibujar_overlay)
+        self._visor.canvas_widget.on_press_img = self._on_press
+        self._visor.canvas_widget.on_motion_img = self._on_motion
+        self._visor.canvas_widget.on_release_img = self._on_release
+        root.add_widget(self._visor)
+
+        self._lbl_estado = Label(
+            text="", size_hint_y=None, height=dp(20), font_size=FUENTE_CHICA,
+            color=(0.75, 0.75, 0.75, 1))
+        root.add_widget(self._lbl_estado)
+
+        hb = BoxLayout(size_hint_y=None, height=ALTO_BOTON, spacing=dp(6))
+        btn_cancelar = Button(text=_("Cancelar"), font_size=FUENTE_NORMAL)
+        btn_cancelar.bind(on_release=lambda *_a: self._cancelar())
+        hb.add_widget(btn_cancelar)
+        btn_ok = Button(text=_("Aceptar"), font_size=FUENTE_NORMAL)
+        btn_ok.bind(on_release=lambda *_a: self._aceptar())
+        hb.add_widget(btn_ok)
+        root.add_widget(hb)
+
+        super().__init__(title="", separator_height=0, content=root,
+                         size_hint=(1, 1), **kwargs)
+        self._visor.set_imagen(ruta_imagen)
+        self._actualizar_estado()
+        Clock.schedule_once(lambda *_a: self._encuadrar_inicial(), 0.15)
+
+    def _cancelar(self):
+        if self._on_aceptar_cb:
+            self._on_aceptar_cb(None)
+        self.dismiss()
+
+    def _aceptar(self):
+        if self._x is None or self._y is None:
+            mostrar_error(_("Tocá la imagen para marcar el punto antes de "
+                            "aceptar."))
+            return
+        resultado = {"x": self._x, "y": self._y}
+        if not self.solo_xy:
+            if not self._ancho or not self._alto:
+                mostrar_error(_("Arrastrá sobre la imagen para definir el "
+                                "rectángulo."))
+                return
+            resultado["ancho"] = self._ancho
+            resultado["alto"] = self._alto
+        cb = self._on_aceptar_cb
+        self.dismiss()
+        if cb:
+            cb(resultado)
+
+    def _on_press(self, ix, iy):
+        self._press_ix, self._press_iy = ix, iy
+        self._x, self._y = ix, iy
+        if not self.solo_xy:
+            self._ancho, self._alto = 0.0, 0.0
+        self._actualizar_estado()
+        self._visor.queue_draw()
+
+    def _on_motion(self, ix, iy):
+        if self.solo_xy or self._press_ix is None:
+            return
+        self._ancho = abs(ix - self._press_ix)
+        self._alto = abs(iy - self._press_iy)
+        self._x = min(ix, self._press_ix)
+        self._y = min(iy, self._press_iy)
+        self._actualizar_estado()
+        self._visor.queue_draw()
+
+    def _on_release(self, ix, iy):
+        if not self.solo_xy:
+            self._on_motion(ix, iy)
+
+    def _actualizar_estado(self):
+        if self._x is None:
+            self._lbl_estado.text = _("Tocá la imagen para marcar…")
+        elif self.solo_xy:
+            self._lbl_estado.text = "X: {0:.0f}  Y: {1:.0f}".format(
+                self._x, self._y)
+        else:
+            self._lbl_estado.text = "X: {0:.0f}  Y: {1:.0f}  {2:.0f}×{3:.0f}".format(
+                self._x, self._y, self._ancho or 0, self._alto or 0)
+
+    def _dibujar_overlay(self, canvas_widget):
+        zoom = self._visor.zoom
+        if self._rect_referencia:
+            x1, y1, x2, y2 = self._rect_referencia
+            wx1, wy1 = canvas_widget.i2w(x1, y1, zoom)
+            wx2, wy2 = canvas_widget.i2w(x2, y2, zoom)
+            with canvas_widget.canvas:
+                Color(1, 0.85, 0.2, 0.9)
+                Line(rectangle=(min(wx1, wx2), min(wy1, wy2),
+                                abs(wx2 - wx1), abs(wy2 - wy1)), width=1.6)
+        if self._x is None or self._y is None:
+            return
+        if self.solo_xy:
+            cx, cy = canvas_widget.i2w(self._x, self._y, zoom)
+            with canvas_widget.canvas:
+                Color(0.95, 0.25, 0.25, 0.95)
+                Line(circle=(cx, cy, 8), width=2)
+                Line(points=[cx - 10, cy, cx + 10, cy], width=1.4)
+                Line(points=[cx, cy - 10, cx, cy + 10], width=1.4)
+        elif self._ancho and self._alto:
+            wx1, wy1 = canvas_widget.i2w(self._x, self._y, zoom)
+            wx2, wy2 = canvas_widget.i2w(
+                self._x + self._ancho, self._y + self._alto, zoom)
+            with canvas_widget.canvas:
+                Color(0.95, 0.25, 0.25, 0.22)
+                Rectangle(pos=(min(wx1, wx2), min(wy1, wy2)),
+                         size=(abs(wx2 - wx1), abs(wy2 - wy1)))
+                Color(0.95, 0.25, 0.25, 0.95)
+                Line(rectangle=(min(wx1, wx2), min(wy1, wy2),
+                                abs(wx2 - wx1), abs(wy2 - wy1)), width=1.8)
+
+    def _encuadrar_inicial(self):
+        self._visor._zoom_fit()
+        if self._rect_referencia:
+            x1, y1, x2, y2 = self._rect_referencia
+            self._visor.scroll_to_img((x1 + x2) / 2, (y1 + y2) / 2)
+        elif self._x is not None:
+            self._visor.scroll_to_img(self._x, self._y)
+
+
 # ── Símbolos de conector con forma real (Fase 3.4, integración mobile) ─────
 #
 #  Equivalente Kivy de _crear_handle_simbolo/_dibujar_simbolo_conector de
