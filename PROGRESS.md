@@ -2351,5 +2351,7 @@ arriba/abajo.
 **Sesión 2026-09-18 (cont.) — Fase E de `plan_ux_botonera_mobile_v1.md`** (sobre `main` dfd8bbf, ya con PR #55: Inicio con confirmación, "Cerrar ventana actual", lupa en `DialogoEquipo`)
 - [x] Fase E: `DiagramaConexiones.grupos_menu_mas()` (Analizar / Escenario, con ✓ de estado); los 15 botones salen de la toolbar y viven en "Más"
 - [x] "Más" ya no repite el menú hamburguesa: sólo "Cerrar ventana actual" + grupos contextuales de la pantalla activa (duck typing)
-- [ ] Pendiente: lupa en `DialogoConexion`/`DialogoCable` (usan título de Popup, requiere rediseñar cabecera); confirmación también en cambio de tema; íconos PNG nuevos (§5, metáfora visual sin definir); smoke test Xvfb/dispositivo real de la Fase E
+- [x] Decidido por Fede: NO se agrega lupa a `DialogoConexion`/`DialogoCable`; metáfora de "riesgo" = triángulo de alerta (`riesgo.png`, usado en Riesgo equipo / Riesgo señal / Simular falla del "Más" del Diagrama, con color distinto por uso)
+- [x] Menús chicos (Más, "+", menú ⋮ de `DialogoEquipo`) se cierran al tocar afuera (`auto_dismiss=True` explícito; el resto de los popups sigue con `auto_dismiss=False` global)
+- [ ] Pendiente: confirmación también en cambio de tema; íconos PNG de diagnóstico/escenario/señal (metáfora sin definir, siguen con emoji); smoke test Xvfb/dispositivo real de la Fase E
 - Hallazgo: los .pyc de `__pycache__/` están versionados en `main` — conviene agregarlos a `.gitignore` y sacarlos del índice.

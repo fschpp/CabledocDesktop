@@ -1184,7 +1184,10 @@ class DialogoEquipo(Popup):
 
     def _abrir_menu_mas(self):
         box = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(14))
-        popup = Popup(title=_("Equipo"), content=box, size_hint=(0.85, 0.32))
+        # Menú chico: tocar afuera lo cierra (ver nota en main.py sobre
+        # el auto_dismiss=False global del resto de los popups).
+        popup = Popup(title=_("Equipo"), content=box, auto_dismiss=True,
+                      size_hint=(0.85, 0.32))
         btn_eliminar = Button(text=_("Eliminar equipo"),
                              font_size=FUENTE_NORMAL, size_hint_y=None,
                              height=ALTO_BOTON)
