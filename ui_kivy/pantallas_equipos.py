@@ -763,7 +763,8 @@ class DialogoEquipo(Popup):
         # ── Barra superior: atrás + título + menú (solo si ya existe) ──
         raiz.add_widget(barra_superior_dialogo(
             titulo_base, on_atras=lambda: self.dismiss(),
-            on_mas=self._abrir_menu_mas if id_equipo else None))
+            on_mas=self._abrir_menu_mas if id_equipo else None,
+            on_buscar=self._abrir_busqueda_global))
 
         # ── Tab "Acciones": lista de accesos con ícono + chevron ──
         scroll_acciones = ScrollView()
@@ -1174,6 +1175,13 @@ class DialogoEquipo(Popup):
         ]
 
     # ── Menú "⋮" de la barra superior ──
+    def _abrir_busqueda_global(self):
+        """Botón de lupa de la barra del diálogo (agregado_extra.txt): abre
+        la búsqueda global ENCIMA de este formulario sin tocarlo. Import
+        diferido (patrón del proyecto para dependencias entre módulos)."""
+        from pantallas_busqueda_global import abrir_busqueda_global
+        abrir_busqueda_global()
+
     def _abrir_menu_mas(self):
         box = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(14))
         popup = Popup(title=_("Equipo"), content=box, size_hint=(0.85, 0.32))

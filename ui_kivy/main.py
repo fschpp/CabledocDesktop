@@ -743,6 +743,24 @@ def _ir_a_inicio():
             w.dismiss()
 
 
+def _ir_a_inicio_confirmando():
+    """Callback de 'Inicio' en la barra inferior (agregado_extra.txt,
+    propuesta 1). `_ir_a_inicio` es destructivo A PROPÓSITO (hace
+    dismiss() de todos los Popups apilados) y por eso sigue igual para
+    quien lo llama sin querer preguntar (p.ej. cambio de tema). Acá,
+    si hay más de un Popup apilado (señal de que el usuario está en
+    medio de un flujo — p.ej. un formulario de conexión abierto encima
+    de un equipo — y no sólo mirando un listado), se pide confirmación
+    antes de barrer todo."""
+    from kivy.core.window import Window
+    apilados = sum(1 for w in Window.children if isinstance(w, Popup))
+    if apilados <= 1:
+        _ir_a_inicio()
+        return
+    confirmar(_("Hay pantallas abiertas y puede haber cambios sin "
+                "guardar.\n¿Salir igual?"), on_si=_ir_a_inicio)
+
+
 def _alternar_tema_y_refrescar():
     """Cambia claro/oscuro y cierra cualquier pantalla abierta.
 
@@ -855,6 +873,24 @@ def _abrir_menu_mas():
     box_outer.add_widget(scroll)
 
     popup = Popup(title=_("Menú"), content=box_outer, size_hint=(0.9, 0.85))
+
+    # agregado_extra.txt: ítem fijo "Cerrar ventana actual" — salida
+    # segura que cierra SOLO la pantalla de más arriba (no todo el stack
+    # como 'Inicio'). El objetivo se captura ACÁ, antes de abrir este
+    # menú: cuando el usuario toca el ítem, este Popup todavía está en
+    # `Window.children` (animación de cierre) y `_popup_activo()` lo
+    # devolvería a sí mismo. Sin pantalla abierta (parado en el
+    # dashboard) queda deshabilitado, no oculto, para no mover el resto.
+    objetivo_cierre = _popup_activo()
+    b_cerrar = Button(text=_("Cerrar ventana actual"), size_hint_y=None,
+                      height=ALTO_FILA, font_size=FUENTE_CHICA,
+                      halign="left", valign="middle",
+                      disabled=objetivo_cierre is None)
+    b_cerrar.bind(size=lambda w, *_a: setattr(
+        w, "text_size", (w.width - dp(16), w.height)))
+    b_cerrar.bind(on_release=lambda *_a: (
+        popup.dismiss(), objetivo_cierre.dismiss()))
+    contenido.add_widget(b_cerrar)
 
     for etiqueta_grupo, items in _abrir_menu_completo():
         contenido.add_widget(Label(
@@ -1046,7 +1082,7 @@ class CableDocApp(App):
         # Conexiones: alta con 1 punta). Íconos "cables"/"conexiones" ya
         # existen en assets/iconos/, sin trabajo de diseño nuevo.
         self._barra_inferior = BarraInferior([
-            ("inicio", _("Inicio"), _ir_a_inicio),
+            ("inicio", _("Inicio"), _ir_a_inicio_confirmando),
             ("cables", _("Cables"), abrir_cables),
             ("plus", None, _abrir_menu_rapido),
             ("conexiones", _("Conexiones"), abrir_conexiones),

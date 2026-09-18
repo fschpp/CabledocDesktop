@@ -1244,7 +1244,7 @@ def fila_cerrar_arriba(on_cerrar):
     return fila
 
 
-def barra_superior_dialogo(titulo, on_atras, on_mas=None):
+def barra_superior_dialogo(titulo, on_atras, on_mas=None, on_buscar=None):
     """Barra superior de una pantalla de detalle: flecha atrás + título +
     (opcional) botón de menú de tres puntos verticales — reemplaza al
     título plano por defecto de Popup en las pantallas rediseñadas
@@ -1261,6 +1261,15 @@ def barra_superior_dialogo(titulo, on_atras, on_mas=None):
     lbl.bind(size=lambda w, *_a: setattr(w, "text_size", (w.width, w.height)))
     barra.add_widget(lbl)
     barra.lbl_titulo = lbl
+    if on_buscar:
+        # agregado_extra.txt, propuesta 2: búsqueda a la vista dentro de
+        # pantallas de edición largas. La búsqueda global se abre ENCIMA
+        # (Popup apilado), el formulario queda intacto debajo. El callback
+        # lo pasa el llamador (import diferido allá) para no crear
+        # ciclos widgets_base -> pantallas_busqueda_global.
+        btn_buscar = BotonIcono(icono="buscar", clave_icono="texto")
+        btn_buscar.bind(on_release=lambda *_a: on_buscar())
+        barra.add_widget(btn_buscar)
     if on_mas:
         btn_mas = BotonIcono(icono="mas_vertical", clave_icono="texto")
         btn_mas.bind(on_release=lambda *_a: on_mas())
