@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-17T(actual) — auditoría roadmap cierre mobile + Fase A botonera, rama `main` en `09ff19a`_
+_Última actualización: 2026-09-17T(actual) — Fases B/C/D de la botonera mobile entregadas, rama `main` en `cbd4536`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -206,6 +206,19 @@ referencia rápida para no repetirlos:
 ---
 
 ## Current Focus
+
+**Sesión 2026-09-17T(actual, cont.) — Fases B, C y D de `plan_ux_botonera_mobile_v1.md` (badge de pendientes, reordenar "Más", FAB contextual). Fase E (Diagrama) queda para la próxima sesión, a pedido explícito.**
+
+### Current Focus
+- [x] **Fase B (§2.2, badge de pendientes):** `_ItemNav` (`tema.py`) admite badge numérico superpuesto (círculo "error", oculto en 0, tope "99+") vía `fijar_badge()`; `BarraInferior.actualizar_badge(id_item, valor)` lo ubica por nombre de ícono. Conectado desde `PanelPendientesCables.actualizar()` (mismo total `temporales+sin_conexion` que ya mostraban las tarjetas de Inicio) + refresco cada 60s (`Clock.schedule_interval`) para cubrir quedarse en otra pantalla sin volver a Inicio.
+- [x] **Fase C (§3, reordenar "Más"):** `_abrir_menu_completo()` — grupo "Buscar" suma atajos a Cables/Conexiones; "Diagramas" partido en "Ver" (Imagen con conectores/Árbol/Patcheras) y "Análisis" (Diagrama de conexiones); Preferencias/Aplicación siguen al final. Cambio quirúrgico, mismas tuplas.
+- [x] **Fase D (§2.3, FAB contextual, tabla ya cerrada con Papi):** `_abrir_menu_rapido()` pasa a depender de `_popup_activo()` (primer `Popup` real en `Window.children`, mismo criterio que `_elevar`) + registro `_opciones_fab_para(popup)` por `isinstance`: `DialogoEquipo`→Nuevo conector, `EquiposListado`→Equipo nuevo/Alta rápida, `RacksListado`→Nuevo rack, `ConexionesListado`→Nueva Conexión, sin match→las 3 opciones de siempre. `modo_seleccion=True` deshabilita el "+" (`_ItemFAB.disabled` + atenuación visual, `BarraInferior.fijar_fab_disabled`), enganchado en el mismo `_elevar` que ya corría en cada cambio de `Window.children` — sin listener nuevo.
+- [x] Nuevos imports en `main.py`: `DialogoEquipo`, `DialogoConector` (módulo `pantallas_conectores` importado por primera vez en `main.py`), `DialogoConexion`, `DialogoRack`.
+- [x] **Bug propio, encontrado y corregido en el desarrollo:** `_popup_activo()` usaba `Window` sin importarlo (pyflakes lo marcó). Resuelto con el mismo import local que ya usa `_ir_a_inicio` — no se agregó un import a nivel de módulo que no existía antes.
+- [x] Validado: `ast.parse`/`py_compile`/`pyflakes` sobre `main.py`/`tema.py` — mismas 7 (main.py) y 1 (tema.py) advertencias preexistentes, cero nuevas. **Smoke test real bajo Xvfb/Kivy** contra fixture SQLite real: `_abrir_menu_completo()` arma los grupos nuevos, el badge se actualiza y refleja texto/visibilidad, `_opciones_fab_para()` devuelve las opciones correctas para `None`/`EquiposListado`, y el FAB se deshabilita/rehabilita correctamente ante `modo_seleccion=True` a través del ciclo real de `Window.children` (Clock real).
+- [ ] **Fase E queda para la próxima sesión** (a pedido explícito): "Más" contextual para `DiagramaConexiones` (grupos Analizar/Escenario + checks `✓` de estado) — la más grande y riesgosa del plan (25 botones, varios modos con exclusión mutua entre sí, ver `_esc_modo`/`_diag_modo`/`_senal_color_activo`). El reemplazo de los emoji sueltos por íconos PNG nuevos (§5) sigue sin metáfora visual definida con Papi (pregunta abierta §7.5) — no bloquea el mecanismo de agrupación en sí.
+
+## Current Focus (sesión anterior)
 
 **Sesión 2026-09-17T(actual) — Auditoría de `main` (`09ff19a`, PR #51 "fase5-riesgo-planos" ya mergeado) contra `PLAN_CIERRE_ROADMAP_MOBILE.md` (fechado 2026-09-16) + `plan_ux_botonera_mobile_v1.md`: el roadmap de cierre mobile avanzó MÁS de lo que ambos documentos asumían. Se entrega la Fase A (muy bajo riesgo) de la botonera; el resto queda relevado y priorizado a confirmar con Papi/Fede.**
 
