@@ -632,37 +632,112 @@ class BarraInferior(BoxLayout):
         window.bind(size=_reajustar)
         _reajustar()
 
+    def actualizar_badge(self, id_item, valor):
+        """Fase B de plan_ux_botonera_mobile_v1.md (§2.2). `id_item` es
+        el nombre de ícono pasado al crear el ítem (ej. "cables") — no
+        todos los ítems son `_ItemNav` (el FAB central no admite badge),
+        así que un id_item que no matchea ningún `_ItemNav` no hace
+        nada, sin romper."""
+        for b in self._botones:
+            if getattr(b, "id_item", None) == id_item:
+                b.fijar_badge(valor)
+                return
+
+    def fijar_fab_disabled(self, valor):
+        """Fase D (§2.3, "modo selección"): apaga/prende el '+' central
+        sin tener que buscarlo por índice desde afuera."""
+        for b in self._botones:
+            if isinstance(b, _ItemFAB):
+                b.disabled = bool(valor)
+                return
+
 
 class _ItemNav(ButtonBehavior, BoxLayout):
+    """Fase B de plan_ux_botonera_mobile_v1.md (§2.2): admite un badge
+    numérico opcional superpuesto sobre el ícono (círculo "error", texto
+    blanco) — usado hoy para el contador de pendientes de Cables
+    (`Modelo.devolver_pendientes_cables`, ver `PanelPendientesCables` y
+    `CableDocApp._refrescar_badge_cables` en main.py). Oculto por
+    defecto (`fijar_badge(0)` o sin llamar nunca a `fijar_badge`)."""
+
     def __init__(self, icono, etiqueta, activo, **kwargs):
         kwargs.setdefault("orientation", "vertical")
         kwargs.setdefault("padding", (0, dp(6)))
         super().__init__(**kwargs)
         self._activo = activo
+        self.id_item = icono
+        self._badge_valor = 0
         clave = "primario" if activo else "icono_inactivo"
+
+        fl_icono = FloatLayout(size_hint_y=None, height=dp(22))
         self._img = IconoImg(icono, clave_color=clave,
-                            size_hint_y=None, height=dp(22))
+                            size_hint=(None, None), size=(dp(22), dp(22)),
+                            pos_hint={"center_x": 0.5, "center_y": 0.5})
+        fl_icono.add_widget(self._img)
+
+        self._badge_diam = dp(15)
+        with fl_icono.canvas.after:
+            self._c_badge = Color(*tema.c("error"))
+            self._el_badge = Ellipse(size=(self._badge_diam,
+                                           self._badge_diam))
+        self._lbl_badge = Label(text="", font_size=sp(9), bold=True,
+                                color=(1, 1, 1, 1), size_hint=(None, None),
+                                size=(self._badge_diam, self._badge_diam),
+                                halign="center", valign="middle")
+        fl_icono.add_widget(self._lbl_badge)
+        fl_icono.bind(pos=self._reubicar_badge, size=self._reubicar_badge)
+        self._img.bind(pos=self._reubicar_badge, size=self._reubicar_badge)
+
         self._lbl_t = Label(text=etiqueta, font_size=sp(10),
                             color=tema.c(clave), size_hint_y=None,
                             height=dp(14))
-        self.add_widget(self._img)
+        self.add_widget(fl_icono)
         self.add_widget(self._lbl_t)
+        self._actualizar_visibilidad_badge()
+
+    def _reubicar_badge(self, *_a):
+        # Esquina superior derecha del ícono, mismo criterio visual que
+        # un badge de notificación Android estándar.
+        bx = self._img.center_x + self._img.width * 0.18
+        by = self._img.center_y + self._img.height * 0.18
+        self._el_badge.pos = (bx, by)
+        self._lbl_badge.pos = (bx, by)
+
+    def _actualizar_visibilidad_badge(self):
+        visible = self._badge_valor > 0
+        self._c_badge.rgba = tema.c("error") if visible else (0, 0, 0, 0)
+        self._lbl_badge.text = (
+            str(self._badge_valor) if visible and self._badge_valor < 100
+            else ("99+" if visible else ""))
+
+    def fijar_badge(self, valor):
+        self._badge_valor = max(0, int(valor or 0))
+        self._actualizar_visibilidad_badge()
 
     def refrescar(self):
         clave = "primario" if self._activo else "icono_inactivo"
         self._img.color = tema.c(clave)
         self._lbl_t.color = tema.c(clave)
+        self._actualizar_visibilidad_badge()
 
 
 class _ItemFAB(ButtonBehavior, BoxLayout):
     """Ítem central de la barra inferior: círculo color primario con
     ícono blanco — el '+' de alta rápida, integrado entre Equipos y
-    Conexiones en vez de flotar aparte."""
+    Conexiones en vez de flotar aparte.
+
+    Fase D de plan_ux_botonera_mobile_v1.md (§2.3, "modo selección —
+    resuelto"): `self.disabled = True` (heredado de ButtonBehavior, ya
+    bloquea el toque solo) se refleja también en gris atenuado —
+    `opacity` en vez de tocar colores, mismo resultado visual ("gris,
+    no responde al toque") sin duplicar la paleta de _actualizar."""
 
     DIAMETRO = dp(44)
 
     def __init__(self, icono="plus", **kwargs):
         super().__init__(**kwargs)
+        self.id_item = icono
+        self.bind(disabled=self._refrescar_disabled)
         with self.canvas.before:
             Color(*tema.c("sombra"))
             self._sombra = Ellipse()
@@ -688,6 +763,9 @@ class _ItemFAB(ButtonBehavior, BoxLayout):
     def refrescar(self):
         self._c.rgba = tema.c("primario")
         self._img.color = tema.c("primario_txt")
+
+    def _refrescar_disabled(self, *_a):
+        self.opacity = 0.4 if self.disabled else 1.0
 
 
 # ─── Colchón global anti-solapamiento con la barra inferior ───────────────

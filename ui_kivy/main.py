@@ -125,11 +125,14 @@ from pantallas_catalogos import (
     TiposCableListado, TiposFichaListado,
 )
 from pantallas_cables import CablesListado
-from pantallas_equipos import EquiposListado, DialogoAltaRapidaEquipo
-from pantallas_conexiones import ConexionesListado
+from pantallas_equipos import EquiposListado, DialogoAltaRapidaEquipo, \
+    DialogoEquipo
+from pantallas_conexiones import ConexionesListado, DialogoConexion
+from pantallas_conectores import DialogoConector
 from pantallas_imagenes import ImagenesListado
 from pantallas_avanzadas import abrir_imagen_conectores, abrir_arbol_conexiones
-from pantallas_racks import RacksListado, PosicionEnRackListado, FramesListado
+from pantallas_racks import RacksListado, PosicionEnRackListado, \
+    FramesListado, DialogoRack
 from pantallas_salas import (
     SalasListado, RackPorSalaListado, EquiposNoRackSalaListado,
 )
@@ -256,6 +259,14 @@ class PanelPendientesCables(ScrollView):
             p = Modelo.devolver_pendientes_cables()
         except Exception:
             return
+        # Fase B de plan_ux_botonera_mobile_v1.md (§2.2): mismo total
+        # (temporales + sin_conexion) que ya calculaba este panel, ahora
+        # también espejado como badge sobre "Cables" en la barra
+        # inferior — así se ve sin tener que estar parado en Inicio.
+        app = App.get_running_app()
+        if app is not None and getattr(app, "_barra_inferior", None):
+            app._barra_inferior.actualizar_badge(
+                "cables", p["temporales"] + p["sin_conexion"])
         items = [
             (_("Temporales"), p["temporales"], "alerta"),
             (_("En revisión"), p["en_revision"], "secundario_txt"),
@@ -451,10 +462,24 @@ class DialogoIdioma(Popup):
 
 def _abrir_menu_completo():
     """Grupos del menú hamburguesa/'Más' (mismo contenido que antes, ahora
-    reutilizado también por el ítem 'Más' de la barra inferior)."""
+    reutilizado también por el ítem 'Más' de la barra inferior).
+
+    Fase C de plan_ux_botonera_mobile_v1.md (§3, "reordenar, no
+    rediseñar"): cambio quirúrgico sobre las mismas tuplas, sin tocar
+    `core/` ni firmas.
+      1. El grupo "Buscar" (ya iba primero) suma atajos directos a
+         Cables/Conexiones — mismas funciones `abrir_cables`/
+         `abrir_conexiones` ya importadas, sin duplicar lógica.
+      2. "Diagramas" se separa en "Ver" (Imagen con conectores, Árbol,
+         Patcheras) vs. "Análisis" (Diagrama de conexiones — la puerta a
+         Diagnóstico/Riesgo/Escenario/Señal), en vez de un solo grupo de
+         4 ítems con pesos muy distintos.
+      3. "Preferencias"/"Aplicación" siguen al final (uso esporádico)."""
     return [
         (_("Buscar"), [
             (_("Búsqueda global…"), lambda: abrir_busqueda_global()),
+            (_("Cables"), abrir_cables),
+            (_("Conexiones"), abrir_conexiones),
         ]),
         (_("Equipos"), [
             (_("Equipos"), abrir_equipos),
@@ -488,10 +513,12 @@ def _abrir_menu_completo():
             (_("Tipos de Ficha"), abrir_tipos_ficha),
             (_("Imágenes"), abrir_imagenes),
         ]),
-        (_("Diagramas"), [
+        (_("Diagramas — Ver"), [
             (_("Imagen con conectores…"), abrir_imagen_conectores_elegir),
             (_("Árbol de conexiones…"), abrir_arbol_conexiones_elegir),
             (_("Vista de patcheras…"), abrir_patcheras_elegir),
+        ]),
+        (_("Diagramas — Análisis"), [
             (_("Diagrama de conexiones…"),
              lambda: abrir_diagrama_conexiones()),
         ]),
@@ -732,12 +759,23 @@ def _alternar_tema_y_refrescar():
     _ir_a_inicio()
 
 
-def _abrir_menu_rapido():
-    """Popup de alta rápida — disparado por el '+' central de la barra
-    de navegación inferior (visible en toda la app)."""
-    box = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(14))
-    popup = Popup(title=_("Alta rápida"), content=box, size_hint=(0.85, 0.4))
-    opciones = [
+def _popup_activo():
+    """Fase D de plan_ux_botonera_mobile_v1.md (§2.3): el Popup más
+    arriba en `Window.children` — mismo criterio que ya usa `_elevar`
+    para saber qué mantener al frente (ver `CableDocApp.on_start`).
+    `Window.children` está ordenado de adelante hacia atrás, así que
+    alcanza con el primer `Popup` real (la barra inferior/superior no
+    lo son, quedan afuera solas). Import local de `Window`, mismo
+    criterio que ya usa `_ir_a_inicio` en este archivo."""
+    from kivy.core.window import Window
+    for w in Window.children:
+        if isinstance(w, Popup):
+            return w
+    return None
+
+
+def _opciones_fab_default():
+    return [
         (_("Alta rápida de equipo"), lambda: DialogoAltaRapidaEquipo().open()),
         (_("Nuevo Cable"), lambda: abrir_cables()),
         (_("Nueva Conexión"), lambda: __import__(
@@ -745,12 +783,63 @@ def _abrir_menu_rapido():
             fromlist=["abrir_editor_conexiones_rapidas"]
         ).abrir_editor_conexiones_rapidas()),
     ]
+
+
+def _opciones_fab_para(popup):
+    """Registro `{clase: [opciones]}` para el '+' contextual — Fase D
+    de plan_ux_botonera_mobile_v1.md (§2.3, tabla ya cerrada con Papi).
+    `isinstance` en vez de un dict `{clase: ...}` indexado por tipo
+    exacto porque algunos listados (`EquiposListado`) también se abren
+    en `modo_seleccion=True` desde otros diálogos — ese caso se filtra
+    antes de llamar a esta función (ver `_abrir_menu_rapido`), no acá,
+    para no mezclar "qué pantalla es" con "en qué modo está"."""
+    if isinstance(popup, DialogoEquipo):
+        # Antes que EquiposListado/RacksListado (no hay solapamiento de
+        # tipos acá, pero el orden documenta la prioridad si algún día
+        # lo hay): el detalle de un equipo es lo más específico.
+        return [
+            (_("Nuevo conector"),
+             lambda: DialogoConector(id_equipo=popup.id_equipo).open()),
+        ]
+    if isinstance(popup, EquiposListado):
+        return [
+            (_("Equipo nuevo"), lambda: DialogoEquipo().open()),
+            (_("Alta rápida…"), lambda: DialogoAltaRapidaEquipo().open()),
+        ]
+    if isinstance(popup, RacksListado):
+        return [(_("Nuevo rack"), lambda: DialogoRack().open())]
+    if isinstance(popup, ConexionesListado):
+        return [(_("Nueva Conexión"), lambda: DialogoConexion().open())]
+    return _opciones_fab_default()
+
+
+def _abrir_menu_rapido():
+    """Popup de alta rápida — disparado por el '+' central de la barra
+    de navegación inferior (visible en toda la app). Fase D de
+    plan_ux_botonera_mobile_v1.md (§2.3): el contenido depende de qué
+    pantalla está activa (`_popup_activo`); sin match (Inicio incluido)
+    cae al mismo menú de siempre (`_opciones_fab_default`).
+
+    El propio '+' ya queda deshabilitado (grisado, sin responder al
+    toque) mientras hay un listado en `modo_seleccion=True` —
+    `CableDocApp.on_start` lo actualiza en cada cambio de
+    `Window.children`, ver `_refrescar_fab_por_popup_activo` — así que
+    si esta función se llega a llamar en ese estado no debería pasar
+    nunca; el chequeo de acá es sólo un cinturón de seguridad, no el
+    mecanismo principal."""
+    popup = _popup_activo()
+    if getattr(popup, "modo_seleccion", False):
+        return
+    box = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(14))
+    opciones = _opciones_fab_para(popup)
+    popup_menu = Popup(title=_("Alta rápida"), content=box,
+                       size_hint=(0.85, min(0.22 + 0.12 * len(opciones), 0.5)))
     for lbl, cb in opciones:
         b = Button(text=lbl, size_hint_y=None, height=ALTO_BOTON,
                   font_size=FUENTE_NORMAL)
-        b.bind(on_release=lambda *_a, c=cb: (popup.dismiss(), c()))
+        b.bind(on_release=lambda *_a, c=cb: (popup_menu.dismiss(), c()))
         box.add_widget(b)
-    popup.open()
+    popup_menu.open()
 
 
 def _abrir_menu_mas():
@@ -966,6 +1055,23 @@ class CableDocApp(App):
         self._barra_inferior.fijar_en_window(Window)
         Window.add_widget(self._barra_inferior)
 
+        # Fase B de plan_ux_botonera_mobile_v1.md (§2.2): el badge de
+        # "Cables" ya se recalcula cada vez que Inicio renderiza su
+        # panel de pendientes (PanelPendientesCables.actualizar), pero
+        # eso no cubre quedarse un rato largo en otra pantalla sin pasar
+        # por Inicio — refresco liviano cada 60s, según lo que el propio
+        # plan deja como alternativa aceptable a instrumentar cada punto
+        # de cierre de Cables/Conexiones uno por uno.
+        def _refrescar_badge_cables(*_a):
+            try:
+                p = Modelo.devolver_pendientes_cables()
+            except Exception:
+                return
+            self._barra_inferior.actualizar_badge(
+                "cables", p["temporales"] + p["sin_conexion"])
+        _refrescar_badge_cables()
+        Clock.schedule_interval(_refrescar_badge_cables, 60)
+
         # ── Barra superior GLOBAL (título CableDoc + buscar + tema) ──
         # Mismo criterio que la inferior: vive pegada a la Window para
         # quedar visible/tocable con cualquier pantalla abierta encima
@@ -992,6 +1098,15 @@ class CableDocApp(App):
                         Window.remove_widget(w)
                 Window.add_widget(self._barra_inferior)
                 Window.add_widget(self._barra_superior)
+            # Fase D de plan_ux_botonera_mobile_v1.md (§2.3, "modo
+            # selección — resuelto"): mismo punto de enganche que ya
+            # reelevaba las barras ante cualquier cambio de
+            # Window.children — se aprovecha para apagar/prender el '+'
+            # según si el Popup activo es un selector
+            # (EquiposListado/RacksListado/ConexionesListado con
+            # modo_seleccion=True abiertos encima de otro diálogo).
+            self._barra_inferior.fijar_fab_disabled(
+                getattr(_popup_activo(), "modo_seleccion", False))
 
         Window.bind(children=_mantener_arriba)
 
