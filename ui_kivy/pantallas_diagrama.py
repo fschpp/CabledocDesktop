@@ -1518,7 +1518,7 @@ class DiagramaConexiones(Popup):
         # handlers (`.state`) — pero sin agregarse al árbol; el "Más" de
         # la barra inferior los lista vía `grupos_menu_mas()` y los
         # dispara con `trigger_action`. Cada entrada: (grupo, widget,
-        # etiqueta de menú o None para usar la del botón).
+        # etiqueta de menú o None para usar la del botón[, ícono, clave de color]).
         _mas = []
 
         for etiq, fn in [
@@ -1607,20 +1607,20 @@ class DiagramaConexiones(Popup):
             text=_("🎨 Riesgo equipo"), size_hint_x=None, width=dp(140),
             font_size=FUENTE_CHICA)
         self._btn_riesgo_color.bind(on_press=self._riesgo_on_toggle_color)
-        _mas.append(('Analizar', self._btn_riesgo_color, None))
+        _mas.append(('Analizar', self._btn_riesgo_color, _("Riesgo equipo"), "riesgo", "alerta"))
 
         self._btn_riesgo_senal_color = ToggleButton(
             text=_("🎨 Riesgo señal"), size_hint_x=None, width=dp(130),
             font_size=FUENTE_CHICA)
         self._btn_riesgo_senal_color.bind(
             on_press=self._riesgo_senal_on_toggle_color)
-        _mas.append(('Analizar', self._btn_riesgo_senal_color, None))
+        _mas.append(('Analizar', self._btn_riesgo_senal_color, _("Riesgo señal"), "riesgo", "primario"))
 
         btn_riesgo_simular = Button(text=_("🔺 Simular falla"),
                                     size_hint_x=None, width=dp(130),
                                     font_size=FUENTE_CHICA)
         btn_riesgo_simular.bind(on_release=self._riesgo_on_simular_falla)
-        _mas.append(('Analizar', btn_riesgo_simular, None))
+        _mas.append(('Analizar', btn_riesgo_simular, _("Simular falla"), "riesgo", "error"))
 
         # ── Vista previa de imagen (Fase 5.4, parte 2) ───────────────────
         self._btn_visp_modo = ToggleButton(text=_("🖼 Vista previa"), size_hint_x=None,
@@ -2296,15 +2296,19 @@ class DiagramaConexiones(Popup):
         (`on_press`/`on_release`) que el toque directo, sin duplicar
         lógica."""
         grupos, orden = {}, []
-        for grupo, btn, etiqueta in self._items_mas:
+        for entrada in self._items_mas:
+            grupo, btn, etiqueta = entrada[:3]
+            icono = entrada[3] if len(entrada) > 3 else None
+            clave = entrada[4] if len(entrada) > 4 else "texto"
             texto = etiqueta or btn.text
             if isinstance(btn, ToggleButton) and btn.state == "down":
                 texto += "  ✓"
             if grupo not in grupos:
                 grupos[grupo] = []
                 orden.append(grupo)
-            grupos[grupo].append(
-                (texto, lambda b=btn: b.trigger_action(0)))
+            cb = lambda b=btn: b.trigger_action(0)
+            grupos[grupo].append((texto, cb, icono, clave) if icono
+                                 else (texto, cb))
         titulos = {"Analizar": _("Analizar"), "Escenario": _("Escenario")}
         return [(titulos.get(g, g), grupos[g]) for g in orden]
 

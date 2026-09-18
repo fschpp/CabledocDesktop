@@ -366,6 +366,26 @@ def icono_filtro():
     _guardar(img, "filtro.png")
 
 
+def icono_riesgo():
+    """Triángulo de alerta con signo de exclamación — metáfora elegida
+    para 'riesgo' (colorear por riesgo de equipo/señal y simular falla,
+    §5 de plan_ux_botonera_mobile_v1.md). El color distingue el uso
+    (IconoImg lo tiñe en runtime), el glifo es el mismo."""
+    img = _lienzo(); d = ImageDraw.Draw(img)
+    puntos = [(TAM * 0.50, TAM * 0.14), (TAM * 0.90, TAM * 0.82),
+              (TAM * 0.10, TAM * 0.82)]
+    # Se repite el 2º punto para que la costura del vértice superior quede
+    # unida con joint="curve" (si no, queda una muesca).
+    d.line(puntos + [puntos[0], puntos[1]], fill=BLANCO, width=GROSOR,
+           joint="curve")
+    d.line([(TAM * 0.50, TAM * 0.38), (TAM * 0.50, TAM * 0.58)],
+           fill=BLANCO, width=GROSOR)
+    r = GROSOR * 0.62
+    cx, cy = TAM * 0.50, TAM * 0.70
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=BLANCO)
+    _guardar(img, "riesgo.png")
+
+
 if __name__ == "__main__":
     for fn in list(globals().values()):
         if callable(fn) and getattr(fn, "__name__", "").startswith("icono_"):

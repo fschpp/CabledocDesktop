@@ -117,6 +117,7 @@ from widgets_base import (
 )
 from tema import (
     tema, Tarjeta, Chip, BotonIcono, BotonFAB, BarraSuperior, BarraInferior,
+    IconoImg,
     ALTURA_BARRA_INFERIOR, ALTURA_BARRA_SUPERIOR,
 )
 
@@ -851,6 +852,7 @@ def _abrir_menu_rapido():
     box = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(14))
     opciones = _opciones_fab_para(popup)
     popup_menu = Popup(title=_("Alta rápida"), content=box,
+                       auto_dismiss=True,   # menú chico: toque afuera cierra
                        size_hint=(0.85, min(0.22 + 0.12 * len(opciones), 0.5)))
     for lbl, cb in opciones:
         b = Button(text=lbl, size_hint_y=None, height=ALTO_BOTON,
@@ -886,7 +888,11 @@ def _abrir_menu_mas():
     grupos_ctx = _f() if callable(_f) else []
     n_filas = 1 + sum(len(items) + 1 for _t, items in grupos_ctx)
 
-    popup = Popup(title=_("Más"), content=box_outer,
+    # auto_dismiss=True EXPLÍCITO: Popup.__init__ está parcheado arriba
+    # para que ningún popup se cierre por toque afuera (gesto accidental
+    # de Android sobre pantallas/diálogos). Los menús chicos son la
+    # excepción: tocar fuera los cierra, como cualquier menú.
+    popup = Popup(title=_("Más"), content=box_outer, auto_dismiss=True,
                   size_hint=(0.9, min(0.85, 0.16 + 0.075 * n_filas)))
 
     # agregado_extra.txt: ítem fijo "Cerrar ventana actual" — salida
@@ -912,7 +918,11 @@ def _abrir_menu_mas():
             size_hint_y=None, height=dp(32), font_size=FUENTE_NORMAL,
             halign="left", valign="middle", padding=(dp(10), 0),
             color=tema.c("primario")))
-        for lbl, cb in items:
+        for item in items:
+            # (texto, callback) o (texto, callback, icono, clave_color)
+            lbl, cb = item[0], item[1]
+            icono = item[2] if len(item) > 2 else None
+            clave = item[3] if len(item) > 3 else "texto"
             if lbl == "---":
                 contenido.add_widget(Label(
                     text="-" * 24, size_hint_y=None, height=dp(10),
@@ -922,6 +932,18 @@ def _abrir_menu_mas():
                       font_size=FUENTE_CHICA, halign="left", valign="middle")
             b.bind(size=lambda w, *_a: setattr(
                 w, "text_size", (w.width - dp(16), w.height)))
+            if icono:
+                # Ícono PNG a la izquierda (no emoji: no se ven en Pydroid
+                # 3, ver generar_iconos.py); el texto se corre con padding.
+                b.padding = (dp(46), 0)
+                img = IconoImg(icono, clave_color=clave,
+                               size_hint=(None, None),
+                               size=(dp(22), dp(22)))
+                b.add_widget(img)
+                b.bind(pos=lambda w, *_a, i=img: setattr(
+                           i, "pos", (w.x + dp(14), w.center_y - dp(11))),
+                       size=lambda w, *_a, i=img: setattr(
+                           i, "pos", (w.x + dp(14), w.center_y - dp(11))))
             b.bind(on_release=lambda inst, c=cb: (popup.dismiss(), c()))
             contenido.add_widget(b)
 
