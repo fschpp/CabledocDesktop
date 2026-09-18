@@ -944,11 +944,18 @@ class CableDocApp(App):
         Window.bind(on_resize=lambda *_a: _ocultar_barras_sistema_android(
             origen=f"Window.on_resize({_a})"))
 
+        # Fase A de plan_ux_botonera_mobile_v1.md: "Equipos" y "Buscar" ya
+        # están a 1 toque desde Inicio (grilla de accesos rápidos + barra
+        # superior global) — la barra fija de 5 slots pasa a reflejar los
+        # 2 verbos de mayor rotación diaria según el propio panel de
+        # "pendientes" de Inicio (Cables: temporales/sin conexión;
+        # Conexiones: alta con 1 punta). Íconos "cables"/"conexiones" ya
+        # existen en assets/iconos/, sin trabajo de diseño nuevo.
         self._barra_inferior = BarraInferior([
             ("inicio", _("Inicio"), _ir_a_inicio),
-            ("equipos", _("Equipos"), abrir_equipos),
+            ("cables", _("Cables"), abrir_cables),
             ("plus", None, _abrir_menu_rapido),
-            ("buscar", _("Buscar"), lambda: abrir_busqueda_global()),
+            ("conexiones", _("Conexiones"), abrir_conexiones),
             ("mas", _("Más"), _abrir_menu_mas),
         ], activo=0)
         self._barra_inferior.fijar_en_window(Window)

@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-01T01:00 (no es repo git — sin rama que registrar; workspace en /home/sa/Desktop/cabledoc)_
+_Última actualización: 2026-09-17T(actual) — auditoría roadmap cierre mobile + Fase A botonera, rama `main` en `09ff19a`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -206,6 +206,22 @@ referencia rápida para no repetirlos:
 ---
 
 ## Current Focus
+
+**Sesión 2026-09-17T(actual) — Auditoría de `main` (`09ff19a`, PR #51 "fase5-riesgo-planos" ya mergeado) contra `PLAN_CIERRE_ROADMAP_MOBILE.md` (fechado 2026-09-16) + `plan_ux_botonera_mobile_v1.md`: el roadmap de cierre mobile avanzó MÁS de lo que ambos documentos asumían. Se entrega la Fase A (muy bajo riesgo) de la botonera; el resto queda relevado y priorizado a confirmar con Papi/Fede.**
+
+### Current Focus
+- [x] **Reclonado `main` fresco** (`09ff19a`, más nuevo que el `b52d912` sobre el que se escribió `PLAN_CIERRE_ROADMAP_MOBILE.md`) y auditados los 4 ítems del plan contra el código real, no contra el `.md`:
+  - [x] Ítem 1 (Fix Vista Previa en `pantallas_diagrama.py`) — **YA MERGEADO** (commit `8197e8d`).
+  - [x] Ítem 2 (Fase 4 ABM, 6 diálogos con `seccion_tarjeta()`) — **YA MERGEADO**: los 6 diálogos (`DialogoRack`, `DialogoPosicionRack`, `DialogoFrame`, `DialogoSlot` en `pantallas_racks.py`; `DialogoRackPorSala`, `DialogoEquipoNoRackSala` en `pantallas_salas.py`) ya envuelven su `grid_formulario()` en `seccion_tarjeta()`.
+  - [x] Ítem 3 (Fase 5.2 Riesgo) — **YA MERGEADO**: `ui_kivy/pantallas_riesgo.py` (255 líneas) existe, integrado en `pantallas_diagrama.py`.
+  - [/] Ítem 4 (Planos) — **PARCIAL**: 4a (`PlanosListado`+`DialogoPlano`, `ui_kivy/pantallas_planos.py`, 180 líneas) mergeado. **4b (MueblesListado/`_DialogoMueble`) y 4c (`VistaPlanoInteractivo` — overlay de sala/rack/mueble/equipo suelto, ~1031 líneas en GTK) siguen sin empezar en mobile** — es el único ítem real que queda del roadmap de cierre.
+  - [x] Los commits `ae2abb1`/`7f2c4d4` siguen confirmados como de `plan_paneles_vectoriales_v3.md` (plan distinto), no de este roadmap — corrección ya señalada en el propio plan, verificada.
+- [x] **Entregado: Fase A de `plan_ux_botonera_mobile_v1.md`** — swap en `BarraInferior` (`ui_kivy/main.py`, `CableDocApp.on_start`): slot 2 `("equipos", Equipos, abrir_equipos)` → `("cables", Cables, abrir_cables)`; slot 4 `("buscar", Buscar, ...)` → `("conexiones", Conexiones, abrir_conexiones)`. Íconos `cables.png`/`conexiones.png` ya existían en `assets/iconos/` — sin trabajo de diseño nuevo. Sin cambios en `tema.py`/`core/`.
+- [x] Validado: `ast.parse` + `py_compile` + `pyflakes` sobre `ui_kivy/main.py` — mismas 7 advertencias preexistentes antes/después (comparado vía `git stash`), cero nuevas. No se corrió smoke test bajo Xvfb en esta entrega (cambio puramente declarativo de una lista de tuplas, sin lógica nueva) — recomendado igual antes de mergear por el criterio de "colchón anti-solapamiento" de `tema.py` que menciona el propio plan (§8 Riesgos).
+- [ ] **No se tocó todavía:** Fase B (badge de pendientes sobre "Cables"), Fase C (reordenar `_abrir_menu_completo()`), Fase D (FAB contextual) ni Fase E ("Más" contextual del Diagrama) de `plan_ux_botonera_mobile_v1.md` — quedan pendientes de decisión (preguntas abiertas §7 del plan) y de una próxima entrega.
+- [ ] **Pendiente de definir con Papi/Fede: orden de la próxima entrega** entre (a) cerrar el roadmap mobile con 4b/4c de Planos (el ítem más grande y el único sin empezar) y (b) seguir con las Fases B-C de la botonera (bajo riesgo, aditivas, no bloquean a 4b/4c). No son mutuamente excluyentes pero conviene acordar prioridad antes de la próxima sesión.
+
+## Current Focus (sesión anterior)
 
 **Sesión 2026-09-10T(actual) — 3 mejoras de usabilidad en `planos_ui.py` (mueble/rack/densidad del overlay), pedidas por Fede a partir de dos capturas del editor de mueble y de la vista de plano. Diff generado en este sandbox, sin smoke test (Fede pidió no correrlo, lo prueba él).**
 
