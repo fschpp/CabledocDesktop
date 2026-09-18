@@ -1511,6 +1511,16 @@ class DiagramaConexiones(Popup):
                             padding=(dp(4), 0))
         tb_inner.bind(minimum_width=tb_inner.setter("width"))
 
+        # Fase E de plan_ux_botonera_mobile_v1.md (§4): los botones de
+        # "Analizar" y "Escenario" ya NO van en esta fila (eran ~25 en
+        # scroll horizontal): se siguen construyendo igual — los
+        # ToggleButton son el modelo de estado que leen/escriben los
+        # handlers (`.state`) — pero sin agregarse al árbol; el "Más" de
+        # la barra inferior los lista vía `grupos_menu_mas()` y los
+        # dispara con `trigger_action`. Cada entrada: (grupo, widget,
+        # etiqueta de menú o None para usar la del botón).
+        _mas = []
+
         for etiq, fn in [
             (_("Encuadrar"), lambda *_: self._encuadrar()),
             (_("Expandir"),  lambda *_: self._expandir()),
@@ -1537,86 +1547,86 @@ class DiagramaConexiones(Popup):
         self._btn_diag = ToggleButton(text=_("🩺 Diagnóstico"), size_hint_x=None,
                                       width=dp(130), font_size=FUENTE_CHICA)
         self._btn_diag.bind(on_press=self._toggle_diag)
-        tb_inner.add_widget(self._btn_diag)
+        _mas.append(('Analizar', self._btn_diag, None))
 
         btn_diag_hist = Button(text=_("📋 Historial"), size_hint_x=None,
                                width=dp(110), font_size=FUENTE_CHICA)
         btn_diag_hist.bind(on_release=lambda *_a: abrir_historial_diagnosticos())
-        tb_inner.add_widget(btn_diag_hist)
+        _mas.append(('Analizar', btn_diag_hist, None))
 
         # ── Modo Escenario (Fase 5.3) ────────────────────────────────────
         self._btn_esc_modo = ToggleButton(text=_("🧪 Escenario"), size_hint_x=None,
                                           width=dp(120), font_size=FUENTE_CHICA)
         self._btn_esc_modo.bind(on_press=self._esc_on_toggle_modo)
-        tb_inner.add_widget(self._btn_esc_modo)
+        _mas.append(('Escenario', self._btn_esc_modo, None))
 
         self._btn_esc_reconectar = ToggleButton(
             text=_("🔗 Reconectar"), size_hint_x=None, width=dp(130),
             font_size=FUENTE_CHICA)
         self._btn_esc_reconectar.bind(on_press=self._esc_on_toggle_reconectar)
-        tb_inner.add_widget(self._btn_esc_reconectar)
+        _mas.append(('Escenario', self._btn_esc_reconectar, None))
 
         btn_esc_nuevo = Button(text=_("🆕 Esc."), size_hint_x=None, width=dp(80),
                                font_size=FUENTE_CHICA)
         btn_esc_nuevo.bind(on_release=self._esc_on_nuevo)
-        tb_inner.add_widget(btn_esc_nuevo)
+        _mas.append(('Escenario', btn_esc_nuevo, _("🆕 Nuevo escenario")))
 
         btn_esc_abrir = Button(text=_("📂 Abrir"), size_hint_x=None, width=dp(90),
                                font_size=FUENTE_CHICA)
         btn_esc_abrir.bind(on_release=self._esc_on_abrir)
-        tb_inner.add_widget(btn_esc_abrir)
+        _mas.append(('Escenario', btn_esc_abrir, _("📂 Abrir escenario")))
 
         btn_esc_guardar = Button(text=_("💾 Guardar"), size_hint_x=None,
                                  width=dp(100), font_size=FUENTE_CHICA)
         btn_esc_guardar.bind(on_release=self._esc_on_guardar)
-        tb_inner.add_widget(btn_esc_guardar)
+        _mas.append(('Escenario', btn_esc_guardar, _("💾 Guardar escenario")))
 
         btn_esc_aplicar = Button(text=_("▶ Aplicar"), size_hint_x=None,
                                  width=dp(100), font_size=FUENTE_CHICA)
         btn_esc_aplicar.bind(on_release=self._esc_on_aplicar)
-        tb_inner.add_widget(btn_esc_aplicar)
+        _mas.append(('Escenario', btn_esc_aplicar, _("▶ Aplicar a infraestructura")))
 
         btn_esc_descartar = Button(text=_("🗑 Descartar"), size_hint_x=None,
                                    width=dp(110), font_size=FUENTE_CHICA)
         btn_esc_descartar.bind(on_release=self._esc_on_descartar)
-        tb_inner.add_widget(btn_esc_descartar)
+        _mas.append(('Escenario', btn_esc_descartar, _("🗑 Descartar todo")))
 
         # ── Colorear por señal (Fase 5.4) ────────────────────────────────
         self._btn_senal_color = ToggleButton(text=_("📡 Señal"), size_hint_x=None,
                                              width=dp(90), font_size=FUENTE_CHICA)
         self._btn_senal_color.bind(on_press=self._senal_on_toggle_color)
-        tb_inner.add_widget(self._btn_senal_color)
+        _mas.append(('Analizar', self._btn_senal_color, None))
 
         self._btn_senal_leyenda = ToggleButton(text=_("🎨 Leyenda"), size_hint_x=None,
                                                width=dp(100), font_size=FUENTE_CHICA)
         self._btn_senal_leyenda.bind(on_press=self._senal_on_toggle_leyenda)
-        tb_inner.add_widget(self._btn_senal_leyenda)
+        _mas.append(('Analizar', self._btn_senal_leyenda, None))
 
         # ── Colorear por riesgo (roadmap de cierre mobile, ítem 3) ────────
         self._btn_riesgo_color = ToggleButton(
             text=_("🎨 Riesgo equipo"), size_hint_x=None, width=dp(140),
             font_size=FUENTE_CHICA)
         self._btn_riesgo_color.bind(on_press=self._riesgo_on_toggle_color)
-        tb_inner.add_widget(self._btn_riesgo_color)
+        _mas.append(('Analizar', self._btn_riesgo_color, None))
 
         self._btn_riesgo_senal_color = ToggleButton(
             text=_("🎨 Riesgo señal"), size_hint_x=None, width=dp(130),
             font_size=FUENTE_CHICA)
         self._btn_riesgo_senal_color.bind(
             on_press=self._riesgo_senal_on_toggle_color)
-        tb_inner.add_widget(self._btn_riesgo_senal_color)
+        _mas.append(('Analizar', self._btn_riesgo_senal_color, None))
 
         btn_riesgo_simular = Button(text=_("🔺 Simular falla"),
                                     size_hint_x=None, width=dp(130),
                                     font_size=FUENTE_CHICA)
         btn_riesgo_simular.bind(on_release=self._riesgo_on_simular_falla)
-        tb_inner.add_widget(btn_riesgo_simular)
+        _mas.append(('Analizar', btn_riesgo_simular, None))
 
         # ── Vista previa de imagen (Fase 5.4, parte 2) ───────────────────
         self._btn_visp_modo = ToggleButton(text=_("🖼 Vista previa"), size_hint_x=None,
                                            width=dp(120), font_size=FUENTE_CHICA)
         self._btn_visp_modo.bind(on_press=self._visp_on_toggle_modo)
-        tb_inner.add_widget(self._btn_visp_modo)
+        _mas.append(('Analizar', self._btn_visp_modo, None))
 
         tb_inner.add_widget(Label(text=_("Zoom:"), size_hint_x=None,
                                   width=dp(44), font_size=FUENTE_CHICA))
@@ -1634,6 +1644,8 @@ class DiagramaConexiones(Popup):
                          font_size=FUENTE_CHICA)
         btn_png.bind(on_release=lambda *_: self._exportar_png())
         tb_inner.add_widget(btn_png)
+
+        self._items_mas = _mas
 
         tb.add_widget(tb_inner)
         root.add_widget(tb)
@@ -2272,6 +2284,29 @@ class DiagramaConexiones(Popup):
     # se dispara tocando un puerto del diagrama con el modo activo, no
     # desde un selector aparte — ver el docstring de pantallas_diagnostico.py
     # para el porqué de la corrección.
+
+    def grupos_menu_mas(self):
+        """Grupos [(titulo, [(texto, callback)])] para el "Más" contextual
+        de la barra inferior (main._abrir_menu_mas, Fase E de
+        plan_ux_botonera_mobile_v1.md). Los toggles muestran ' ✓' si su
+        modo está activo — se lee `btn.state` al momento de armar el
+        menú, así que refleja siempre el estado actual (incluidas las
+        exclusiones mutuas que los handlers aplican por su cuenta).
+        Disparar con `trigger_action(0)` pasa por los mismos handlers
+        (`on_press`/`on_release`) que el toque directo, sin duplicar
+        lógica."""
+        grupos, orden = {}, []
+        for grupo, btn, etiqueta in self._items_mas:
+            texto = etiqueta or btn.text
+            if isinstance(btn, ToggleButton) and btn.state == "down":
+                texto += "  ✓"
+            if grupo not in grupos:
+                grupos[grupo] = []
+                orden.append(grupo)
+            grupos[grupo].append(
+                (texto, lambda b=btn: b.trigger_action(0)))
+        titulos = {"Analizar": _("Analizar"), "Escenario": _("Escenario")}
+        return [(titulos.get(g, g), grupos[g]) for g in orden]
 
     def _toggle_diag(self, btn):
         if btn.state == "down":
