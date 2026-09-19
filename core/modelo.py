@@ -4560,9 +4560,22 @@ class Modelo:
             "SELECT COUNT(*) FROM equipo WHERE id_equipo != 0 "
             "AND (configuraciones IS NULL OR TRIM(configuraciones) = '')"
         )[0][0]
+        # sin_picon: equipos sin foto chica (equipo.picon vacío). Se excluyen
+        # los de tipo FANTASMA (rol_senal): son placeholders de un extremo
+        # desconectado, no un equipo físico al que se le pueda sacar foto —
+        # además el ABM de Equipos los oculta por defecto, así el número del
+        # dashboard coincide con lo que se ve al tocar "ver →".
+        sin_picon = Modelo._query(
+            "SELECT COUNT(*) FROM equipo e "
+            "LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
+            "WHERE e.id_equipo != 0 "
+            "AND (e.picon IS NULL OR TRIM(e.picon) = '') "
+            "AND COALESCE(te.rol_senal, '') != 'FANTASMA'"
+        )[0][0]
         return {
             "sin_conectores":    sin_conectores,
             "sin_imagen":        sin_imagen,
+            "sin_picon":         sin_picon,
             "sin_img_conectores": sin_img_conectores,
             "sin_auditar":        sin_auditar,
             "sin_manual":         sin_manual,
@@ -6145,6 +6158,19 @@ class Modelo:
             "SELECT e.id_equipo, e.nombre FROM equipo e "
             "JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
             "WHERE te.rol_senal = 'PATCHERA' ORDER BY e.nombre"
+        )
+
+    @staticmethod
+    def devolver_equipos_fantasma():
+        """Todos los equipos cuyo tipo tiene rol_senal='FANTASMA' (equipo
+        placeholder de un extremo de cable confirmado desconectado — ver
+        plan_desarrollo_fantasma_rapido.md). Mismo criterio por rol_senal
+        (no por nombre) que devolver_equipos_patchera(); lo usa el filtro
+        "Ocultar fantasmas" del ABM de Equipos (GTK)."""
+        return Modelo._query(
+            "SELECT e.id_equipo, e.nombre FROM equipo e "
+            "JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
+            "WHERE te.rol_senal = 'FANTASMA' ORDER BY e.nombre"
         )
 
     @staticmethod

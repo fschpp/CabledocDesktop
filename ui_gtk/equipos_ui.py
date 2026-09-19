@@ -76,10 +76,11 @@ from pantallas_avanzadas import (
 # ─── Equipos ──────────────────────────────────────────────────────────────────
 
 class EquiposListado(VentanaListado):
-    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_img_conectores' | 'sin_auditar'
+    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar'
     def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None,
                  excluir_modulos_de_frame=False):
         self._ocultar_patcheras = True   # debe existir antes de super().__init__
+        self._ocultar_fantasmas = True   # idem: por defecto no se listan los FANTASMA
         self._filtro_pendiente = filtro_pendiente
         # Fase 6 de plan_desarrollo_ubicacion_fisica_planos.md ("Muebles"):
         # un equipo marcado equipo.es_modulo_de_frame=1 no puede asignarse
@@ -94,6 +95,8 @@ class EquiposListado(VentanaListado):
             titulo = _("Equipos — Sin conectores")
         elif filtro_pendiente == "sin_imagen":
             titulo = _("Equipos — Sin imagen")
+        elif filtro_pendiente == "sin_picon":
+            titulo = _("Equipos — Sin picon")
         elif filtro_pendiente == "sin_img_conectores":
             titulo = _("Equipos — Sin imagen c/ conectores")
         elif filtro_pendiente == "sin_auditar":
@@ -154,6 +157,15 @@ class EquiposListado(VentanaListado):
         if hbtn:
             hbtn.pack_start(self._chk_patchera, False, False, 0)
 
+        # Checkbox "Ocultar fantasmas" (mismo estilo que "Ocultar patcheras"):
+        # los equipos FANTASMA son placeholders de extremos desconectados y
+        # ensucian el listado; por defecto no se muestran.
+        self._chk_fantasma = Gtk.CheckButton(label=_("Ocultar fantasmas"))
+        self._chk_fantasma.set_active(True)
+        self._chk_fantasma.connect("toggled", self._on_toggle_fantasmas)
+        if hbtn:
+            hbtn.pack_start(self._chk_fantasma, False, False, 0)
+
         # Botón para recalcular el Índice de Riesgo de Falla (IRF) de
         # todo el parque de equipos (columna "Riesgo")
         btn_riesgo = Gtk.Button(label="🔺 " + _("Recalcular riesgo"))
@@ -173,6 +185,10 @@ class EquiposListado(VentanaListado):
         self._ocultar_patcheras = chk.get_active()
         self.filtro_model.refilter()
 
+    def _on_toggle_fantasmas(self, chk):
+        self._ocultar_fantasmas = chk.get_active()
+        self.filtro_model.refilter()
+
     def cargar_datos(self):
         self._ids_resaltar = set()
         # Fase 4 de plan_desarrollo_hardcodes_idioma.md: el filtro "Ocultar
@@ -180,6 +196,8 @@ class EquiposListado(VentanaListado):
         # (texto libre) -- usa rol_senal='PATCHERA', igual que
         # devolver_equipos_patchera().
         self._ids_patchera = {str(r[0]) for r in Modelo.devolver_equipos_patchera()}
+        # Igual que patcheras: por rol_senal='FANTASMA', no por nombre.
+        self._ids_fantasma = {str(r[0]) for r in Modelo.devolver_equipos_fantasma()}
         color = "#c8a800"
         if self._filtro_pendiente == "sin_conectores":
             rows = Modelo._query(
@@ -190,6 +208,17 @@ class EquiposListado(VentanaListado):
         elif self._filtro_pendiente == "sin_imagen":
             rows = Modelo._query(
                 "SELECT id_equipo FROM equipo WHERE id_equipo != 0 AND id_imagen IS NULL")
+            self._ids_resaltar = {str(r[0]) for r in rows}
+            color = "#c8a800"
+        elif self._filtro_pendiente == "sin_picon":
+            # Mismo criterio que el contador del dashboard
+            # (Modelo.devolver_pendientes_equipos()["sin_picon"]).
+            rows = Modelo._query(
+                "SELECT e.id_equipo FROM equipo e "
+                "LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
+                "WHERE e.id_equipo != 0 "
+                "AND (e.picon IS NULL OR TRIM(e.picon) = '') "
+                "AND COALESCE(te.rol_senal, '') != 'FANTASMA'")
             self._ids_resaltar = {str(r[0]) for r in rows}
             color = "#c8a800"
         elif self._filtro_pendiente == "sin_img_conectores":
@@ -263,7 +292,7 @@ class EquiposListado(VentanaListado):
         self.cargar_datos()
 
     def _filtrar(self, model, iter_, data):
-        """Extiende el filtro: texto + patcheras + solo-pendientes."""
+        """Extiende el filtro: texto + patcheras + fantasmas + solo-pendientes."""
         txt = self.entry_filtro.get_text().lower()
         n = len(self.columnas)
         if txt:
@@ -272,6 +301,10 @@ class EquiposListado(VentanaListado):
         if self._ocultar_patcheras:
             fid = s(model.get_value(iter_, 0))
             if fid in getattr(self, "_ids_patchera", ()):
+                return False
+        if self._ocultar_fantasmas:
+            fid = s(model.get_value(iter_, 0))
+            if fid in getattr(self, "_ids_fantasma", ()):
                 return False
         # Si hay filtro pendiente, mostrar SOLO los resaltados
         if self._filtro_pendiente and self._ids_resaltar:
