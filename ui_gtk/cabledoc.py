@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260918233800"
+APP_VERSION = "1.20260919000000"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -258,6 +258,7 @@ from planos_ui import (
     PlanosListado,
     MueblesListado,
     _DialogoPlano,
+    abrir_vista_plano,
 )
 
 # ─── Frames / Slots (catálogo e instancia) ─────────────────────────────────────
@@ -406,6 +407,7 @@ class VentanaPrincipal(Gtk.Window):
             (_("Equipos sueltos por Sala"), self._abrir_equipos_no_rack_sala),
             ("---", None),
             (_("🖼 Vista gráfica de rack…"), self._abrir_vista_rack),
+            (_("🗺 Vista de plano…"), self._abrir_vista_plano),
             ("---", None),
             (_("🗺 Planos"), self._abrir_planos),
             (_("🪑 Muebles"), self._abrir_muebles),
@@ -943,6 +945,13 @@ class VentanaPrincipal(Gtk.Window):
 
     def _abrir_equipos_no_rack_sala(self, *a):
         EquiposNoRackSalaListado(parent=self).run_and_destroy()
+
+    def _abrir_vista_plano(self, *a):
+        """Vista interactiva del plano (VistaPlanoInteractivo, planos_ui.py)
+        directo desde el menú: overlay de salas/racks/muebles/equipos
+        sueltos y edición de su ubicación. Si hay más de un plano,
+        pregunta cuál abrir."""
+        abrir_vista_plano(parent=self)
 
     def _abrir_planos(self, *a):
         """Catálogo de planos (plan_desarrollo_ubicacion_fisica_planos.md,

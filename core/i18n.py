@@ -162,6 +162,16 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "🖼 Vista gráfica de rack…":{
         "en": "🖼 Graphical rack view…",
         "pt": "🖼 Vista gráfica de rack…"},
+    "🗺 Vista de plano…":      {"en": "🗺 Floor plan view…", "pt": "🗺 Vista da planta…"},
+    "Ver plano":              {"en": "View floor plan",  "pt": "Ver planta"},
+    "Elegir plano":           {"en": "Choose floor plan","pt": "Escolher planta"},
+    "Plano:":                 {"en": "Floor plan:",      "pt": "Planta:"},
+    "Seleccioná un plano de la lista.": {
+        "en": "Select a floor plan from the list.",
+        "pt": "Selecione uma planta da lista."},
+    "Todavía no hay planos cargados. Creá uno desde Infraestructura → Planos.": {
+        "en": "No floor plans yet. Create one from Infrastructure → Planos.",
+        "pt": "Ainda não há plantas cadastradas. Crie uma em Infraestrutura → Planos."},
     "Catálogos":                {"en": "Catalogs",      "pt": "Catálogos"},
     "Diagramas":                {"en": "Diagrams",      "pt": "Diagramas"},
     "🖼 Imagen con conectores…":{

@@ -13,6 +13,10 @@ Contiene:
     muebles — rectángulos, con los equipos que contienen; Fase 7: +
     overlay de equipos sueltos — círculos — y clic sobre un rack para
     listar/resaltar sus equipos, directos y módulos de frame)
+  - abrir_vista_plano (punto de entrada directo a VistaPlanoInteractivo
+    desde la GUI: menú Infraestructura → "🗺 Vista de plano…" y botón
+    "🗺 Ver plano" de PlanosListado; si hay más de un plano pregunta
+    cuál abrir)
 
 El editor gráfico de _DialogoEquipoNoRackSala (tipo de montaje, filtro
 de módulos de frame, botón "Ubicar en el plano") vive en
@@ -115,6 +119,7 @@ except ImportError:
 from pantallas_comunes import (
     s,
     mostrar_error,
+    mostrar_info,
     VentanaListado,
     _grid,
     _lbl_entry,
@@ -130,10 +135,23 @@ from imagen_conectores_ui import abrir_coords_imagen
 
 class PlanosListado(VentanaListado):
     def __init__(self, parent=None, modo_seleccion=False):
+        # El botón "Ver plano" no tiene sentido cuando el listado se usa
+        # como selector (ej. _DialogoSala → "…" para elegir plano).
+        botones_extra = None if modo_seleccion else [
+            ("🗺 " + _("Ver plano"), self._ver_plano),
+        ]
         super().__init__(_("Planos"),
                          [_("ID"), _("Nombre"), _("Imagen"), _("Orden")],
-                         parent=parent, modo_seleccion=modo_seleccion)
+                         parent=parent, modo_seleccion=modo_seleccion,
+                         botones_extra=botones_extra)
         self.cargar_datos()
+
+    def _ver_plano(self, *a):
+        f = self._fila()
+        if not f:
+            mostrar_error(self, _("Seleccioná un plano de la lista."))
+            return
+        abrir_vista_plano(parent=self, id_plano=f[0])
 
     def cargar_datos(self):
         self._poblar(Modelo.devolver_todos_los_planos())
@@ -1636,3 +1654,58 @@ class VistaPlanoInteractivo(Gtk.Dialog):
 
     def run_and_destroy(self):
         self.run()
+
+
+# ─── Punto de entrada desde la GUI ─────────────────────────────────────────────
+
+def _elegir_plano(parent, planos):
+    """Diálogo mínimo con un combo de planos. Devuelve el id_plano (int)
+    elegido o None si el usuario cancela. `planos` viene de
+    Modelo.devolver_todos_los_planos() (id, nombre, path, orden)."""
+    dlg = Gtk.Dialog(title=_("Elegir plano"), transient_for=parent,
+                     modal=True, destroy_with_parent=True)
+    dlg.add_buttons(_("Cancelar"), Gtk.ResponseType.CANCEL,
+                    _("Abrir"), Gtk.ResponseType.OK)
+    dlg.set_default_response(Gtk.ResponseType.OK)
+    dlg.set_default_size(400, 80)
+    box = Gtk.Box(spacing=8)
+    box.set_margin_start(12); box.set_margin_end(12)
+    box.set_margin_top(12); box.set_margin_bottom(12)
+    box.pack_start(Gtk.Label(label=_("Plano:")), False, False, 0)
+    combo = Gtk.ComboBoxText()
+    for r in planos:
+        combo.append(str(r[0]), s(r[1]))
+    combo.set_active(0)
+    box.pack_start(combo, True, True, 0)
+    dlg.get_content_area().add(box)
+    dlg.show_all()
+    resp = dlg.run()
+    id_ = combo.get_active_id()
+    dlg.destroy()
+    return int(id_) if resp == Gtk.ResponseType.OK and id_ else None
+
+
+def abrir_vista_plano(parent=None, id_plano=None):
+    """Abre VistaPlanoInteractivo (visor/editor del plano con sus salas,
+    racks, muebles y equipos sueltos) desde la GUI, sin necesidad de pasar
+    antes por el diálogo de una sala/rack/mueble/equipo.
+
+    id_plano=None: si no hay planos avisa; si hay uno solo lo abre directo;
+    si hay varios pregunta cuál (orden de Modelo.devolver_todos_los_planos,
+    o sea por `orden` y nombre). id_plano dado (int o str, como viene de
+    la fila de PlanosListado): lo abre sin preguntar."""
+    if id_plano is None:
+        planos = Modelo.devolver_todos_los_planos()
+        if not planos:
+            mostrar_info(
+                parent,
+                _("Todavía no hay planos cargados. Creá uno desde "
+                  "Infraestructura → Planos."))
+            return
+        if len(planos) == 1:
+            id_plano = planos[0][0]
+        else:
+            id_plano = _elegir_plano(parent, planos)
+            if id_plano is None:
+                return
+    VistaPlanoInteractivo(int(id_plano), parent=parent).run_and_destroy()
