@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260918160000"
+APP_VERSION = "1.20260918233800"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -683,8 +683,12 @@ class VentanaPrincipal(Gtk.Window):
         items = [
             (_("🔌 Sin conectores"),        p["sin_conectores"],    "#7a1a1a",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_conectores")),
-            (_("🖼 Sin imagen"),             p["sin_imagen"],        "#7a3800",
-             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_imagen")),
+            # "Sin imagen" (equipo.id_imagen) se quitó del dashboard: esa
+            # imagen "legada" fue reemplazada por la ubicación física
+            # (plan_desarrollo_ubicacion_fisica_planos.md, Fase 8). En su
+            # lugar va "Sin picon" (equipo.picon vacío).
+            (_("📷 Sin picon"),              p["sin_picon"],         "#7a3800",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_picon")),
             (_("📍 Sin imagen c/ conect."),  p["sin_img_conectores"],"#4a4a00",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_img_conectores")),
             (_("🔍 Sin auditar"),           p["sin_auditar"],       "#1a4a6a",

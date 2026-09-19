@@ -128,6 +128,9 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Equipos — Sin conectores": {
         "en": "Equipment — No connectors",
         "pt": "Equipamentos — Sem conectores"},
+    "Equipos — Sin picon": {
+        "en": "Equipment — No picon",
+        "pt": "Equipamentos — Sem picon"},
     "Equipos — Sin imagen": {
         "en": "Equipment — No image",
         "pt": "Equipamentos — Sem imagem"},
@@ -209,6 +212,7 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "1️⃣ 1 extremo":   {"en": "1️⃣ 1 end",          "pt": "1️⃣ 1 extremo"},
     "❓ Sin conexión": {"en": "❓ No connection",   "pt": "❓ Sem conexão"},
     "🔌 Sin conectores":     {"en": "🔌 No connectors","pt": "🔌 Sem conectores"},
+    "📷 Sin picon":          {"en": "📷 No picon",      "pt": "📷 Sem picon"},
     "🖼 Sin imagen":         {"en": "🖼 No image",     "pt": "🖼 Sem imagem"},
     "📍 Sin imagen c/ conect.": {
         "en": "📍 No image w/ conn.",
@@ -333,6 +337,7 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
         "en": "Select room and equipment before saving.",
         "pt": "Selecione sala e equipamento antes de salvar."},
     "Ocultar patcheras":    {"en": "Hide patchbays",    "pt": "Ocultar patcheras"},
+    "Ocultar fantasmas":    {"en": "Hide ghosts",       "pt": "Ocultar fantasmas"},
 
     # ── Tooltip texts ─────────────────────────────────────────────────────────
     "Asignar código temporal auto-generado": {

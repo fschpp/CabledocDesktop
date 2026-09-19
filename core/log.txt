@@ -2175,3 +2175,159 @@ KeyboardInterrupt
 [01:20:54.048] [inmersivo] platform != 'android' -> no hago nada
 [01:20:55.040] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
 [01:20:55.041] [inmersivo] platform != 'android' -> no hago nada
+[16:36:12.136] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[16:36:12.136] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[16:36:12.523] [inmersivo] === CableDocApp.build() ===
+[16:36:12.596] [inmersivo] === CableDocApp.on_start() ===
+[16:36:12.596] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[16:36:12.597] [inmersivo] platform != 'android' -> no hago nada
+[16:36:12.669] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[16:36:12.669] [inmersivo] platform != 'android' -> no hago nada
+[16:36:12.703] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f1e84a86760>, 360, 800))) platform='linux'
+[16:36:12.703] [inmersivo] platform != 'android' -> no hago nada
+[16:36:13.165] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[16:36:13.165] [inmersivo] platform != 'android' -> no hago nada
+[16:36:14.162] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[16:36:14.162] [inmersivo] platform != 'android' -> no hago nada
+[16:36:48.950] [busqueda_global] _construir_arbol: 3960 nodos, 5 salas, 518 cables, 20 ms (consultas SQL, bulk fetch)
+[16:36:48.951] [busqueda_global] recargar(): armado de nodos en 21 ms
+[16:36:48.959] [busqueda_global] _rebuild: filtro='' clear_widgets(0)=0ms visibilidad=1ms render=7ms (8 filas creadas, 0 matches, tope=False) total=8ms
+[16:36:50.767] [busqueda_global] _rebuild: filtro='' clear_widgets(8)=0ms visibilidad=2ms render=5ms (2 filas creadas, 0 matches, tope=False) total=7ms
+[16:36:52.711] [busqueda_global] _construir_arbol: 3960 nodos, 5 salas, 518 cables, 23 ms (consultas SQL, bulk fetch)
+[16:36:52.711] [busqueda_global] recargar(): armado de nodos en 23 ms
+[16:36:52.719] [busqueda_global] _rebuild: filtro='' clear_widgets(0)=0ms visibilidad=1ms render=7ms (8 filas creadas, 0 matches, tope=False) total=7ms
+[16:36:54.752] [busqueda_global] _rebuild: filtro='' clear_widgets(8)=0ms visibilidad=2ms render=18ms (10 filas creadas, 0 matches, tope=False) total=20ms
+[16:36:56.876] [busqueda_global] tecla → 'm' (reprograma debounce)
+[16:36:56.950] [busqueda_global] tecla → 'md' (reprograma debounce)
+[16:36:57.078] [busqueda_global] tecla → 'mdk' (reprograma debounce)
+[16:36:57.436] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(10)=1ms visibilidad=4ms render=58ms (21 filas creadas, 10 matches, tope=False) total=63ms
+[16:36:57.436] [busqueda_global] _aplicar_filtro('mdk'): total 63 ms
+[16:36:59.563] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(21)=0ms visibilidad=1ms render=46ms (21 filas creadas, 10 matches, tope=False) total=48ms
+[16:36:59.729] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(21)=0ms visibilidad=3ms render=20ms (21 filas creadas, 10 matches, tope=False) total=23ms
+[16:37:00.706] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(21)=0ms visibilidad=3ms render=24ms (21 filas creadas, 10 matches, tope=False) total=27ms
+[16:37:01.425] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(21)=0ms visibilidad=2ms render=24ms (21 filas creadas, 10 matches, tope=False) total=27ms
+[16:37:01.634] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(21)=0ms visibilidad=3ms render=48ms (21 filas creadas, 10 matches, tope=False) total=51ms
+[16:37:05.335] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(21)=0ms visibilidad=3ms render=54ms (21 filas creadas, 10 matches, tope=False) total=57ms
+[16:37:06.296] [busqueda_global] _rebuild: filtro='mdk' clear_widgets(21)=0ms visibilidad=1ms render=16ms (21 filas creadas, 10 matches, tope=False) total=17ms
+[16:37:23.734] DIAGRAMA· render: 0.0 ms — 0 nodos, 0 conexiones
+[16:37:23.735] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[16:37:23.736] DIAGRAMA· render: 0.2 ms — 0 nodos, 0 conexiones
+[16:37:23.968] DIAGRAMA· ids_equipos (global): 12.3 ms
+[16:37:23.973] DIAGRAMA· query_equipos_bulk: 4.7 ms — n=348
+[16:37:23.976] DIAGRAMA· query_posiciones_bulk: 3.3 ms — n=348
+[16:37:23.983] DIAGRAMA· query_conexiones_bulk (grafo completo): 6.2 ms
+[16:37:23.983] DIAGRAMA· layout (columnas, indice completo): 0.2 ms
+[16:37:23.985] DIAGRAMA· render: 0.1 ms — 0 nodos, 0 conexiones
+[16:37:23.989] DIAGRAMA· _cargar total: 33.1 ms — modo=global
+[16:37:23.994] DIAGRAMA· recalcular_visibles (filtro viewport): 0.4 ms — indice=347
+[16:37:23.996] DIAGRAMA· query_conectores_bulk (activos): 2.0 ms — n=50
+[16:37:24.002] DIAGRAMA· render: 6.3 ms — 50 nodos, 33 conexiones
+[16:37:24.914] DIAGRAMA· render: 7.1 ms — 50 nodos, 33 conexiones
+[16:37:25.005] DIAGRAMA· render: 13.1 ms — 50 nodos, 33 conexiones
+[16:37:25.025] DIAGRAMA· render: 4.7 ms — 50 nodos, 33 conexiones
+[16:37:25.044] DIAGRAMA· render: 5.7 ms — 50 nodos, 33 conexiones
+[16:37:25.062] DIAGRAMA· render: 5.8 ms — 50 nodos, 33 conexiones
+[16:37:25.082] DIAGRAMA· render: 5.2 ms — 50 nodos, 33 conexiones
+[16:37:25.102] DIAGRAMA· render: 4.9 ms — 50 nodos, 33 conexiones
+[16:37:25.122] DIAGRAMA· render: 5.0 ms — 50 nodos, 33 conexiones
+[16:37:25.309] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[16:37:25.315] DIAGRAMA· query_conectores_bulk (activos): 4.5 ms — n=5
+[16:37:25.322] DIAGRAMA· render: 6.5 ms — 5 nodos, 4 conexiones
+[16:37:25.334] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.356] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.366] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.376] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.386] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.399] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.416] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.432] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.449] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.465] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.482] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.499] DIAGRAMA· render: 0.9 ms — 5 nodos, 4 conexiones
+[16:37:25.515] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.532] DIAGRAMA· render: 0.7 ms — 5 nodos, 4 conexiones
+[16:37:25.549] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.566] DIAGRAMA· render: 0.7 ms — 5 nodos, 4 conexiones
+[16:37:25.582] DIAGRAMA· render: 0.7 ms — 5 nodos, 4 conexiones
+[16:37:25.604] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.642] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.652] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.663] DIAGRAMA· render: 1.0 ms — 5 nodos, 4 conexiones
+[16:37:25.673] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.683] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.702] DIAGRAMA· render: 1.4 ms — 5 nodos, 4 conexiones
+[16:37:25.717] DIAGRAMA· render: 0.9 ms — 5 nodos, 4 conexiones
+[16:37:25.736] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.751] DIAGRAMA· render: 0.9 ms — 5 nodos, 4 conexiones
+[16:37:25.767] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.815] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.826] DIAGRAMA· render: 0.7 ms — 5 nodos, 4 conexiones
+[16:37:25.838] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.849] DIAGRAMA· render: 0.8 ms — 5 nodos, 4 conexiones
+[16:37:25.859] DIAGRAMA· render: 1.1 ms — 5 nodos, 4 conexiones
+[16:37:26.033] DIAGRAMA· render: 2.1 ms — 5 nodos, 4 conexiones
+[16:37:26.051] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[16:37:26.053] DIAGRAMA· query_conectores_bulk (activos): 1.8 ms — n=24
+[16:37:26.057] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.078] DIAGRAMA· render: 4.0 ms — 24 nodos, 23 conexiones
+[16:37:26.092] DIAGRAMA· render: 3.2 ms — 24 nodos, 23 conexiones
+[16:37:26.109] DIAGRAMA· render: 3.4 ms — 24 nodos, 23 conexiones
+[16:37:26.125] DIAGRAMA· render: 3.0 ms — 24 nodos, 23 conexiones
+[16:37:26.140] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.157] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.173] DIAGRAMA· render: 3.7 ms — 24 nodos, 23 conexiones
+[16:37:26.189] DIAGRAMA· render: 3.8 ms — 24 nodos, 23 conexiones
+[16:37:26.204] DIAGRAMA· render: 3.7 ms — 24 nodos, 23 conexiones
+[16:37:26.220] DIAGRAMA· render: 3.5 ms — 24 nodos, 23 conexiones
+[16:37:26.236] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.252] DIAGRAMA· render: 3.6 ms — 24 nodos, 23 conexiones
+[16:37:26.270] DIAGRAMA· render: 3.5 ms — 24 nodos, 23 conexiones
+[16:37:26.285] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.472] DIAGRAMA· recalcular_visibles (filtro viewport): 0.6 ms — indice=347
+[16:37:26.731] DIAGRAMA· render: 9.9 ms — 24 nodos, 23 conexiones
+[16:37:26.781] DIAGRAMA· render: 7.5 ms — 24 nodos, 23 conexiones
+[16:37:26.798] DIAGRAMA· render: 3.1 ms — 24 nodos, 23 conexiones
+[16:37:26.814] DIAGRAMA· render: 3.6 ms — 24 nodos, 23 conexiones
+[16:37:26.829] DIAGRAMA· render: 3.2 ms — 24 nodos, 23 conexiones
+[16:37:26.844] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.859] DIAGRAMA· render: 3.1 ms — 24 nodos, 23 conexiones
+[16:37:26.875] DIAGRAMA· render: 3.1 ms — 24 nodos, 23 conexiones
+[16:37:26.890] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.906] DIAGRAMA· render: 3.3 ms — 24 nodos, 23 conexiones
+[16:37:26.922] DIAGRAMA· render: 3.2 ms — 24 nodos, 23 conexiones
+[16:37:26.938] DIAGRAMA· render: 3.4 ms — 24 nodos, 23 conexiones
+[16:37:26.966] DIAGRAMA· render: 3.8 ms — 24 nodos, 23 conexiones
+[16:37:26.981] DIAGRAMA· render: 3.4 ms — 24 nodos, 23 conexiones
+[16:37:27.008] DIAGRAMA· render: 3.6 ms — 24 nodos, 23 conexiones
+[16:37:27.234] DIAGRAMA· recalcular_visibles (filtro viewport): 0.2 ms — indice=347
+[16:37:27.236] DIAGRAMA· query_conectores_bulk (activos): 1.4 ms — n=3
+[16:37:27.238] DIAGRAMA· render: 1.8 ms — 3 nodos, 2 conexiones
+[16:49:44.784] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[16:49:44.784] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[16:49:45.095] [inmersivo] === CableDocApp.build() ===
+[16:49:45.173] [inmersivo] === CableDocApp.on_start() ===
+[16:49:45.173] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[16:49:45.173] [inmersivo] platform != 'android' -> no hago nada
+[16:49:45.248] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[16:49:45.248] [inmersivo] platform != 'android' -> no hago nada
+[16:49:45.280] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7fed53436760>, 360, 800))) platform='linux'
+[16:49:45.280] [inmersivo] platform != 'android' -> no hago nada
+[16:49:45.803] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[16:49:45.803] [inmersivo] platform != 'android' -> no hago nada
+[16:49:46.818] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[16:49:46.818] [inmersivo] platform != 'android' -> no hago nada
+[19:00:44.590] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[19:00:44.590] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[19:00:44.975] [inmersivo] === CableDocApp.build() ===
+[19:00:45.065] [inmersivo] === CableDocApp.on_start() ===
+[19:00:45.065] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[19:00:45.065] [inmersivo] platform != 'android' -> no hago nada
+[19:00:45.144] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[19:00:45.144] [inmersivo] platform != 'android' -> no hago nada
+[19:00:45.177] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7f7d1ca3a760>, 360, 800))) platform='linux'
+[19:00:45.177] [inmersivo] platform != 'android' -> no hago nada
+[19:00:45.637] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[19:00:45.637] [inmersivo] platform != 'android' -> no hago nada
+[19:00:46.638] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[19:00:46.638] [inmersivo] platform != 'android' -> no hago nada

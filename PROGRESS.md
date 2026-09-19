@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-17T(actual) — Fases B/C/D de la botonera mobile entregadas, rama `main` en `cbd4536`_
+_Última actualización: 2026-09-18T23:38 — "Sin picon" en el dashboard GTK + filtro "Ocultar fantasmas" en el ABM de Equipos, sobre `main` en `5b090be`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -2355,3 +2355,24 @@ arriba/abajo.
 - [x] Menús chicos (Más, "+", menú ⋮ de `DialogoEquipo`) se cierran al tocar afuera (`auto_dismiss=True` explícito; el resto de los popups sigue con `auto_dismiss=False` global)
 - [ ] Pendiente: confirmación también en cambio de tema; íconos PNG de diagnóstico/escenario/señal (metáfora sin definir, siguen con emoji); smoke test Xvfb/dispositivo real de la Fase E
 - Hallazgo: los .pyc de `__pycache__/` están versionados en `main` — conviene agregarlos a `.gitignore` y sacarlos del índice.
+
+## Dashboard "Sin picon" + filtro "Ocultar fantasmas" (GTK) — 2026-09-18T23:38
+
+### Current Focus
+Dos pedidos de Papi para la interfaz GTK, sobre `main` `5b090be` (PR #57): (1) en la pantalla principal, sección "Trabajo pendiente — Equipos", mostrar los equipos sin picon y quitar "Sin imagen" (reemplazada por la ubicación física); (2) en el ABM de Equipos no listar los FANTASMA, con un filtro "Ocultar fantasmas" al estilo de "Ocultar patcheras".
+
+### Todo List
+- [x] `Modelo.devolver_pendientes_equipos()`: clave nueva `sin_picon` (excluye FANTASMA por `rol_senal`); claves existentes sin cambios (mobile sigue usando `sin_imagen`)
+- [x] `Modelo.devolver_equipos_fantasma()` (gemelo de `devolver_equipos_patchera()`)
+- [x] `cabledoc.py`: tile "📷 Sin picon" reemplaza a "🖼 Sin imagen" en el panel de Equipos; "📍 Sin imagen c/ conect." se mantiene
+- [x] `equipos_ui.py`: `filtro_pendiente="sin_picon"` + checkbox "Ocultar fantasmas" (tildado por defecto, independiente de "Ocultar patcheras")
+- [x] `i18n.py`: 3 claves EN/PT; `APP_VERSION` → `1.20260918233800`; `changelog.txt` actualizado
+- [x] Validación: `ast.parse`/`py_compile`/`pyflakes` vs baseline (cero nuevos) + smoke test Xvfb/GTK3 con fixture SQLite
+- [ ] Prueba visual en la máquina de Fede (lugar del checkbox nuevo en la barra de botones del ABM)
+- [ ] Decidir si el tile "Sin imagen" del panel de **Frames** también se quita (no se tocó: el pedido hablaba de equipos)
+
+### Latest Blockers/Discoveries
+- `sin_picon` excluye los FANTASMA del conteo (placeholders sin foto posible; además el ABM los oculta por defecto, así el número coincide con el listado). Las PATCHERAS sí cuentan pero el ABM las oculta por defecto: si alguna no tiene picon, el número del tile puede ser mayor a las filas visibles hasta destildar "Ocultar patcheras" (mismo comportamiento previo de los demás tiles).
+- "Ocultar fantasmas" aplica también cuando `EquiposListado` se abre como selector (`modo_seleccion=True`), igual que patcheras: para elegir un fantasma hay que destildarlo.
+- Preexistente, no tocado: con `filtro_pendiente` activo y 0 resultados, `_filtrar` cae a mostrar todos los equipos (`if self._filtro_pendiente and self._ids_resaltar`).
+- El repo se clonó en `/home/claude/CabledocDesktop`; no hay push, Papi aplica el diff en su checkout.
