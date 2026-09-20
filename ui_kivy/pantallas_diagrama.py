@@ -1671,11 +1671,21 @@ class DiagramaConexiones(Popup):
             # no tenga su tamaño final asignado (evita que quede fuera de
             # lugar en el primer frame, antes de que Kivy termine el
             # layout).
+            # `pos` de un hijo de FloatLayout (size_hint=None, sin pos_hint)
+            # es ABSOLUTA en la Window, no relativa al contenedor: hay que
+            # sumarle la posición del propio canvas_cont. Sin eso el
+            # minimapa quedaba a dp(8) del borde inferior de la PANTALLA —
+            # o sea detrás de la botonera inferior global (60dp) — en vez de
+            # a dp(8) de la esquina inferior derecha del canvas. Por la
+            # misma razón se re-ubica también cuando cambia `pos` (el
+            # colchón anti-barra de tema.py y el padding nativo del Popup
+            # desplazan el canvas_cont después de construido).
             mw, mh = self._minimap.size
             cw = max(canvas_cont.width, mw + dp(16))
             ch = max(canvas_cont.height, mh + dp(16))
-            self._minimap.pos = (cw - mw - dp(8), dp(8))
-        canvas_cont.bind(size=_reubicar_minimap)
+            self._minimap.pos = (canvas_cont.x + cw - mw - dp(8),
+                                 canvas_cont.y + dp(8))
+        canvas_cont.bind(size=_reubicar_minimap, pos=_reubicar_minimap)
         _reubicar_minimap()
         canvas_cont.add_widget(self._minimap)
 
