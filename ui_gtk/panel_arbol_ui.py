@@ -559,8 +559,11 @@ class PanelArbol(Gtk.Box):
         self._tlog("recargar() TOTAL")
 
     def _nodo(self, label, tipo, id_, id2, color, badge, peso, hijos=None):
+        # "busqueda": el label en minúsculas, calculado una vez (el filtro
+        # matchea sobre el texto que se ve en el árbol).
         return {"vals": [label, tipo, id_, id2, color, badge, peso],
-                "hijos": hijos if hijos is not None else []}
+                "hijos": hijos if hijos is not None else [],
+                "busqueda": (label or "").lower()}
 
     def _renderizar_store_desde_cache(self):
         """Vuelca self._arbol_datos (estructura en memoria) al TreeStore,
@@ -580,9 +583,13 @@ class PanelArbol(Gtk.Box):
         visible_cache = {}
         self._total_matches = 0
 
+        # Cada palabra escrita debe aparecer en el texto de búsqueda del
+        # nodo (en cualquier orden): "sony 3500" = marca Sony + modelo 3500.
+        tokens = texto.split()
+
         def calcular_visibilidad(nodo):
-            label = nodo["vals"][0].lower()
-            vis_propio = (not texto) or (texto in label)
+            hay = nodo["busqueda"]
+            vis_propio = (not texto) or all(tok in hay for tok in tokens)
             if vis_propio and texto:
                 self._total_matches += 1
             vis_por_hijo = False
@@ -634,6 +641,29 @@ class PanelArbol(Gtk.Box):
 
         hijos_infra = []
 
+        # Label de cada equipo en el árbol: "<nombre> <marca> <tipo> <modelo>
+        # <inventario> <serie>" (campos vacíos omitidos), p.ej. "CONSOLA DE
+        # ESTUDIO YAMAHA CONSOLA M7CL-48-ES 65715 WTARK01006". UNA consulta
+        # para todos los equipos. Como el filtro matchea sobre el label,
+        # escribir cualquiera de esos valores encuentra el equipo.
+        etiquetas_equipos = {}
+        cur.execute("""
+            SELECT e.id_equipo, e.nombre, m.nombre, te.nombre, e.modelo,
+                   e.num_inventario, e.num_serie
+            FROM equipo e
+            LEFT JOIN marca m ON m.id_marca = e.id_marca
+            LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo
+            WHERE e.id_equipo != 0
+        """)
+        for id_eq, nom, marca, tipo, modelo, inv, serie in cur.fetchall():
+            etiquetas_equipos[str(id_eq)] = " ".join(
+                v for v in (s(nom).strip(), s(marca).strip(), s(tipo).strip(),
+                            s(modelo).strip(), s(inv).strip(), s(serie).strip())
+                if v)
+
+        def _etiqueta_eq(id_eq, nom_eq):
+            return etiquetas_equipos.get(str(id_eq)) or nom_eq
+
         # ── Salas ──
         cur.execute("SELECT id_sala, nombre FROM sala ORDER BY nombre")
         salas = cur.fetchall()
@@ -679,7 +709,7 @@ class PanelArbol(Gtk.Box):
                     """, (id_frame,))
                     for id_eq, nom_eq, tipo_eq in cur.fetchall():
                         hijos_frame.append(self._nodo(
-                            nom_eq, "equipo", str(id_eq), str(id_frame),
+                            _etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq), str(id_frame),
                             self._BADGE_COLOR["equipo"], s(tipo_eq) or "equipo", 400,
                             self._conectores_datos(cur, id_eq)))
                     hijos_rack.append(self._nodo(
@@ -698,7 +728,7 @@ class PanelArbol(Gtk.Box):
                 """, (id_rack,))
                 for id_eq, nom_eq, tipo_eq in cur.fetchall():
                     hijos_rack.append(self._nodo(
-                        nom_eq, "equipo", str(id_eq), str(id_rack),
+                        _etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq), str(id_rack),
                         self._BADGE_COLOR["equipo"], s(tipo_eq) or "equipo", 400,
                         self._conectores_datos(cur, id_eq)))
 
@@ -727,7 +757,7 @@ class PanelArbol(Gtk.Box):
                 hijos_sueltos = []
                 for id_eq, nom_eq, tipo_eq in equipos_sueltos:
                     hijos_sueltos.append(self._nodo(
-                        nom_eq, "equipo", str(id_eq), str(id_sala),
+                        _etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq), str(id_sala),
                         self._BADGE_COLOR["equipo"], s(tipo_eq) or "equipo", 400,
                         self._conectores_datos(cur, id_eq)))
                 hijos_sala.append(self._nodo(
@@ -766,7 +796,7 @@ class PanelArbol(Gtk.Box):
             hijos_sr = []
             for id_eq, nom_eq, tipo_eq in sin_rack:
                 hijos_sr.append(self._nodo(
-                    nom_eq, "equipo", str(id_eq), "",
+                    _etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq), "",
                     self._BADGE_COLOR["equipo"], s(tipo_eq) or "equipo", 400,
                     self._conectores_datos(cur, id_eq)))
             hijos_infra.append(self._nodo(

@@ -35,6 +35,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.clock import Clock
+from kivy.core.text import Label as CoreLabel
 from kivy.metrics import dp, sp
 
 from widgets_base import (
@@ -72,6 +73,10 @@ def _hex_a_rgba(hex_color):
 class _NodoGlobal:
     def __init__(self, texto, tipo, id_="", id2="", badge="", bold=False):
         self.texto = texto
+        # El filtro matchea sobre el texto visible (en minúsculas, calculado
+        # una sola vez). Los nodos de equipo llevan como texto "nombre marca
+        # tipo modelo inventario serie" (ver _construir_arbol).
+        self.busqueda = texto.lower()
         self.tipo = tipo        # sala|rack|frame|equipo|conector|cable|conexion|sin_rack|seccion
         self.id = id_
         self.id2 = id2
@@ -174,6 +179,27 @@ def _construir_arbol():
         "ORDER BY c.nombre")
     conectores_por_equipo = _agrupar(conectores_todos, 3)
 
+    # Texto de cada nodo de equipo: "<nombre> <marca> <tipo> <modelo>
+    # <inventario> <serie>" (campos vacíos omitidos), p.ej. "CONSOLA DE
+    # ESTUDIO YAMAHA CONSOLA M7CL-48-ES 65715 WTARK01006". Una sola consulta
+    # para todos los equipos, no una por nodo (misma optimización que el
+    # resto del árbol). Como el filtro matchea sobre el texto del nodo,
+    # escribir cualquiera de esos valores encuentra el equipo.
+    etiquetas_equipos = {}
+    for (id_eq, nom, marca, tipo, modelo, inv, serie) in Modelo._query(
+            "SELECT e.id_equipo, e.nombre, m.nombre, te.nombre, e.modelo, "
+            "e.num_inventario, e.num_serie FROM equipo e "
+            "LEFT JOIN marca m ON m.id_marca=e.id_marca "
+            "LEFT JOIN tipo_equipo te ON te.id_tipo_equipo=e.id_tipo_equipo "
+            "WHERE e.id_equipo!=0"):
+        etiquetas_equipos[str(id_eq)] = " ".join(
+            v for v in (s(nom).strip(), s(marca).strip(), s(tipo).strip(),
+                        s(modelo).strip(), s(inv).strip(), s(serie).strip())
+            if v)
+
+    def _etiqueta_eq(id_eq, nom_eq):
+        return etiquetas_equipos.get(str(id_eq)) or s(nom_eq)
+
     def _agregar_conectores(nodo_eq, id_eq):
         for id_con, nom_con, tipo_con, _id_eq in conectores_por_equipo.get(
                 str(id_eq), []):
@@ -200,7 +226,7 @@ def _construir_arbol():
 
                 for id_eq, nom_eq, tipo_eq, _id_frame in eq_slots_por_frame.get(
                         str(id_frame), []):
-                    n_eq = _NodoGlobal(s(nom_eq), "equipo", str(id_eq),
+                    n_eq = _NodoGlobal(_etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq),
                                        str(id_frame),
                                        badge=s(tipo_eq) or "equipo")
                     n_frame.hijos.append(n_eq)
@@ -208,7 +234,7 @@ def _construir_arbol():
 
             for id_eq, nom_eq, tipo_eq, _id_rack in eq_directos_por_rack.get(
                     str(id_rack), []):
-                n_eq = _NodoGlobal(s(nom_eq), "equipo", str(id_eq),
+                n_eq = _NodoGlobal(_etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq),
                                    str(id_rack), badge=s(tipo_eq) or "equipo")
                 n_rack.hijos.append(n_eq)
                 _agregar_conectores(n_eq, id_eq)
@@ -220,7 +246,7 @@ def _construir_arbol():
                 str(id_sala), badge="sueltos")
             n_sala.hijos.append(n_sueltos)
             for id_eq, nom_eq, tipo_eq, _id_sala in sueltos:
-                n_eq = _NodoGlobal(s(nom_eq), "equipo", str(id_eq),
+                n_eq = _NodoGlobal(_etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq),
                                    str(id_sala), badge=s(tipo_eq) or "equipo")
                 n_sueltos.hijos.append(n_eq)
                 _agregar_conectores(n_eq, id_eq)
@@ -241,7 +267,7 @@ def _construir_arbol():
                            "sin_rack", bold=True)
         n_infra.hijos.append(n_sr)
         for id_eq, nom_eq, tipo_eq in sin_rack:
-            n_eq = _NodoGlobal(s(nom_eq), "equipo", str(id_eq),
+            n_eq = _NodoGlobal(_etiqueta_eq(id_eq, nom_eq), "equipo", str(id_eq),
                                badge=s(tipo_eq) or "equipo")
             n_sr.hijos.append(n_eq)
             _agregar_conectores(n_eq, id_eq)
@@ -286,6 +312,7 @@ _ANCHO_INDENT = dp(16)      # por nivel de profundidad
 _ANCHO_TOGGLE = dp(28)      # botón +/-
 _ANCHO_LABEL = dp(200)      # ancho fijo del texto principal (se corta si es más largo)
 _ANCHO_BADGE_MIN = dp(46)   # ancho mínimo de la categoría
+_ANCHO_LABEL_MAX = dp(900)  # tope del ancho del texto de un equipo (ver _FilaArbolGlobal)
 
 
 class _FilaArbolGlobal(ButtonBehavior, BoxLayout):
@@ -322,12 +349,24 @@ class _FilaArbolGlobal(ButtonBehavior, BoxLayout):
             self.add_widget(BoxLayout(size_hint=(None, None),
                                       width=_ANCHO_TOGGLE, height=ALTO_FILA_COMPACTA))
 
+        # El texto de un equipo ("nombre marca tipo modelo inventario
+        # serie") es largo y no entra en _ANCHO_LABEL: se mide y la fila se
+        # ensancha (hasta _ANCHO_LABEL_MAX; el ScrollView ya panea en X).
+        # El resto de los nodos conserva el ancho fijo de siempre.
+        ancho_label = _ANCHO_LABEL
+        if nodo.tipo == "equipo":
+            ancho_texto = CoreLabel(
+                text=nodo.texto, font_size=FUENTE_CHICA,
+                bold=nodo.bold).get_extents(nodo.texto)[0]
+            ancho_label = min(_ANCHO_LABEL_MAX,
+                              max(_ANCHO_LABEL, ancho_texto + dp(10)))
+
         lbl = Label(text=nodo.texto, halign="left", valign="middle",
                    bold=nodo.bold, font_size=FUENTE_CHICA,
                    shorten=True, shorten_from="right",
-                   size_hint=(None, None), width=_ANCHO_LABEL,
+                   size_hint=(None, None), width=ancho_label,
                    height=ALTO_FILA_COMPACTA)
-        lbl.text_size = (_ANCHO_LABEL, ALTO_FILA_COMPACTA)
+        lbl.text_size = (ancho_label, ALTO_FILA_COMPACTA)
         self.add_widget(lbl)
 
         ancho_badge = 0
@@ -345,7 +384,7 @@ class _FilaArbolGlobal(ButtonBehavior, BoxLayout):
 
         _ESPACIADO = dp(2)  # debe coincidir con spacing= pasado al __init__
         n_huecos = 3 if ancho_badge else 2  # cantidad de widgets - 1
-        self.width = (ancho_indent + _ANCHO_TOGGLE + _ANCHO_LABEL +
+        self.width = (ancho_indent + _ANCHO_TOGGLE + ancho_label +
                      ancho_badge + _ESPACIADO * n_huecos)
 
     # ── Gesto "mantener presionado" (mismo patrón que _FilaRV) ──
@@ -402,6 +441,7 @@ class BusquedaGlobalPopup(Popup):
     def __init__(self, **kwargs):
         self._raices = []
         self._filtro = ""
+        self._tokens = []
         self._visible_cache = {}
         self._ev_filtro = None
         self._total_matches = 0
@@ -498,6 +538,10 @@ class BusquedaGlobalPopup(Popup):
         t0 = time.perf_counter()
         self._ev_filtro = None
         self._filtro = texto.lower().strip()
+        # Cada palabra escrita tiene que aparecer en el texto de búsqueda
+        # del nodo (en cualquier orden): "sony 3500" encuentra un equipo
+        # cuya marca es Sony y cuyo modelo contiene 3500.
+        self._tokens = self._filtro.split()
         self._rebuild()
         log_debug(f"[busqueda_global] _aplicar_filtro('{texto}'): "
                  f"total {(time.perf_counter() - t0)*1000:.0f} ms")
@@ -508,7 +552,8 @@ class BusquedaGlobalPopup(Popup):
         en self._total_matches los nodos que matchean directamente (no
         solo por tener un descendiente que matchea), para poder avisar
         "mostrando X de Y resultados" cuando se aplica el tope de filas."""
-        vis_propio = (not self._filtro) or (self._filtro in nodo.texto.lower())
+        vis_propio = (not self._filtro) or all(
+            tok in nodo.busqueda for tok in self._tokens)
         if vis_propio and self._filtro:
             self._total_matches += 1
         vis_por_hijo = False
