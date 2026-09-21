@@ -8,12 +8,53 @@ VistaPreviaMixin, DiagnosticoMixin). Move 1:1: métodos idénticos a los que
 tenía DiagramaConexiones, sólo re-indentados a su propia clase. No se
 modificó ninguna lógica.
 """
+import math
+
 from gi.repository import Gtk
 
 from pantallas_comunes import _
 
+# Descripción de cada formato para los títulos de los diálogos.
+_DESC_FORMATO = {"svg": "SVG vectorial", "pdf": "PDF", "png": "PNG transparente"}
+
+# PNG: el diagrama se dibuja en unidades de mundo (1 unidad = 1 px a zoom 1).
+# Se rasteriza a 2x para que el texto y los cables no se vean pixelados al
+# ampliar, pero acotado para diagramas grandes (la vista global puede tener
+# cientos de nodos): máx. PNG_MAX_PIXELES en total (ARGB32 = 4 bytes/px) y
+# PNG_MAX_LADO por lado (límite de cairo: 32767). Si el diagrama es tan grande
+# que ni a 1x entra, la escala baja de 1 (el PNG sale más chico que el mundo).
+PNG_ESCALA = 2.0
+PNG_MAX_PIXELES = 64_000_000
+PNG_MAX_LADO = 30000
+
 
 class ExportMixin:
+    def _exportar_crear_superficie(self, ruta, fmt, W, H):
+        """Crea la superficie de Cairo del formato pedido. Devuelve
+        (superficie, escala): escala != 1 sólo en PNG (ver PNG_ESCALA); el
+        que dibuja tiene que hacer cr.scale(escala, escala). Ninguna
+        superficie se pinta de fondo: PNG (ARGB32) arranca en transparente,
+        SVG/PDF arrancan vacías."""
+        import cairo as _cairo
+        if fmt == "svg":
+            return _cairo.SVGSurface(ruta, W, H), 1.0
+        if fmt == "png":
+            esc = min(PNG_ESCALA,
+                      math.sqrt(PNG_MAX_PIXELES / max(W * H, 1.0)),
+                      PNG_MAX_LADO / max(W, H, 1.0))
+            surface = _cairo.ImageSurface(
+                _cairo.FORMAT_ARGB32,
+                max(1, math.ceil(W * esc)), max(1, math.ceil(H * esc)))
+            return surface, esc
+        return _cairo.PDFSurface(ruta, W, H), 1.0
+
+    def _exportar_cerrar_superficie(self, surface, ruta, fmt):
+        # El PNG se escribe recién ahora (SVG/PDF van escribiendo a `ruta`
+        # a medida que se dibuja); hay que hacerlo ANTES de finish().
+        if fmt == "png":
+            surface.write_to_png(ruta)
+        surface.finish()
+
     def _exportar_elegir(self, fmt):
         if not self._nodos:
             self._status("No hay nodos para exportar.")
@@ -63,7 +104,7 @@ class ExportMixin:
         H    = max(y2s) + MARGEN - mn_y
 
         ext  = fmt.lower()
-        desc = "SVG vectorial" if ext == "svg" else "PDF"
+        desc = _DESC_FORMATO.get(ext, ext.upper())
         dlg  = Gtk.FileChooserDialog(
             title="Exportar diagrama como " + desc.upper(),
             transient_for=self,
@@ -105,12 +146,10 @@ class ExportMixin:
     def _exportar_renderizar(self, ruta, fmt, mn_x, mn_y, W, H):
         import cairo as _cairo
 
-        if fmt == "svg":
-            surface = _cairo.SVGSurface(ruta, W, H)
-        else:
-            surface = _cairo.PDFSurface(ruta, W, H)
-
+        surface, escala = self._exportar_crear_superficie(ruta, fmt, W, H)
         cr = _cairo.Context(surface)
+        if escala != 1.0:
+            cr.scale(escala, escala)
 
         # Fondo TRANSPARENTE: a propósito no se pinta el color de fondo
         # (C_BG) ni la grilla (C_GRID) que sí se ven en pantalla (_on_draw).
@@ -140,7 +179,7 @@ class ExportMixin:
         self._draw_conexiones_incompletas_etiquetas(cr)
 
         cr.restore()
-        surface.finish()
+        self._exportar_cerrar_superficie(surface, ruta, fmt)
 
 
     def _exportar_vista(self, fmt):
@@ -153,7 +192,7 @@ class ExportMixin:
         W = float(alloc.width)
         H = float(alloc.height)
         ext  = fmt.lower()
-        desc = "SVG vectorial" if ext == "svg" else "PDF"
+        desc = _DESC_FORMATO.get(ext, ext.upper())
         dlg  = Gtk.FileChooserDialog(
             title="Exportar vista actual como " + desc.upper(),
             transient_for=self,
@@ -177,11 +216,10 @@ class ExportMixin:
             ruta += "." + ext
         try:
             import cairo as _cairo
-            if ext == "svg":
-                surface = _cairo.SVGSurface(ruta, W, H)
-            else:
-                surface = _cairo.PDFSurface(ruta, W, H)
+            surface, escala = self._exportar_crear_superficie(ruta, ext, W, H)
             cr = _cairo.Context(surface)
+            if escala != 1.0:
+                cr.scale(escala, escala)
             # Fondo TRANSPARENTE: no se pinta C_BG ni la grilla C_GRID de
             # _on_draw (ver _exportar_renderizar).
             # Mismo transform world que _on_draw
@@ -201,7 +239,7 @@ class ExportMixin:
             # etiquetas de conexiones incompletas: por encima de nodos/iconos/línea
             self._draw_conexiones_incompletas_etiquetas(cr)
             cr.restore()
-            surface.finish()
+            self._exportar_cerrar_superficie(surface, ruta, ext)
             self._status("Exportado: " + os.path.basename(ruta))
         except Exception as exc:
             dlg_err = Gtk.MessageDialog(
