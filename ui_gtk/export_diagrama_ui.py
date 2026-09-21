@@ -112,23 +112,11 @@ class ExportMixin:
 
         cr = _cairo.Context(surface)
 
-        # Fondo
-        cr.set_source_rgb(*self.C_BG)
-        cr.paint()
-
-        # Grilla (en coords de mundo desplazadas al origen)
-        GRID = 40
-        cr.set_source_rgb(*self.C_GRID)
-        cr.set_line_width(0.5)
-        ox = (-mn_x) % GRID
-        oy = (-mn_y) % GRID
-        x = ox
-        while x < W:
-            cr.move_to(x, 0); cr.line_to(x, H); x += GRID
-        y = oy
-        while y < H:
-            cr.move_to(0, y); cr.line_to(W, y); y += GRID
-        cr.stroke()
+        # Fondo TRANSPARENTE: a propósito no se pinta el color de fondo
+        # (C_BG) ni la grilla (C_GRID) que sí se ven en pantalla (_on_draw).
+        # La superficie de Cairo (SVG/PDF) arranca sin contenido, así que
+        # sólo queda lo dibujado abajo (cables, nodos, etiquetas) y el
+        # diagrama se puede pegar sobre cualquier fondo.
 
         # Trasladar para que (mn_x, mn_y) quede en (0,0)
         cr.save()
@@ -194,21 +182,8 @@ class ExportMixin:
             else:
                 surface = _cairo.PDFSurface(ruta, W, H)
             cr = _cairo.Context(surface)
-            # Fondo
-            cr.set_source_rgb(*self.C_BG); cr.paint()
-            # Grilla identica a _on_draw
-            GRID = 40 * self._zoom
-            ox   = self._pan_x % GRID
-            oy   = self._pan_y % GRID
-            cr.set_source_rgb(*self.C_GRID)
-            cr.set_line_width(0.5)
-            x = ox
-            while x < W:
-                cr.move_to(x, 0); cr.line_to(x, H); x += GRID
-            y = oy
-            while y < H:
-                cr.move_to(0, y); cr.line_to(W, y); y += GRID
-            cr.stroke()
+            # Fondo TRANSPARENTE: no se pinta C_BG ni la grilla C_GRID de
+            # _on_draw (ver _exportar_renderizar).
             # Mismo transform world que _on_draw
             cr.save()
             cr.translate(self._pan_x, self._pan_y)
