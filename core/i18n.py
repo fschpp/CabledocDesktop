@@ -514,6 +514,7 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Buscar": {"en": "Search", "pt": "Buscar"},
     "⧡ Exportar como SVG": {"en": "⧡ Export as SVG", "pt": "⧡ Exportar como SVG"},
     "📄 Exportar como PDF": {"en": "📄 Export as PDF", "pt": "📄 Exportar como PDF"},
+    "🖼 Exportar como PNG": {"en": "🖼 Export as PNG", "pt": "🖼 Exportar como PNG"},
     "Exportar": {"en": "Export", "pt": "Exportar"},
     "Impacto": {"en": "Impact", "pt": "Impacto"},
     "⭐ Marcar críticos": {"en": "⭐ Mark critical", "pt": "⭐ Marcar críticos"},
