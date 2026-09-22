@@ -22,6 +22,15 @@ from core.modelo import Modelo
 from pantallas_comunes import _, s, PALETA, _tc
 
 
+def _hex_a_rgb01(hexcolor):
+    """"#rrggbb" -> (r, g, b) en 0..1 (Modelo.color_escala_auditoria
+    devuelve hex; Cairo dibuja en 0..1). Mismo helper que
+    auditoria_diagrama_ui.py (duplicado a propósito: éste es un módulo
+    self-contenido, igual que el resto de *_ui.py del proyecto)."""
+    hexcolor = hexcolor.lstrip("#")
+    return tuple(int(hexcolor[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
 class PatcherasVista(Gtk.Dialog):
     """
     Vista de patcheras PPV/PPA para un equipo dado.
@@ -86,6 +95,17 @@ class PatcherasVista(Gtk.Dialog):
         self._jumpers   = {}      # {rack_nom: [ {tipo,p1,p2,color,tooltip} ]} — modo global
         self._jumpers_cross = []  # [ {origen,destino,color} ] — patchcords que cruzan de rack (overlay)
 
+        # "🕓 Colorear por auditoría" (mismo criterio que
+        # auditoria_diagrama_ui.AuditoriaDiagramaMixin del diagrama de
+        # conexiones): en vez de verde/rojo/oscuro por estado de conexión,
+        # cada punto se pinta según hace cuánto se auditó el EQUIPO
+        # instalado en ese slot (Modelo.color_escala_auditoria) — más
+        # claro = reciente, más oscuro = viejo o nunca auditado. Disponible
+        # en los dos modos (por equipo y global): ambos ya identifican, por
+        # columna, qué equipo (módulo patchera) está instalado ahí.
+        self._auditoria_color_activo = False
+        self._auditoria_cache = {}   # id_equipo(str) -> "#rrggbb"
+
         area = self.get_content_area()
 
         # ── Barra superior ────────────────────────────────────────────────────
@@ -141,7 +161,20 @@ class PatcherasVista(Gtk.Dialog):
                               cr.fill(), False][-1])
                 hb.pack_start(da_l, False, False, 0)
                 hb.pack_start(Gtk.Label(label=texto), False, False, 0)
-        
+
+        hb.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
+        self._btn_auditoria = Gtk.ToggleButton(label=_("🕓 Auditoría"))
+        self._btn_auditoria.set_tooltip_text(
+            "Pinta cada punto según hace cuánto se auditó el equipo "
+            "instalado en ese slot (Modelo.marcar_auditado), en vez del "
+            "color verde/rojo/oscuro de conexión: más CLARO = auditado "
+            "hace poco, más OSCURO = auditado hace mucho (más de "
+            f"{Modelo.AUDITORIA_ESCALA_DIAS_MAX} días) o nunca auditado."
+        )
+        self._btn_auditoria.connect("toggled", self._toggle_auditoria)
+        hb.pack_start(self._btn_auditoria, False, False, 0)
+
         # Botones de exportación
         hb.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
         hb.pack_start(Gtk.Label(label=_("Exportar:")), False, False, 0)
@@ -235,6 +268,21 @@ class PatcherasVista(Gtk.Dialog):
         self._overlay_da.set_visible(activo)
         if activo:
             self._overlay_da.queue_draw()
+
+    # ── "🕓 Colorear por auditoría" (ambos modos) ────────────────────────────
+    def _toggle_auditoria(self, btn):
+        self._auditoria_color_activo = btn.get_active()
+        if self._auditoria_color_activo:
+            try:
+                fechas = Modelo.devolver_fechas_auditoria_equipos()
+            except Exception:
+                fechas = {}
+            self._auditoria_cache = {
+                id_eq: Modelo.color_escala_auditoria(fecha)
+                for id_eq, fecha in fechas.items()
+            }
+        for da in self._das.values():
+            da.queue_draw()
 
     def _strip_w(self):
         n_cols = max(
@@ -840,6 +888,16 @@ class PatcherasVista(Gtk.Dialog):
         if col > max_col:
             return False
 
+        if self._auditoria_color_activo:
+            id_eq_mod = cols.get(col, {}).get("id_equipo")
+            fecha = (Modelo.devolver_fecha_ultima_auditoria(
+                        "equipo", "id_equipo", id_eq_mod)
+                     if id_eq_mod else "")
+            estado = f"🕓 Auditado: {fecha}" if fecha else "🕓 Nunca auditado"
+            tooltip.set_text(
+                f"{frame_nom}  Columna {col:02d}  Fila {row}\n{estado}")
+            return True
+
         color = cols.get(col, {"A": "dark", "B": "dark"}).get(row, "dark")
         estado = {"green": "🟢 Salida (A_BACK conectado)",
                   "red":   "🔴 Entrada (B_BACK conectado)",
@@ -1104,7 +1162,23 @@ class PatcherasVista(Gtk.Dialog):
                     col = c_idx + 1
                     es_fantasma = False
 
-                    if self._modo_global:
+                    if self._auditoria_color_activo:
+                        # "🕓 Colorear por auditoría": mismo equipo (módulo
+                        # instalado en el slot) para ambas filas A y B de la
+                        # columna — id_equipo en modo por-equipo,
+                        # id_equipo_modulo en modo global (ver _cargar_por_
+                        # equipo / _cargar_global).
+                        celda_col = cols.get(col, {})
+                        id_eq_mod = (celda_col.get("id_equipo")
+                                    or celda_col.get("id_equipo_modulo"))
+                        hexcolor = (self._auditoria_cache.get(str(id_eq_mod))
+                                   if id_eq_mod else None)
+                        if hexcolor:
+                            estado = "conectado"
+                            fill_c = glow_c = _hex_a_rgb01(hexcolor)
+                        else:
+                            estado, fill_c, glow_c = "vacio", self.C_DARK, None
+                    elif self._modo_global:
                         celda = cols.get(col, {}).get(row_lbl)
                         if celda is None:
                             estado, fill_c, glow_c = "vacio", self.C_DARK, None

@@ -122,6 +122,14 @@ from pantallas_riesgo import (
 )
 from pantallas_vista_previa import PopupVistaPrevia
 
+
+def _hex_a_rgb01(hexcolor):
+    """"#rrggbb" -> (r, g, b) en 0..1. Usado por el toggle "🕓 Auditoría"
+    (Modelo.color_escala_auditoria devuelve hex; Kivy dibuja en 0..1)."""
+    hexcolor = hexcolor.lstrip("#")
+    return tuple(int(hexcolor[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
 try:
     from core.logger_cabledoc import log_debug
 except ImportError:
@@ -905,6 +913,13 @@ class _CanvasDiagrama(StencilView):
         # toggle está apagado o no hay caché para este equipo.
         hdr_sy = sy + sh - HDR_H * z
         ancho_borde_base = max(1.0, (2.0 if sel else 1.0) * z)
+        # "🕓 Auditoría": no-op si el toggle está apagado. Antes del color
+        # de riesgo a propósito, para que un nodo en riesgo se siga viendo
+        # resaltado aunque el toggle de auditoría esté prendido.
+        if self._popup._auditoria_color_activo:
+            hx = self._popup._auditoria_cache.get(str(nodo["id"]))
+            if hx:
+                rc, gc, bc = _hex_a_rgb01(hx)
         if self._popup._riesgo_color_activo:
             rc_h, gc_h, bc_h, ancho_borde = color_y_borde_por_riesgo(
                 nodo["id"], self._popup._riesgo_cache, rc, gc, bc,
@@ -1467,6 +1482,14 @@ class DiagramaConexiones(Popup):
         self._riesgo_cache = {}                  # id_equipo(str) -> (riesgo, impacto, nivel)
         self._riesgo_senal_color_activo = False  # toggle "🎨 Riesgo señal"
         self._riesgo_senal_cache = {}            # id_cable(str) -> [(eje, detalle), ...]
+
+        # ── "🕓 Auditoría" — equivalente a AuditoriaDiagramaMixin
+        # (ui_gtk/auditoria_diagrama_ui.py): pinta la cabecera de cada
+        # nodo según hace cuánto se auditó (Modelo.color_escala_auditoria,
+        # core/modelo.py) — más claro = reciente, más oscuro = vieja o
+        # nunca auditada. Escala fija: no depende de los demás equipos.
+        self._auditoria_color_activo = False    # toggle "🕓 Auditoría"
+        self._auditoria_cache = {}              # id_equipo(str) -> "#rrggbb"
         # Poblada tras "🔺 Simular falla" — ya contemplada por
         # _senal_conectores_caidos (ver ese método, getattr con default
         # {}), así que la leyenda de señal tacha solo sin cambios acá.
@@ -1536,6 +1559,12 @@ class DiagramaConexiones(Popup):
                                       state="down" if self._solo_nombre else "normal")
         self._btn_solo.bind(on_press=self._toggle_solo)
         tb_inner.add_widget(self._btn_solo)
+
+        self._btn_auditoria = ToggleButton(text=_("🕓 Auditoría"), size_hint_x=None,
+                                           width=dp(120), font_size=FUENTE_CHICA)
+        self._btn_auditoria.bind(on_press=self._toggle_auditoria)
+        _mas.append(('Analizar', self._btn_auditoria,
+                     _("🕓 Colorear por auditoría")))
 
         self._btn_interna = ToggleButton(
             text=_("Conexión interna"), size_hint_x=None,
@@ -2702,6 +2731,19 @@ class DiagramaConexiones(Popup):
     # pantallas_riesgo.py para las funciones puras que hacen el cálculo —
     # acá sólo el manejo de estado del toggle/caché, mismo patrón que
     # _senal_on_toggle_color/_senal_cargar_cache más arriba.
+    def _toggle_auditoria(self, btn) -> None:
+        self._auditoria_color_activo = btn.state == "down"
+        if self._auditoria_color_activo:
+            try:
+                fechas = Modelo.devolver_fechas_auditoria_equipos()
+            except Exception:
+                fechas = {}
+            self._auditoria_cache = {
+                id_eq: Modelo.color_escala_auditoria(fecha)
+                for id_eq, fecha in fechas.items()
+            }
+        self._canvas._redraw()
+
     def _riesgo_on_toggle_color(self, btn) -> None:
         self._riesgo_color_activo = btn.state == "down"
         if self._riesgo_color_activo:
