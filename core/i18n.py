@@ -204,6 +204,9 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Trabajo pendiente — Frames": {
         "en": "Pending work — Frames",
         "pt": "Trabalho pendente — Frames"},
+    "Trabajo pendiente — Auditoría": {
+        "en": "Pending work — Audit",
+        "pt": "Trabalho pendente — Auditoria"},
     "Listo":                    {"en": "Ready",         "pt": "Pronto"},
 
     # Accesos rápidos
@@ -215,6 +218,8 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "🗄️ Racks":                {"en": "🗄️ Racks",     "pt": "🗄️ Racks"},
     "🖼 Vista Rack":            {"en": "🖼 Rack View",  "pt": "🖼 Vista Rack"},
     "📦 Frames":                {"en": "📦 Frames",     "pt": "📦 Frames"},
+    "🔌 Conectores":            {"en": "🔌 Connectors", "pt": "🔌 Conectores"},
+    "🧩 Slots":                 {"en": "🧩 Slots",      "pt": "🧩 Slots"},
 
     # ── Panel de pendientes — etiquetas de métricas ───────────────────────────
     "⚡ Temporales":    {"en": "⚡ Temporary",      "pt": "⚡ Temporários"},
