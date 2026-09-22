@@ -3,10 +3,8 @@
 **Broadcast cable and infrastructure management software.**
 
 CableDoc is a desktop application for documenting and analyzing the cabling
-and signal flow of a real broadcast/AV facility (fully digital video, aging
-analog audio chain). It manages the physical infrastructure — equipment,
-connectors, cables, connections, racks, frames, slots, patch bays
-(`patcheras`), routing matrices, and signal entities — and layers impact
+and signal flow of a real broadcast/AV facility (digital and analog video and audio chain). It manages the physical infrastructure — equipment,
+connectors, cables, connections, racks, frames, slots, patch bays, routing matrices, and signal entities — and layers impact
 analysis, risk scoring, and fault diagnosis on top of it.
 
 Development is driven by real cases found during on-site cabling surveys,
@@ -21,8 +19,7 @@ weaknesses in the analog chain.
 
 - **Origin**: successor to a VB.NET/WinForms predecessor, fully ported to
   Python/GTK3 (a ~26-page LaTeX/PDF technical write-up comparing both
-  architectures lives in `help/`). The `CONEXIONES_AMBOS_EXTREMOS` SQL view
-  survives from that era.
+  architectures lives in `help/`). 
 - **License**: GNU GPL v2 (see [`LICENSE`](./LICENSE)).
 - **Author**: fschpp.
 
@@ -109,9 +106,7 @@ from several focused `*Mixin` classes rather than one monolithic class.
 
 ### `pantallas_avanzadas.py`: from ~11,000-line monolith to a pure facade
 
-`pantallas_avanzadas.py` originally held ~11,032 lines covering every
-advanced screen in the app. It has been fully split, over six incremental
-deliveries, into the focused modules listed above. **As of the final
+**As of the final
 delivery, `pantallas_avanzadas.py` defines no classes or functions of its
 own** — it only re-exports names (`ArbolConexionesEquipo`, `VistaRack`,
 `PatcherasVista`, `VistaFrameSlots`, `DiagramaConexiones` and its helper
@@ -120,10 +115,6 @@ names `cabledoc.py` and `diagrama_personalizado.py` used before the
 refactor. This facade pattern meant neither of those two consumers needed
 any changes across the whole refactor.
 
-The legacy custom-node "classic editor" (`EditorConexiones`), superseded by
-reusing `DiagramaConexiones` for quick connection entry, was removed
-entirely in the final delivery — it had been disabled in the menu for
-several sessions with no other consumer.
 
 ## Requirements
 
