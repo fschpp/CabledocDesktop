@@ -1,0 +1,6 @@
+# Python compiled bytecode
+*.pyc
+__pycache__/
+core/__pycache__/
+ui_gtk/__pycache__/
+data/database/db.db

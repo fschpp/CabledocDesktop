@@ -574,6 +574,23 @@ class VentanaPrincipal(Gtk.Window):
         center.pack_start(self._panel_pendientes_rs, False, False, 0)
         self._actualizar_panel_pendientes_rs()
 
+        # ── Auditoría (plan_auditoria_fecha_edicion_v1.md, Grupo A) ──
+        sep_aud = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        sep_aud.set_margin_top(16); sep_aud.set_margin_bottom(8)
+        center.pack_start(sep_aud, False, False, 0)
+
+        lbl_pend_aud = Gtk.Label()
+        lbl_pend_aud.set_markup("<b>" + _("Trabajo pendiente — Auditoría") + "</b>")
+        lbl_pend_aud.set_margin_bottom(6)
+        center.pack_start(lbl_pend_aud, False, False, 0)
+
+        self._panel_pendientes_aud = Gtk.Grid(
+            column_spacing=10, row_spacing=6,
+            halign=Gtk.Align.CENTER,
+        )
+        center.pack_start(self._panel_pendientes_aud, False, False, 0)
+        self._actualizar_panel_pendientes_aud()
+
         # ── Armar layout: árbol izquierda | contenido derecha ──
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
 
@@ -791,6 +808,58 @@ class VentanaPrincipal(Gtk.Window):
             vb.pack_start(lbl_n, False, False, 0)
             vb.pack_start(lbl_t, False, False, 0)
             vb.pack_start(btn_ir, False, False, 0)
+            frame.add(vb)
+            g.attach(frame, col, 0, 1, 1)
+        g.show_all()
+
+    def _actualizar_panel_pendientes_aud(self):
+        """Pobla el panel de pendientes con la cantidad de registros nunca
+        auditados por cada tabla auditable
+        (Modelo.devolver_pendientes_auditoria(), Modelo.TABLAS_AUDITABLES)
+        — plan_auditoria_fecha_edicion_v1.md, Grupo A (A1).
+
+        Conector y Slot no tienen un listado "todos" accesible desde el
+        dashboard (ConectoresListado/SlotsListado requieren un
+        id_equipo/id_frame puntual), así que esas dos tarjetas muestran
+        el conteo sin botón "ver →"."""
+        g = self._panel_pendientes_aud
+        for ch in g.get_children():
+            g.remove(ch)
+        try:
+            p = Modelo.devolver_pendientes_auditoria()
+        except Exception:
+            return
+        items = [
+            (_("🖥️ Equipos"),    p.get("equipo", 0),   "#1a4a6a",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_auditar")),
+            (_("🔌 Conectores"), p.get("conector", 0), "#1a4a6a", None),
+            (_("🔗 Conexiones"), p.get("conexion", 0), "#1a4a6a",
+             lambda: self._abrir_ventana(ConexionesListado)),
+            (_("🔌 Cables"),     p.get("cable", 0),    "#1a4a6a",
+             lambda: self._abrir_ventana(CablesListado)),
+            (_("🗄️ Racks"),      p.get("rack", 0),     "#1a4a6a",
+             lambda: self._abrir_ventana(RacksListado)),
+            (_("📦 Frames"),     p.get("frame", 0),    "#1a4a6a",
+             lambda: self._abrir_ventana(FramesListado)),
+            (_("🧩 Slots"),      p.get("slot", 0),     "#1a4a6a", None),
+        ]
+        for col, (titulo, valor, color, cb) in enumerate(items):
+            frame = Gtk.Frame()
+            frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
+            vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            vb.set_margin_start(12); vb.set_margin_end(12)
+            vb.set_margin_top(8);   vb.set_margin_bottom(8)
+            lbl_n = Gtk.Label()
+            lbl_n.set_markup(f"<span size='xx-large' weight='bold' foreground='{color}'>{valor}</span>")
+            lbl_t = Gtk.Label(label=titulo)
+            lbl_t.get_style_context().add_class("dim-label")
+            vb.pack_start(lbl_n, False, False, 0)
+            vb.pack_start(lbl_t, False, False, 0)
+            if cb is not None:
+                btn_ir = Gtk.Button(label=_("ver →"))
+                btn_ir.set_relief(Gtk.ReliefStyle.NONE)
+                btn_ir.connect("clicked", lambda b, c=cb: c())
+                vb.pack_start(btn_ir, False, False, 0)
             frame.add(vb)
             g.attach(frame, col, 0, 1, 1)
         g.show_all()

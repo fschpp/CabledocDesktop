@@ -338,6 +338,61 @@ class PanelPendientesEquipos(ScrollView):
             self._fila.add_widget(card)
 
 
+class PanelPendientesAuditoria(ScrollView):
+    """Tarjetas con la cantidad de registros NUNCA auditados, por cada
+    tabla auditable (Modelo.devolver_pendientes_auditoria(),
+    Modelo.TABLAS_AUDITABLES) — mismo patrón (scroll horizontal) que
+    PanelPendientesCables/PanelPendientesEquipos.
+    plan_auditoria_fecha_edicion_v1.md, Grupo A (A2).
+
+    Conector y Slot no tienen un listado "todos" accesible desde el
+    dashboard (ConectoresListado/SlotsListado requieren un id_equipo/
+    id_frame puntual), así que esas dos tarjetas no llevan botón "Ver"."""
+
+    def __init__(self, **kwargs):
+        super().__init__(do_scroll_x=True, do_scroll_y=False,
+                         size_hint_y=None, height=ALTO_TARJETA, bar_width=dp(4),
+                         **kwargs)
+        self._fila = BoxLayout(orientation="horizontal", spacing=dp(8),
+                              size_hint=(None, 1))
+        self._fila.bind(minimum_width=self._fila.setter("width"))
+        self.add_widget(self._fila)
+        self.actualizar()
+
+    def actualizar(self):
+        self._fila.clear_widgets()
+        try:
+            p = Modelo.devolver_pendientes_auditoria()
+        except Exception:
+            return
+        items = [
+            (_("Equipos"), p.get("equipo", 0),
+             abrir_equipos_pendiente("sin_auditar")),
+            (_("Conectores"), p.get("conector", 0), None),
+            (_("Conexiones"), p.get("conexion", 0), abrir_conexiones),
+            (_("Cables"), p.get("cable", 0), abrir_cables),
+            (_("Racks"), p.get("rack", 0), abrir_racks),
+            (_("Frames"), p.get("frame", 0), abrir_frames),
+            (_("Slots"), p.get("slot", 0), None),
+        ]
+        for titulo, valor, cb in items:
+            card = Tarjeta(orientation="vertical", padding=dp(10),
+                          spacing=dp(2), size_hint=(None, 1),
+                          width=ANCHO_TARJETA)
+            card.add_widget(Label(text=str(valor), bold=True,
+                                  font_size=sp(22), color=tema.c("alerta"),
+                                  size_hint_y=None, height=dp(30)))
+            card.add_widget(Label(text=titulo, font_size=FUENTE_CHICA,
+                                  color=tema.c("texto_sub"), halign="left",
+                                  size_hint_y=None, height=dp(16)))
+            if cb is not None:
+                btn = Button(text=_("Ver"), size_hint_y=None, height=dp(30),
+                            font_size=FUENTE_CHICA)
+                btn.bind(on_release=cb)
+                card.add_widget(btn)
+            self._fila.add_widget(card)
+
+
 def abrir_cables(*_a):
     CablesListado().open()
 
@@ -680,6 +735,13 @@ class PantallaPrincipal(FloatLayout):
             font_size=FUENTE_NORMAL, color=tema.c("texto"), halign="left"))
         self.panel_pendientes_equipos = PanelPendientesEquipos()
         centro.add_widget(self.panel_pendientes_equipos)
+
+        centro.add_widget(Label(
+            text="[b]" + _("Trabajo pendiente — Auditoría") + "[/b]",
+            markup=True, size_hint_y=None, height=dp(24),
+            font_size=FUENTE_NORMAL, color=tema.c("texto"), halign="left"))
+        self.panel_pendientes_auditoria = PanelPendientesAuditoria()
+        centro.add_widget(self.panel_pendientes_auditoria)
 
         # Espacio para que la barra inferior global (fija sobre toda la
         # app, ver CableDocApp) no tape el último contenido al scrollear.
