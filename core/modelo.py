@@ -689,6 +689,48 @@ class Modelo:
         "slot":     "id_slot",
     }
 
+    # Escala de color para el toggle "colorear por auditoría" del diagrama
+    # de conexiones y del diagrama de patcheras (ui_gtk y ui_kivy). Un solo
+    # tono, de más claro (recién auditado) a más oscuro (auditado hace
+    # AUDITORIA_ESCALA_DIAS_MAX días o más, O NUNCA auditado — mismo tono
+    # que "hace mucho", para que salte a la vista igual que un vencido).
+    # Escala FIJA en el tiempo: el color de un equipo no cambia por auditar
+    # otros equipos, ni con cuántos equipos haya en el diagrama.
+    AUDITORIA_ESCALA_DIAS_MAX = 365
+    _AUDITORIA_COLOR_CLARO  = (0xcf, 0xe8, 0xff)   # recién auditado
+    _AUDITORIA_COLOR_OSCURO = (0x16, 0x28, 0x3a)   # vencido / nunca auditado
+
+    @staticmethod
+    def color_escala_auditoria(fecha_auditoria):
+        """Color \"#rrggbb\" para `fecha_auditoria` (mismo formato que
+        ultima_auditoria_fecha, \"YYYY-MM-DD HH:MM:SS\", o \"\"/None si
+        nunca se auditó). Ver AUDITORIA_ESCALA_DIAS_MAX arriba."""
+        import datetime
+        claro, oscuro = Modelo._AUDITORIA_COLOR_CLARO, Modelo._AUDITORIA_COLOR_OSCURO
+        t = 1.0   # sin fecha (nunca auditado) → tono más oscuro
+        if fecha_auditoria:
+            try:
+                f = datetime.datetime.strptime(
+                    str(fecha_auditoria)[:19], "%Y-%m-%d %H:%M:%S")
+                dias = max(0, (datetime.datetime.now() - f).days)
+                t = min(1.0, dias / Modelo.AUDITORIA_ESCALA_DIAS_MAX)
+            except ValueError:
+                pass   # fecha corrupta: se trata igual que "nunca auditado"
+        r = round(claro[0] + (oscuro[0] - claro[0]) * t)
+        g = round(claro[1] + (oscuro[1] - claro[1]) * t)
+        b = round(claro[2] + (oscuro[2] - claro[2]) * t)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    @staticmethod
+    def devolver_fechas_auditoria_equipos():
+        """{str(id_equipo): fecha_auditoria} para todos los equipos reales
+        (excluye el id_equipo=0 de \"sin equipo\"/placeholder). Una sola
+        consulta, para no hacer una por nodo al colorear el diagrama."""
+        filas = Modelo._query(
+            "SELECT id_equipo, ultima_auditoria_fecha FROM equipo "
+            "WHERE id_equipo != 0")
+        return {str(r[0]): r[1] for r in filas}
+
     @staticmethod
     def asegurar_columnas_auditoria():
         """Agrega la columna ultima_auditoria_fecha a todas las tablas

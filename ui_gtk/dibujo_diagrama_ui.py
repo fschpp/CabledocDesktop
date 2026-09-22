@@ -112,6 +112,11 @@ class DibujoMixin:
         x, y, w, h = nodo["x"], nodo["y"], nodo["ancho"], nodo["alto"]
         sel        = (nodo["id"] == self._sel_id or nodo["id"] in self._sel_ids)
         rc, gc, bc = nodo["color"]
+        # "🕓 Colorear por auditoría" (auditoria_diagrama_ui.py): no-op si
+        # el toggle está apagado. Antes de _riesgo_color_y_borde a
+        # propósito, para que un nodo en riesgo se siga viendo resaltado
+        # aunque el toggle esté prendido.
+        rc, gc, bc = self._auditoria_color_nodo(nodo["id"], rc, gc, bc)
 
         # shadow
         cr.set_source_rgba(0, 0, 0, 0.30)

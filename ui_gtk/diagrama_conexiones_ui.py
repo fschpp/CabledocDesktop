@@ -28,6 +28,7 @@ from impacto_ui import ImpactoMixin
 from riesgo_diagrama_ui import RiesgoDiagramaMixin
 from signal_risk_diagrama_ui import RiesgoSenalDiagramaMixin
 from senal_diagrama_ui import SenalDiagramaMixin
+from auditoria_diagrama_ui import AuditoriaDiagramaMixin
 from escenario_ui import EscenarioMixin
 from senal_visual_ui import VistaPreviaMixin
 from diagnostico_ui import DiagnosticoMixin
@@ -920,7 +921,7 @@ def abrir_reglas_logicas_molde(id_equipo_catalogo, nombre_molde, parent=None):
     return resp == Gtk.ResponseType.OK
 
 
-class DiagramaConexiones(ImpactoMixin, RiesgoDiagramaMixin, RiesgoSenalDiagramaMixin, SenalDiagramaMixin, EscenarioMixin, VistaPreviaMixin, DiagnosticoMixin, GrafoMixin, DibujoMixin, InteraccionMixin, EdicionConexionesMixin, LayoutMixin, BusquedaMixin, ExportMixin, RuteoInternoMixin, Gtk.Dialog):
+class DiagramaConexiones(ImpactoMixin, RiesgoDiagramaMixin, RiesgoSenalDiagramaMixin, SenalDiagramaMixin, AuditoriaDiagramaMixin, EscenarioMixin, VistaPreviaMixin, DiagnosticoMixin, GrafoMixin, DibujoMixin, InteraccionMixin, EdicionConexionesMixin, LayoutMixin, BusquedaMixin, ExportMixin, RuteoInternoMixin, Gtk.Dialog):
     """
     Node-based diagram: each equipment = node with IN/OUT ports;
     cables = Bézier curves connecting ports.
@@ -1103,6 +1104,8 @@ class DiagramaConexiones(ImpactoMixin, RiesgoDiagramaMixin, RiesgoSenalDiagramaM
         self._chk_solo.set_active(False)
         self._chk_solo.connect("toggled", self._on_toggle_solo_nombre)
         menu_ver.append(self._chk_solo)
+
+        menu_ver.append(self._auditoria_crear_item_menu())
 
         item_estilo = Gtk.MenuItem(label=_("Estilo de conexión"))
         submenu_estilo = Gtk.Menu()
@@ -1386,6 +1389,7 @@ class DiagramaConexiones(ImpactoMixin, RiesgoDiagramaMixin, RiesgoSenalDiagramaM
         self._riesgo_init(DB_PATH)
         self._riesgo_senal_init(DB_PATH)
         self._senal_init(DB_PATH)
+        self._auditoria_init()
         self._esc_init(DB_PATH)
         self._visp_init(DB_PATH)
         self._diag_init(DB_PATH)

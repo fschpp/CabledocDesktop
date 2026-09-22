@@ -25,6 +25,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.widget import Widget
 from kivy.uix.popup import Popup
 from kivy.uix.behaviors import ButtonBehavior
@@ -40,6 +41,14 @@ from widgets_base import (
 )
 from pantallas_avanzadas import PALETA, _ruta_imagen, _FilaTablaSimple
 from core.modelo import Modelo
+
+
+def _hex_a_rgba01(hexcolor):
+    """"#rrggbb" -> (r, g, b, 1.0). Usado por el toggle "🕓 Auditoría" de
+    PatcherasVista (Modelo.color_escala_auditoria devuelve hex; Kivy
+    dibuja en 0..1 con alpha)."""
+    hexcolor = hexcolor.lstrip("#")
+    return tuple(int(hexcolor[i:i + 2], 16) / 255.0 for i in (0, 2, 4)) + (1.0,)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -748,7 +757,7 @@ def _cargar_datos_patcheras(id_equipo):
         frames_dict = {}
         for id_frame, frame_nom in [(fr[0], s(fr[1])) for fr in frame_rows]:
             slot_rows = Modelo._query(
-                "SELECT s.nombre, c.id_conector, c.nombre "
+                "SELECT s.nombre, c.id_conector, c.nombre, e.id_equipo "
                 "FROM slot s "
                 "JOIN equipo e ON e.id_equipo = s.id_equipo "
                 "JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
@@ -762,6 +771,7 @@ def _cargar_datos_patcheras(id_equipo):
                 slot_nom = s(sr[0])
                 id_con = str(sr[1])
                 con_nom = s(sr[2]).upper()
+                id_eq_modulo = sr[3]
                 nums = _re.findall(r"\d+", slot_nom)
                 col = int(nums[0]) if nums else 0
                 if col == 0:
@@ -771,8 +781,10 @@ def _cargar_datos_patcheras(id_equipo):
                     color = "green" if row == "A" else "red"
                 else:
                     color = "dark"
-                frame_cols.setdefault(col, {"A": "dark", "B": "dark"})
+                frame_cols.setdefault(
+                    col, {"A": "dark", "B": "dark", "id_equipo": id_eq_modulo})
                 frame_cols[col][row] = color
+                frame_cols[col]["id_equipo"] = id_eq_modulo
 
             if frame_cols:
                 frames_dict[frame_nom] = frame_cols
@@ -801,8 +813,19 @@ class _PatcheraStripWidget(Widget):
         self.frames = frames
         self.zoom = 1.0
         self.STRIP_H = self.HDR_H + 2 * self.ROW_H
+        # "🕓 Colorear por auditoría" (ver PatcherasVista._toggle_auditoria):
+        # activo/cache viven acá porque _redraw() es lo que dibuja los
+        # puntos; PatcherasVista los actualiza vía set_auditoria() en cada
+        # strip cuando cambia el toggle.
+        self.auditoria_activo = False
+        self.auditoria_cache = {}   # id_equipo(str) -> "#rrggbb"
         self.bind(pos=self._redraw, size=self._redraw)
         self._actualizar_size()
+
+    def set_auditoria(self, activo, cache):
+        self.auditoria_activo = activo
+        self.auditoria_cache = cache
+        self._redraw()
 
     def _max_col(self):
         return max(
@@ -915,14 +938,27 @@ class _PatcheraStripWidget(Widget):
                     for c_idx in range(max_col):
                         cx = lw + c_idx * step + step / 2
                         col = c_idx + 1
-                        color = cols.get(col, {"A": "dark", "B": "dark"}).get(
-                            row_lbl, "dark")
-                        if color == "green":
-                            fill_c, glow_c = C_GREEN, C_GREEN
-                        elif color == "red":
-                            fill_c, glow_c = C_RED, C_RED
+                        if self.auditoria_activo:
+                            # Mismo equipo (módulo instalado en el slot)
+                            # para las filas A y B de la columna.
+                            id_eq_mod = cols.get(col, {}).get("id_equipo")
+                            hexcolor = (self.auditoria_cache.get(str(id_eq_mod))
+                                       if id_eq_mod else None)
+                            if hexcolor:
+                                color = "auditado"
+                                fill_c = glow_c = _hex_a_rgba01(hexcolor)
+                            else:
+                                color = "dark"
+                                fill_c, glow_c = C_DARK, None
                         else:
-                            fill_c, glow_c = C_DARK, None
+                            color = cols.get(col, {"A": "dark", "B": "dark"}).get(
+                                row_lbl, "dark")
+                            if color == "green":
+                                fill_c, glow_c = C_GREEN, C_GREEN
+                            elif color == "red":
+                                fill_c, glow_c = C_RED, C_RED
+                            else:
+                                fill_c, glow_c = C_DARK, None
 
                         if glow_c:
                             Color(glow_c[0], glow_c[1], glow_c[2], 0.22)
@@ -995,6 +1031,11 @@ class PatcherasVista(Popup):
                         width=dp(70), font_size=FUENTE_CHICA)
         btn_png.bind(on_release=self._exportar_png)
         hbz.add_widget(btn_png)
+        self._btn_auditoria = ToggleButton(
+            text=_("🕓 Auditoría"), size_hint_x=None, width=dp(110),
+            font_size=FUENTE_CHICA)
+        self._btn_auditoria.bind(on_press=self._toggle_auditoria)
+        hbz.add_widget(self._btn_auditoria)
         box_main.add_widget(hbz)
 
         # Fila 3: leyenda de colores, en scroll horizontal.
@@ -1037,6 +1078,14 @@ class PatcherasVista(Popup):
             titulo, on_atras=lambda: self.dismiss()))
         outer.add_widget(box_main)
 
+        # "🕓 Colorear por auditoría" (ver _PatcheraStripWidget.set_auditoria
+        # / auditoria_diagrama_ui.AuditoriaDiagramaMixin del lado GTK):
+        # activo/cache viven acá para sobrevivir a _cargar() (que reconstruye
+        # todos los strips desde cero); cada strip nuevo arranca con el
+        # último estado conocido.
+        self._auditoria_color_activo = False
+        self._auditoria_cache = {}   # id_equipo(str) -> "#rrggbb"
+
         self._zoom = 1.0
         super().__init__(title="", separator_height=0, content=outer,
                          size_hint=(1, 1), **kwargs)
@@ -1064,6 +1113,8 @@ class PatcherasVista(Popup):
             cont = BoxLayout(orientation="vertical", size_hint=(None, None),
                             spacing=dp(2))
             strip = _PatcheraStripWidget(rack_nom, self._rack_data[rack_nom])
+            strip.auditoria_activo = self._auditoria_color_activo
+            strip.auditoria_cache = self._auditoria_cache
             strip.on_touch_down = self._gen_click(strip)
             cont.add_widget(strip)
             cont.size = strip.size
@@ -1080,6 +1131,20 @@ class PatcherasVista(Popup):
                 _("No se encontraron racks con patcheras conectadas al "
                   "equipo.") + "[/color][/i]")
 
+    def _toggle_auditoria(self, btn):
+        self._auditoria_color_activo = btn.state == "down"
+        if self._auditoria_color_activo:
+            try:
+                fechas = Modelo.devolver_fechas_auditoria_equipos()
+            except Exception:
+                fechas = {}
+            self._auditoria_cache = {
+                id_eq: Modelo.color_escala_auditoria(fecha)
+                for id_eq, fecha in fechas.items()
+            }
+        for strip in self._strips.values():
+            strip.set_auditoria(self._auditoria_color_activo, self._auditoria_cache)
+
     def _gen_click(self, strip):
         def _click(touch):
             if not strip.collide_point(*touch.pos):
@@ -1088,11 +1153,19 @@ class PatcherasVista(Popup):
             info = strip.celda_en(lx, ly)
             if info:
                 frame_nom, col, row = info
-                color = strip.frames[frame_nom].get(
-                    col, {"A": "dark", "B": "dark"}).get(row, "dark")
-                estado = {"green": _("Salida (A_BACK conectado)"),
-                         "red": _("Entrada (B_BACK conectado)"),
-                         "dark": _("Sin conexión al equipo")}.get(color, "?")
+                celda = strip.frames[frame_nom].get(col, {"A": "dark", "B": "dark"})
+                if self._auditoria_color_activo:
+                    id_eq_mod = celda.get("id_equipo")
+                    fecha = (Modelo.devolver_fecha_ultima_auditoria(
+                                "equipo", "id_equipo", id_eq_mod)
+                             if id_eq_mod else "")
+                    estado = (_("🕓 Auditado: {}").format(fecha) if fecha
+                             else _("🕓 Nunca auditado"))
+                else:
+                    color = celda.get(row, "dark")
+                    estado = {"green": _("Salida (A_BACK conectado)"),
+                             "red": _("Entrada (B_BACK conectado)"),
+                             "dark": _("Sin conexión al equipo")}.get(color, "?")
                 self.lbl_status.text = f"{frame_nom}  Col {col:02d}  Fila {row}  —  {estado}"
             return True
         return _click
