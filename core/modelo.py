@@ -800,6 +800,33 @@ class Modelo:
                 resultado[tabla] = 0
         return resultado
 
+    @staticmethod
+    def devolver_editados_sin_auditar(tabla="equipo"):
+        """Registros de `tabla` (auditable) cuya fecha_ultima_edicion es más
+        nueva que ultima_auditoria_fecha, o que nunca fueron auditados
+        (ultima_auditoria_fecha NULL/vacía) — es decir, alguien cambió el
+        dato en el sistema sin confirmar en terreno que la realidad física
+        lo acompaña. No incluye registros sin ninguna edición registrada
+        (fecha_ultima_edicion NULL/vacía): no hay nada que "estar
+        desactualizado" respecto de.
+        Devuelve {str(pk): {"fecha_edicion": ..., "fecha_auditoria": ...}}.
+        """
+        if tabla not in Modelo.TABLAS_AUDITABLES:
+            raise ValueError(f"Tabla no auditable: {tabla}")
+        pk_col = Modelo.TABLAS_AUDITABLES[tabla]
+        filtro_equipo = "id_equipo != 0 AND " if tabla == "equipo" else ""
+        filas = Modelo._query(
+            f"SELECT {pk_col}, fecha_ultima_edicion, ultima_auditoria_fecha "
+            f"FROM {tabla} WHERE {filtro_equipo}"
+            f"fecha_ultima_edicion IS NOT NULL AND fecha_ultima_edicion != '' "
+            f"AND (ultima_auditoria_fecha IS NULL OR ultima_auditoria_fecha = '' "
+            f"OR fecha_ultima_edicion > ultima_auditoria_fecha)"
+        )
+        return {
+            str(r[0]): {"fecha_edicion": r[1], "fecha_auditoria": r[2]}
+            for r in filas
+        }
+
 
     # ── Riesgo de falla (IRF) ────────────────────────────────────────────────
     @staticmethod
