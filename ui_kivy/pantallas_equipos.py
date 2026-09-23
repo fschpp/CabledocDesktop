@@ -547,12 +547,11 @@ class EquiposListado(Popup):
     def _toggle_panel_filtros(self):
         if self.panel_filtros.height == 0:
             self.panel_filtros.height = self._alto_panel_filtros
-            self.panel_filtros.size = (None, self._alto_panel_filtros)
             self.panel_filtros.opacity = 1
             self.panel_filtros.disabled = False
         else:
             self.panel_filtros.height = 0
-            self.panel_filtros.size = (0, 0)
+            self.panel_filtros.width = 0
             self.panel_filtros.opacity = 0
             self.panel_filtros.disabled = True
         # El panel crece hacia abajo desde el borde inferior de la barra
