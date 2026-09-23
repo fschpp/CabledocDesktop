@@ -2331,3 +2331,17 @@ KeyboardInterrupt
 [19:00:45.637] [inmersivo] platform != 'android' -> no hago nada
 [19:00:46.638] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
 [19:00:46.638] [inmersivo] platform != 'android' -> no hago nada
+[21:43:57.443] [inmersivo] arrancando main.py — kivy.utils.platform = 'linux'
+[21:43:57.444] [inmersivo] platform != 'android' (es 'linux') -> NO se pide fullscreen ni se va a intentar el modo inmersivo nativo más adelante
+[21:43:57.957] [inmersivo] === CableDocApp.build() ===
+[21:43:58.075] [inmersivo] === CableDocApp.on_start() ===
+[21:43:58.075] [inmersivo] _ocultar_barras_sistema_android(origen=on_start) platform='linux'
+[21:43:58.075] [inmersivo] platform != 'android' -> no hago nada
+[21:43:58.166] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 0.3s) platform='linux'
+[21:43:58.166] [inmersivo] platform != 'android' -> no hago nada
+[21:43:58.211] [inmersivo] _ocultar_barras_sistema_android(origen=Window.on_resize((<kivy.core.window.window_sdl2.WindowSDL object at 0x7fa1564fa760>, 360, 800))) platform='linux'
+[21:43:58.211] [inmersivo] platform != 'android' -> no hago nada
+[21:43:58.483] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 1.0s) platform='linux'
+[21:43:58.484] [inmersivo] platform != 'android' -> no hago nada
+[21:43:59.659] [inmersivo] _ocultar_barras_sistema_android(origen=reintento diferido 2.0s) platform='linux'
+[21:43:59.660] [inmersivo] platform != 'android' -> no hago nada

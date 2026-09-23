@@ -80,6 +80,7 @@ class RiesgoAnalogicoAnalyzer:
         ventana_meses = cfg.get("ventana_meses_incidentes", 12.0)
         peso_incidente = cfg.get("peso_incidente", 1.0)
         peso_armado = cfg.get("peso_armado_incorrecto", 1.5)
+        peso_antiguedad = cfg.get("peso_antiguedad_auditoria", 1.0)
         corte_medio = cfg.get("corte_medio", 1.0)
         corte_alto = cfg.get("corte_alto", 2.5)
 
@@ -171,6 +172,27 @@ class RiesgoAnalogicoAnalyzer:
             sumar("extension", id_ext, peso_armado, linea)
             sumar("cable", id_cb_a, peso_armado, linea)
             sumar("cable", id_cb_b, peso_armado, linea)
+
+        # ── Antigüedad de auditoría (Fase C, plan_auditoria_fecha_edicion.md) ──
+        # Cada equipo aporta peso_antiguedad_auditoria * componente, con el
+        # mismo componente ya definido y probado aislado en
+        # componente_antiguedad_auditoria() (ver arriba, C1) — acá se
+        # reusa el cálculo puro directamente sobre el mapa en bloque de
+        # devolver_fechas_auditoria_equipos() (una sola consulta para
+        # todos los equipos) en vez de esa función por-equipo, para no
+        # repetir un round-trip a la base por cada uno.
+        for id_eq, fecha_auditoria in Modelo.devolver_fechas_auditoria_equipos().items():
+            componente = _componente_antiguedad_auditoria(fecha_auditoria, ventana_dias)
+            if componente <= 0.0:
+                continue   # auditado hoy: no aporta nada, no ensucia detalle
+            aporte = peso_antiguedad * componente
+            fecha_aud = _parsear_fecha(fecha_auditoria)
+            if fecha_aud is None:
+                linea = "Nunca auditado"
+            else:
+                dias = max(0, (ahora - fecha_aud).days)
+                linea = f"Sin auditar hace {dias} día(s)"
+            sumar("equipo", id_eq, aporte, linea)
 
         # ── Nivel final ──────────────────────────────────────────────────────
         # TODO (Entrega 2): sumar acá la salida de signal_risk.py antes de
