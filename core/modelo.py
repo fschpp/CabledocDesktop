@@ -827,6 +827,54 @@ class Modelo:
             for r in filas
         }
 
+    @staticmethod
+    def devolver_cobertura_auditoria(dias=90):
+        """Reporte de cobertura de auditoría, agrupado por RACK (no por
+        sala: un equipo llega a un rack en una sola consulta directa vía
+        posicion_en_rack/slot, sin la resolución completa de ubicación
+        física de devolver_ubicacion_fisica_de_equipo — que es por-equipo
+        y no está pensada para agregación en bloque; ver plan, Grupo D,
+        nota "lo que salga más directo").
+        Contempla los dos casos de equipo rackeado: directo en el rack
+        (posicion_en_rack.id_equipo) o módulo en un slot de un frame que
+        está rackeado (posicion_en_rack.id_frame -> slot.id_equipo).
+        Equipos no rackeados (sueltos o sobre mueble) no entran en el
+        reporte.
+        Devuelve {id_rack: {"nombre", "total", "auditados", "porcentaje"}},
+        donde "auditados" cuenta equipos con ultima_auditoria_fecha dentro
+        de los últimos `dias` días.
+        """
+        filas = Modelo._query(
+            "SELECT r.id_rack, r.nombre, COUNT(*) AS total, "
+            "SUM(CASE WHEN e.ultima_auditoria_fecha IS NOT NULL "
+            "AND e.ultima_auditoria_fecha != '' "
+            "AND julianday('now') - julianday(e.ultima_auditoria_fecha) <= ? "
+            "THEN 1 ELSE 0 END) AS auditados "
+            "FROM ( "
+            "  SELECT pr.id_rack AS id_rack, pr.id_equipo AS id_equipo "
+            "  FROM posicion_en_rack pr "
+            "  WHERE pr.id_equipo IS NOT NULL AND pr.id_frame IS NULL "
+            "  UNION ALL "
+            "  SELECT pr.id_rack AS id_rack, s.id_equipo AS id_equipo "
+            "  FROM posicion_en_rack pr "
+            "  JOIN slot s ON s.id_frame = pr.id_frame "
+            "  WHERE pr.id_frame IS NOT NULL AND s.id_equipo IS NOT NULL "
+            ") ubic "
+            "JOIN equipo e ON e.id_equipo = ubic.id_equipo "
+            "JOIN rack r ON r.id_rack = ubic.id_rack "
+            "GROUP BY r.id_rack, r.nombre "
+            "ORDER BY r.nombre",
+            (dias,),
+        )
+        resultado = {}
+        for id_rack, nombre, total, auditados in filas:
+            auditados = auditados or 0
+            porcentaje = round(100.0 * auditados / total, 1) if total else 0.0
+            resultado[id_rack] = {
+                "nombre": nombre, "total": total,
+                "auditados": auditados, "porcentaje": porcentaje,
+            }
+        return resultado
 
     # ── Riesgo de falla (IRF) ────────────────────────────────────────────────
     @staticmethod
