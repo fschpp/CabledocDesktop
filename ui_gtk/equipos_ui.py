@@ -104,7 +104,7 @@ class EquiposListado(VentanaListado):
         super().__init__(
             titulo,
             [_("ID"), _("Nombre"), _("Marca"), _("Modelo"), _("Inventario"), _("Serie"), _("Tipo"),
-             _("Riesgo")],
+             _("Riesgo"), _("Auditoría")],
             parent=parent, modo_seleccion=modo_seleccion
         )
         # Obtener la barra de botones (hbtn) de VentanaListado
@@ -248,6 +248,12 @@ class EquiposListado(VentanaListado):
         # _agregar_columna_riesgo() devuelve igual el color_por_id, pero
         # ya no se lo pasamos a _poblar().
         todos, _color_riesgo = self._agregar_columna_riesgo(todos)
+        # Grupo B de plan_auditoria_fecha_edicion_v1.md (B2): columna
+        # "Auditoría" con un badge para equipos editados después de su
+        # última auditoría de campo (o nunca auditados con alguna edición
+        # registrada) — Modelo.devolver_editados_sin_auditar() (B1).
+        editados_sin_auditar = Modelo.devolver_editados_sin_auditar("equipo")
+        todos = self._agregar_columna_auditoria(todos, editados_sin_auditar)
         # Fase 4 de plan_desarrollo_hardcodes_idioma.md: ya no se filtra
         # comparando texto ("PATCHERA" in tipo) sino por rol_senal real.
         self._ids_patchera = {str(r[0]) for r in Modelo.devolver_equipos_patchera()}
@@ -279,6 +285,20 @@ class EquiposListado(VentanaListado):
                 texto = _("Sin calcular")
             filas_ext.append(list(f) + [texto])
         return filas_ext, color_por_id
+
+    @staticmethod
+    def _agregar_columna_auditoria(filas, editados_sin_auditar):
+        """Agrega el badge de la columna "Auditoría" (última columna de
+        cada fila): marca los equipos cuya fecha_ultima_edicion es más
+        nueva que su ultima_auditoria_fecha, o que nunca fueron auditados
+        pese a tener alguna edición registrada. `editados_sin_auditar` es
+        el dict que devuelve Modelo.devolver_editados_sin_auditar("equipo")."""
+        filas_ext = []
+        for f in filas:
+            id_str = s(f[0])
+            badge = "✏️ " + _("Editado sin auditar") if id_str in editados_sin_auditar else ""
+            filas_ext.append(list(f) + [badge])
+        return filas_ext
 
     def _recalcular_riesgo(self, *a):
         from core.risk_engine import RiskEngine
