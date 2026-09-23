@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-18T23:38 — "Sin picon" en el dashboard GTK + filtro "Ocultar fantasmas" en el ABM de Equipos, sobre `main` en `5b090be`_
+_Última actualización: 2026-09-23T21:15 — Grupo D de `plan_auditoria_fecha_edicion_v1.md` (D2 GTK + D3 Kivy, reporte de cobertura de auditoría), sobre `main` en `029c120`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -206,6 +206,28 @@ referencia rápida para no repetirlos:
 ---
 
 ## Current Focus
+
+**Sesión 2026-09-23T20:45 — Grupo D de `plan_auditoria_fecha_edicion_v1.md` (cobertura de auditoría por rack), sobre `main` en `029c120` (PR #69, D1 ya mergeado). D2 (GTK) y D3 (Kivy) entregados como diffs separados (D3 apilado sobre D2).**
+
+### Current Focus
+Mostrar `Modelo.devolver_cobertura_auditoria()` (D1) como reporte de sólo lectura, una subtarea por plataforma (D2 GTK, D3 Kivy — nunca juntas, regla 2 del plan).
+
+### Todo List
+- [x] D1 — `Modelo.devolver_cobertura_auditoria(dias=90)` (PR #69, ya en `main`).
+- [x] D2 — GTK: `ui_gtk/cobertura_auditoria_ui.py` (nuevo) + ítem "🕓 Cobertura de auditoría…" en Infraestructura (`cabledoc.py`) + 10 claves i18n. APP_VERSION → 1.20260923204500.
+- [x] D3 — Kivy: `ui_kivy/pantallas_cobertura_auditoria.py` (nuevo) + ítem "Cobertura de auditoría" en Infraestructura (`main.py`). Sin claves i18n nuevas (reusa las de D2); sin cambio de APP_VERSION.
+- [ ] Prueba visual de D2 en la máquina de Fede (disposición de la fila "Ventana / resumen" sobre la barra de filtro).
+- [ ] Prueba visual de D3 en dispositivo real (Fede/Pepepompin): 3 columnas visibles + selector de ventana en scroll horizontal + resumen de 2 líneas, en 360dp.
+
+### Latest Blockers/Discoveries
+- D1 agrupó por **rack**, no por sala (decisión ya tomada en su changelog: se resuelve en una sola consulta agregada). D2 respeta eso — no hay columna de sala. Los equipos sueltos o sobre mueble no entran en el reporte; el tooltip del resumen lo aclara.
+- El orden natural de `VentanaListado` (`_sort_func_natural`) sólo compara enteros: para columnas con decimales/`%` hay que registrar un sort func propio (`store.set_sort_func`), como hace D2.
+- `VentanaListado.run_and_destroy()` llama `show_all()`, que volvería a mostrar botones ocultos sólo con `hide()`. `RiesgoSenalListado` (mismo patrón de sólo lectura) se abre con `run()` y no lo sufre; D2 usa `set_no_show_all(True)` además de `hide()` para que tampoco dependa de cómo se abra.
+
+- Kivy: `Window.screenshot` bajo Xvfb sale negro (GL por software) — la verificación de layout mobile sigue dependiendo de un dispositivo real. GTK sí se puede capturar bajo Xvfb (`Gdk.pixbuf_get_from_window`).
+- Los tests de Kivy escriben en `core/log.txt` (archivo versionado): revertirlo (`git checkout core/log.txt`) antes de armar el diff.
+
+## Current Focus (sesión anterior)
 
 **Sesión 2026-09-17T(actual, cont.) — Fases B, C y D de `plan_ux_botonera_mobile_v1.md` (badge de pendientes, reordenar "Más", FAB contextual). Fase E (Diagrama) queda para la próxima sesión, a pedido explícito.**
 
