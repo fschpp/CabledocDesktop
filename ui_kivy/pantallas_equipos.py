@@ -407,6 +407,7 @@ class EquiposListado(Popup):
         self._ids_modulos_frame = set()
         self._filas_completas = []
         self._ids_resaltar = set()
+        self._editados_sin_auditar = set()
         self._ubicaciones = {}
         self._botones_tipo = {}
 
@@ -653,6 +654,15 @@ class EquiposListado(Popup):
             self._ids_resaltar = {str(r[0]) for r in rows}
         self._filas_completas = Modelo.devolver_equipos_tarjetas()
         self._ubicaciones = Modelo.devolver_ubicaciones_equipos()
+        # Grupo B de plan_auditoria_fecha_edicion_v1.md (B3): mismo badge
+        # que la columna "Auditoría" de GTK (B2) — equipos editados
+        # después de su última auditoría de campo, o nunca auditados con
+        # alguna edición registrada (Modelo.devolver_editados_sin_auditar,
+        # B1). Acá se muestra reusando el chip existente en la tarjeta en
+        # vez de agregar un elemento nuevo (no hay lugar para una columna
+        # de texto en el layout de tarjetas).
+        self._editados_sin_auditar = set(
+            Modelo.devolver_editados_sin_auditar("equipo").keys())
         if self._excluir_modulos_de_frame:
             rows = Modelo._query(
                 "SELECT id_equipo FROM equipo WHERE es_modulo_de_frame=1")
@@ -691,6 +701,15 @@ class EquiposListado(Popup):
                     continue
             sub = " · ".join(v for v in (marca, tipo, modelo) if v)
             ruta_picon = os.path.join(PICON_DIR, picon) if picon else ""
+            if id_eq in self._editados_sin_auditar:
+                chip_texto = _("Editado sin auditar")
+                chip_color = "alerta"
+            elif auditado:
+                chip_texto = _("Auditado")
+                chip_color = "exito"
+            else:
+                chip_texto = _("No auditado")
+                chip_color = "alerta"
             data.append({
                 "fila_id": id_eq,
                 "nombre": nombre,
@@ -698,8 +717,8 @@ class EquiposListado(Popup):
                 "ubicacion": self._ubicaciones.get(id_eq, ""),
                 "picon_ruta": ruta_picon,
                 "tipo": tipo,
-                "chip_texto": _("Auditado") if auditado else _("No auditado"),
-                "chip_color": "exito" if auditado else "alerta",
+                "chip_texto": chip_texto,
+                "chip_color": chip_color,
                 "n_con": n_con or 0,
                 "n_cx": n_cx or 0,
                 "n_patch": n_patch or 0,
