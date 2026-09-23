@@ -427,8 +427,8 @@ class EquiposListado(Popup):
 
         raiz = FloatLayout()
         
-        # Crear panel_filtros primero y agregarlo a raiz ANTES que root
-        # para que root (con el TextInput y botón de filtro) quede encima en z-order
+        # Crear panel_filtros y agregarlo a raiz DESPUÉS que root
+        # para que el panel quede encima del listado al mostrarlo
         ALTO_FILA_TIPOS = dp(38)
         ALTO_FILA_CHECKS = dp(30)
         ESPACIADO_PANEL = dp(6)
@@ -479,11 +479,10 @@ class EquiposListado(Popup):
                                color=tema.c("texto")))
         self.panel_filtros.add_widget(hb_chk)
         
-        raiz.add_widget(self.panel_filtros)
-        
         root = BoxLayout(orientation="vertical", spacing=dp(6), padding=dp(8),
                         size_hint=(1, 1), pos_hint={"x": 0, "y": 0})
         raiz.add_widget(root)
+        raiz.add_widget(self.panel_filtros)
         root.add_widget(barra_superior_dialogo(
             titulo, on_atras=lambda: self.dismiss()))
 
