@@ -531,9 +531,11 @@ class EquiposListado(Popup):
 
 
         def _reposicionar_panel_filtros(*_a):
-            self.panel_filtros.width = hb_busqueda.width
-            self.panel_filtros.x = hb_busqueda.x
-            self.panel_filtros.top = hb_busqueda.y
+            # Solo reposicionar si el panel está visible (no oculto)
+            if self.panel_filtros.height > 0:
+                self.panel_filtros.width = hb_busqueda.width
+                self.panel_filtros.x = hb_busqueda.x
+                self.panel_filtros.top = hb_busqueda.y
         self._reposicionar_panel_filtros = _reposicionar_panel_filtros
         hb_busqueda.bind(pos=_reposicionar_panel_filtros,
                          size=_reposicionar_panel_filtros)
@@ -548,15 +550,13 @@ class EquiposListado(Popup):
             self.panel_filtros.height = self._alto_panel_filtros
             self.panel_filtros.opacity = 1
             self.panel_filtros.disabled = False
+            # Reposicionar solo al mostrar (necesita .top = .y + .height)
+            self._reposicionar_panel_filtros()
         else:
             self.panel_filtros.height = 0
             self.panel_filtros.width = 0
             self.panel_filtros.opacity = 0
             self.panel_filtros.disabled = True
-        # El panel crece hacia abajo desde el borde inferior de la barra
-        # de búsqueda: al cambiar la altura hay que re-anclar el borde
-        # superior (Kivy no lo hace solo, .top = .y + .height).
-        self._reposicionar_panel_filtros()
 
     def _on_toggle_patcheras(self, _chk, valor):
         self._ocultar_patcheras = valor
