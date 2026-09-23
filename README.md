@@ -7,7 +7,7 @@ and signal flow of a real broadcast/AV facility (digital and analog video and au
 connectors, cables, connections, racks, frames, slots, patch bays, routing matrices, and signal entities — and layers impact
 analysis, risk scoring, and fault diagnosis on top of it.
 
-Development is driven by real cases found during on-site cabling surveys,
+Development is AI assisted, driven by real cases found during on-site cabling surveys,
 in particular the diagnosis of recurring audio failures traceable to
 weaknesses in the analog chain.
 
