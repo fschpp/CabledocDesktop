@@ -7979,11 +7979,16 @@ class Modelo:
         # Defaults del score de riesgo analógico (solo si no existen aún,
         # ver riesgo_analogico.py para el uso de cada clave)
         defaults = {
-            "ventana_meses_incidentes": 12.0,
-            "peso_incidente":            1.0,
-            "peso_armado_incorrecto":    1.5,
-            "corte_medio":               1.0,
-            "corte_alto":                2.5,
+            "ventana_meses_incidentes":   12.0,
+            "peso_incidente":              1.0,
+            "peso_armado_incorrecto":      1.5,
+            # Fase C de plan_auditoria_fecha_edicion.md: peso del
+            # componente "antigüedad de auditoría" en el score total —
+            # mismo patrón que peso_incidente, reusa la ventana de
+            # ventana_meses_incidentes (ver riesgo_analogico.py).
+            "peso_antiguedad_auditoria":   1.0,
+            "corte_medio":                 1.0,
+            "corte_alto":                  2.5,
         }
         existentes = {r[0] for r in Modelo._query(
             "SELECT clave FROM config_riesgo_analogico")}
