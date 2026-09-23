@@ -426,6 +426,61 @@ class EquiposListado(Popup):
             titulo = _("Equipos — Sin configuraciones")
 
         raiz = FloatLayout()
+        
+        # Crear panel_filtros primero y agregarlo a raiz ANTES que root
+        # para que root (con el TextInput y botón de filtro) quede encima en z-order
+        ALTO_FILA_TIPOS = dp(38)
+        ALTO_FILA_CHECKS = dp(30)
+        ESPACIADO_PANEL = dp(6)
+        PADDING_PANEL = (dp(8), dp(6))
+        self._alto_panel_filtros = (ALTO_FILA_TIPOS + ESPACIADO_PANEL
+                                    + ALTO_FILA_CHECKS + PADDING_PANEL[1] * 2)
+
+        self.panel_filtros = BoxLayout(orientation="vertical",
+                                       size_hint=(None, None), size=(0, 0),
+                                       spacing=ESPACIADO_PANEL,
+                                       padding=PADDING_PANEL)
+        self.panel_filtros.opacity = 0
+        self.panel_filtros.disabled = True
+        with self.panel_filtros.canvas.before:
+            self._c_fondo_panel = Color(*tema.c("bg"))
+            self._rect_fondo_panel = Rectangle(pos=self.panel_filtros.pos,
+                                               size=self.panel_filtros.size)
+        self.panel_filtros.bind(
+            pos=lambda w, *_a: setattr(self._rect_fondo_panel, "pos", w.pos),
+            size=lambda w, *_a: setattr(self._rect_fondo_panel, "size", w.size))
+
+        self._scroll_tipos = ScrollView(size_hint_y=None,
+                                        height=ALTO_FILA_TIPOS,
+                                        do_scroll_y=False, bar_width=dp(3))
+        self._box_tipos = BoxLayout(size_hint=(None, None),
+                                    height=ALTO_FILA_TIPOS, spacing=dp(8))
+        self._box_tipos.bind(minimum_width=self._box_tipos.setter("width"))
+        self._scroll_tipos.add_widget(self._box_tipos)
+        self.panel_filtros.add_widget(self._scroll_tipos)
+
+        # Ambos checkboxes juntos, en la misma fila.
+        hb_chk = BoxLayout(size_hint_y=None, height=ALTO_FILA_CHECKS,
+                          spacing=dp(16))
+        self.chk_patcheras = CheckBox(active=True, size_hint_x=None,
+                                      width=dp(32))
+        self.chk_patcheras.bind(active=self._on_toggle_patcheras)
+        hb_chk.add_widget(self.chk_patcheras)
+        hb_chk.add_widget(Label(text=_("Ocultar patcheras"), halign="left",
+                               valign="middle", font_size=FUENTE_CHICA,
+                               color=tema.c("texto"), size_hint_x=None,
+                               width=dp(128)))
+        self.chk_fantasmas = CheckBox(active=True, size_hint_x=None,
+                                      width=dp(32))
+        self.chk_fantasmas.bind(active=self._on_toggle_fantasmas)
+        hb_chk.add_widget(self.chk_fantasmas)
+        hb_chk.add_widget(Label(text=_("Ocultar fantasmas"), halign="left",
+                               valign="middle", font_size=FUENTE_CHICA,
+                               color=tema.c("texto")))
+        self.panel_filtros.add_widget(hb_chk)
+        
+        raiz.add_widget(self.panel_filtros)
+        
         root = BoxLayout(orientation="vertical", spacing=dp(6), padding=dp(8),
                         size_hint=(1, 1), pos_hint={"x": 0, "y": 0})
         raiz.add_widget(root)
@@ -475,73 +530,6 @@ class EquiposListado(Popup):
         # inferior ("Alta rápida de equipo", ver main.py), visible en
         # toda la app — evita duplicar el mismo botón acá.
 
-        # ── Panel de filtros (carrusel de tipos + checkboxes), colapsado
-        # por defecto: se muestra/oculta con el botón de filtro de arriba.
-        #
-        # A propósito, este panel se agrega a `raiz` (FloatLayout) como
-        # un OVERLAY flotante anclado justo debajo de la barra de
-        # búsqueda — NO como un hijo más del `root` vertical. Si viviera
-        # adentro del flujo vertical, abrirlo/cerrarlo obligaría a Kivy a
-        # recalcular la posición de TODO lo que está debajo (la lista
-        # completa de tarjetas) en cada toque, lo cual se sentía como una
-        # demora/varios toques para que el panel "aparezca" en pantallas
-        # con muchos equipos. Como overlay, se dibuja encima de la lista
-        # sin mover ni remedir nada más: el cambio es inmediato.
-        #
-        # La altura es una CONSTANTE fija (la suma de sus dos filas, que
-        # ya tienen alto fijo) para no depender del cálculo diferido de
-        # minimum_height de Kivy. ──
-        ALTO_FILA_TIPOS = dp(38)
-        ALTO_FILA_CHECKS = dp(30)
-        ESPACIADO_PANEL = dp(6)
-        PADDING_PANEL = (dp(8), dp(6))
-        self._alto_panel_filtros = (ALTO_FILA_TIPOS + ESPACIADO_PANEL
-                                    + ALTO_FILA_CHECKS + PADDING_PANEL[1] * 2)
-
-        self.panel_filtros = BoxLayout(orientation="vertical",
-                                       size_hint=(None, None), height=0,
-                                       spacing=ESPACIADO_PANEL,
-                                       padding=PADDING_PANEL)
-        self.panel_filtros.opacity = 0
-        self.panel_filtros.disabled = True
-        with self.panel_filtros.canvas.before:
-            self._c_fondo_panel = Color(*tema.c("bg"))
-            self._rect_fondo_panel = Rectangle(pos=self.panel_filtros.pos,
-                                               size=self.panel_filtros.size)
-        self.panel_filtros.bind(
-            pos=lambda w, *_a: setattr(self._rect_fondo_panel, "pos", w.pos),
-            size=lambda w, *_a: setattr(self._rect_fondo_panel, "size", w.size))
-
-        self._scroll_tipos = ScrollView(size_hint_y=None,
-                                        height=ALTO_FILA_TIPOS,
-                                        do_scroll_y=False, bar_width=dp(3))
-        self._box_tipos = BoxLayout(size_hint=(None, None),
-                                    height=ALTO_FILA_TIPOS, spacing=dp(8))
-        self._box_tipos.bind(minimum_width=self._box_tipos.setter("width"))
-        self._scroll_tipos.add_widget(self._box_tipos)
-        self.panel_filtros.add_widget(self._scroll_tipos)
-
-        # Ambos checkboxes juntos, en la misma fila.
-        hb_chk = BoxLayout(size_hint_y=None, height=ALTO_FILA_CHECKS,
-                          spacing=dp(16))
-        self.chk_patcheras = CheckBox(active=True, size_hint_x=None,
-                                      width=dp(32))
-        self.chk_patcheras.bind(active=self._on_toggle_patcheras)
-        hb_chk.add_widget(self.chk_patcheras)
-        hb_chk.add_widget(Label(text=_("Ocultar patcheras"), halign="left",
-                               valign="middle", font_size=FUENTE_CHICA,
-                               color=tema.c("texto"), size_hint_x=None,
-                               width=dp(128)))
-        self.chk_fantasmas = CheckBox(active=True, size_hint_x=None,
-                                      width=dp(32))
-        self.chk_fantasmas.bind(active=self._on_toggle_fantasmas)
-        hb_chk.add_widget(self.chk_fantasmas)
-        hb_chk.add_widget(Label(text=_("Ocultar fantasmas"), halign="left",
-                               valign="middle", font_size=FUENTE_CHICA,
-                               color=tema.c("texto")))
-        self.panel_filtros.add_widget(hb_chk)
-
-        raiz.add_widget(self.panel_filtros)
 
         def _reposicionar_panel_filtros(*_a):
             self.panel_filtros.width = hb_busqueda.width
@@ -559,10 +547,12 @@ class EquiposListado(Popup):
     def _toggle_panel_filtros(self):
         if self.panel_filtros.height == 0:
             self.panel_filtros.height = self._alto_panel_filtros
+            self.panel_filtros.size = (None, self._alto_panel_filtros)
             self.panel_filtros.opacity = 1
             self.panel_filtros.disabled = False
         else:
             self.panel_filtros.height = 0
+            self.panel_filtros.size = (0, 0)
             self.panel_filtros.opacity = 0
             self.panel_filtros.disabled = True
         # El panel crece hacia abajo desde el borde inferior de la barra
