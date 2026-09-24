@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260923204500"
+APP_VERSION = "1.20260923212728"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -864,7 +864,62 @@ class VentanaPrincipal(Gtk.Window):
                 vb.pack_start(btn_ir, False, False, 0)
             frame.add(vb)
             g.attach(frame, col, 0, 1, 1)
+        self._agregar_tarjeta_sla_auditoria(g, len(items))
         g.show_all()
+
+    def _agregar_tarjeta_sla_auditoria(self, g, n_cols):
+        """Segunda fila del panel de auditoría (E3 de plan_auditoria_fecha_
+        edicion_v1.md): equipos con la auditoría vencida según el SLA
+        configurado (Modelo.devolver_vencidos_sla_auditoria) — a diferencia
+        de las tarjetas de arriba ("nunca auditados"), incluye también los
+        auditados hace más de dias_sla_auditoria días. "ver →" abre el
+        listado de equipos filtrado; "⚙ SLA…" cambia los días del SLA.
+        Si algo falla no se agrega la tarjeta (las de arriba siguen)."""
+        try:
+            n_vencidos = len(Modelo.devolver_vencidos_sla_auditoria())
+            dias_sla = Modelo.devolver_config_auditoria().get(
+                "dias_sla_auditoria",
+                Modelo.CONFIG_AUDITORIA_DEFAULTS["dias_sla_auditoria"])
+            titulo = _("⏰ Vencidos (SLA {} d)").format(f"{dias_sla:g}")
+        except Exception:
+            return
+        frame = Gtk.Frame()
+        frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
+        frame.set_halign(Gtk.Align.CENTER)
+        frame.set_margin_top(6)
+        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vb.set_margin_start(12); vb.set_margin_end(12)
+        vb.set_margin_top(8);   vb.set_margin_bottom(8)
+        lbl_n = Gtk.Label()
+        lbl_n.set_markup(
+            f"<span size='xx-large' weight='bold' foreground='#7a1a1a'>"
+            f"{n_vencidos}</span>")
+        lbl_t = Gtk.Label(label=titulo)
+        lbl_t.get_style_context().add_class("dim-label")
+        vb.pack_start(lbl_n, False, False, 0)
+        vb.pack_start(lbl_t, False, False, 0)
+        # Con 0 vencidos no hay nada que listar (y un listado filtrado sin
+        # coincidencias mostraría TODOS los equipos).
+        if n_vencidos:
+            btn_ir = Gtk.Button(label=_("ver →"))
+            btn_ir.set_relief(Gtk.ReliefStyle.NONE)
+            btn_ir.connect("clicked", lambda b: self._abrir_ventana(
+                EquiposListado, filtro_pendiente="vencidos_sla"))
+            vb.pack_start(btn_ir, False, False, 0)
+        btn_cfg = Gtk.Button(label=_("⚙ SLA…"))
+        btn_cfg.set_relief(Gtk.ReliefStyle.NONE)
+        btn_cfg.set_tooltip_text(_("Cambiar los días del SLA de auditoría"))
+        btn_cfg.connect("clicked", self._abrir_config_sla_auditoria)
+        vb.pack_start(btn_cfg, False, False, 0)
+        frame.add(vb)
+        g.attach(frame, 0, 1, n_cols, 1)
+
+    def _abrir_config_sla_auditoria(self, *a):
+        """Diálogo para cambiar los días del SLA de auditoría (E3); si se
+        guardó un valor, refresca el panel de auditoría de Inicio."""
+        from config_sla_auditoria_ui import abrir_config_sla_auditoria
+        if abrir_config_sla_auditoria(parent=self):
+            self._actualizar_panel_pendientes_aud()
 
     def _abrir_riesgo_senal(self, filtro_eje=None):
         dlg = RiesgoSenalListado(parent=self, filtro_eje=filtro_eje)
