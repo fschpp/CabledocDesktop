@@ -139,6 +139,7 @@ from pantallas_salas import (
 )
 from pantallas_planos import PlanosListado, MueblesListado
 from pantallas_cobertura_auditoria import abrir_cobertura_auditoria
+from pantallas_config_sla_auditoria import abrir_config_sla_auditoria
 from pantallas_vistas import VistaRack, PatcherasVista
 from pantallas_diagrama import abrir_diagrama_conexiones
 # El asistente de diagnóstico ("🩺 Diagnóstico") ya no se abre desde un
@@ -392,6 +393,46 @@ class PanelPendientesAuditoria(ScrollView):
                 btn.bind(on_release=cb)
                 card.add_widget(btn)
             self._fila.add_widget(card)
+        self._agregar_tarjeta_vencidos()
+
+    def _agregar_tarjeta_vencidos(self):
+        """Última tarjeta del panel (E4 de plan_auditoria_fecha_edicion_
+        v1.md, equivalente a VentanaPrincipal._agregar_tarjeta_sla_auditoria
+        de GTK): equipos con la auditoría vencida según el SLA configurado
+        (Modelo.devolver_vencidos_sla_auditoria) — a diferencia de las
+        tarjetas de arriba ("nunca auditados"), incluye también los
+        auditados hace más de dias_sla_auditoria días. "Ver" abre el
+        listado de equipos filtrado (sólo si hay vencidos: con 0 no hay
+        nada que listar); "SLA" cambia los días y refresca el panel.
+        Sin glifos Unicode en los textos (no se ven en Pydroid 3). Si algo
+        falla no se agrega la tarjeta (las de arriba siguen)."""
+        try:
+            n_vencidos = len(Modelo.devolver_vencidos_sla_auditoria())
+            dias_sla = Modelo.devolver_config_auditoria().get(
+                "dias_sla_auditoria",
+                Modelo.CONFIG_AUDITORIA_DEFAULTS["dias_sla_auditoria"])
+            titulo = _("Vencidos (SLA {} d)").format(f"{dias_sla:g}")
+        except Exception:
+            return
+        card = Tarjeta(orientation="vertical", padding=dp(10), spacing=dp(2),
+                       size_hint=(None, 1), width=ANCHO_TARJETA)
+        card.add_widget(Label(text=str(n_vencidos), bold=True,
+                              font_size=sp(22), color=tema.c("error"),
+                              size_hint_y=None, height=dp(30)))
+        card.add_widget(Label(text=titulo, font_size=FUENTE_CHICA,
+                              color=tema.c("texto_sub"), halign="left",
+                              size_hint_y=None, height=dp(16)))
+        botones = BoxLayout(size_hint_y=None, height=dp(30), spacing=dp(4))
+        if n_vencidos:
+            btn_ver = Button(text=_("Ver"), font_size=FUENTE_CHICA)
+            btn_ver.bind(on_release=abrir_equipos_pendiente("vencidos_sla"))
+            botones.add_widget(btn_ver)
+        btn_sla = Button(text=_("SLA"), font_size=FUENTE_CHICA)
+        btn_sla.bind(on_release=lambda *_a: abrir_config_sla_auditoria(
+            on_guardado=self.actualizar))
+        botones.add_widget(btn_sla)
+        card.add_widget(botones)
+        self._fila.add_widget(card)
 
 
 def abrir_cables(*_a):

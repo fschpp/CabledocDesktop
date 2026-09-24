@@ -1135,13 +1135,10 @@ class PatcherasVista(Popup):
         self._auditoria_color_activo = btn.state == "down"
         if self._auditoria_color_activo:
             try:
-                fechas = Modelo.devolver_fechas_auditoria_equipos()
+                self._auditoria_cache = (
+                    Modelo.devolver_colores_auditoria_equipos())
             except Exception:
-                fechas = {}
-            self._auditoria_cache = {
-                id_eq: Modelo.color_escala_auditoria(fecha)
-                for id_eq, fecha in fechas.items()
-            }
+                self._auditoria_cache = {}
         for strip in self._strips.values():
             strip.set_auditoria(self._auditoria_color_activo, self._auditoria_cache)
 

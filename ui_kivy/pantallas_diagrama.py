@@ -1486,8 +1486,10 @@ class DiagramaConexiones(Popup):
         # ── "🕓 Auditoría" — equivalente a AuditoriaDiagramaMixin
         # (ui_gtk/auditoria_diagrama_ui.py): pinta la cabecera de cada
         # nodo según hace cuánto se auditó (Modelo.color_escala_auditoria,
-        # core/modelo.py) — más claro = reciente, más oscuro = vieja o
-        # nunca auditada. Escala fija: no depende de los demás equipos.
+        # core/modelo.py) — más claro = reciente, más oscuro = más vieja;
+        # naranja = vencida según el SLA de auditoría o nunca auditada
+        # (Modelo.devolver_colores_auditoria_equipos, Grupo E/E5). Escala
+        # fija: no depende de los demás equipos.
         self._auditoria_color_activo = False    # toggle "🕓 Auditoría"
         self._auditoria_cache = {}              # id_equipo(str) -> "#rrggbb"
         # Poblada tras "🔺 Simular falla" — ya contemplada por
@@ -2735,13 +2737,10 @@ class DiagramaConexiones(Popup):
         self._auditoria_color_activo = btn.state == "down"
         if self._auditoria_color_activo:
             try:
-                fechas = Modelo.devolver_fechas_auditoria_equipos()
+                self._auditoria_cache = (
+                    Modelo.devolver_colores_auditoria_equipos())
             except Exception:
-                fechas = {}
-            self._auditoria_cache = {
-                id_eq: Modelo.color_escala_auditoria(fecha)
-                for id_eq, fecha in fechas.items()
-            }
+                self._auditoria_cache = {}
         self._canvas._redraw()
 
     def _riesgo_on_toggle_color(self, btn) -> None:

@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-23T21:15 — Grupo D de `plan_auditoria_fecha_edicion_v1.md` (D2 GTK + D3 Kivy, reporte de cobertura de auditoría), sobre `main` en `029c120`_
+_Última actualización: 2026-09-23T23:15 — Grupo E de `plan_auditoria_fecha_edicion_v1.md` (E4 Kivy + E5 tono de color para vencidos según SLA), sobre `main` en `c2e76b8`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -206,6 +206,30 @@ referencia rápida para no repetirlos:
 ---
 
 ## Current Focus
+
+**Sesión 2026-09-23T23:00 — Grupo E de `plan_auditoria_fecha_edicion_v1.md` (SLA de auditoría), sobre `main` en `c2e76b8` (PR #71: E1, E2 y E3 ya mergeados). E4 (Kivy) y E5 (3er tono de color) entregados como diffs separados, E5 apilado sobre E4.**
+
+### Current Focus
+Cerrar el Grupo E: llevar a mobile el contador/config del SLA (E4) y distinguir visualmente los "vencidos según SLA" en los 4 puntos del toggle de color por auditoría (E5).
+
+### Todo List
+- [x] E1 — tabla `config_auditoria` (PR #71, ya en `main`).
+- [x] E2 — `Modelo.devolver_vencidos_sla_auditoria()` (PR #71).
+- [x] E3 — GTK: tarjeta "Vencidos" + diálogo de SLA (PR #71).
+- [x] E4 — Kivy: tarjeta "Vencidos (SLA N d)" en el panel de auditoría de Inicio, `EquiposListado(filtro_pendiente="vencidos_sla")`, `ui_kivy/pantallas_config_sla_auditoria.py` (nuevo) + 3 claves i18n. Sin cambio de APP_VERSION.
+- [x] E5 — 3er tono para "vencido según SLA": `Modelo.devolver_colores_auditoria_equipos()` + `Modelo.AUDITORIA_COLOR_VENCIDO` (`#c2571a`), consumido por los 4 puntos del toggle (`auditoria_diagrama_ui.py`, `patcheras_ui.py`, `pantallas_diagrama.py`, `pantallas_vistas.py`) + tooltips GTK. APP_VERSION → 1.20260923231500.
+- [ ] Prueba visual de E5 con la base real: que el naranja se distinga bien de la escala azul sobre el texto blanco de la cabecera de los nodos (diagrama de conexiones GTK/Kivy) y sobre los puntos de patcheras.
+- [ ] Prueba visual de E4 en dispositivo real (Fede/Pepepompin): que la tarjeta nueva con dos botones ("Ver" + "SLA") entre bien en los 140dp de ancho y en los 112dp de alto de las tarjetas del panel.
+
+### Latest Blockers/Discoveries
+- El plan pedía el campo del SLA en "algún diálogo de preferencias existente"; no hay ninguno accesible desde la UI, así que (igual que E3) vive en un diálogo propio abierto desde la tarjeta.
+- `SpinnerCantidad` (widgets_base) tiene tope 99; el SLA llega a 3650, por eso el diálogo Kivy usa un `TextInput` numérico con validación de rango al aceptar.
+- `EquiposListado` (Kivy) no filtraba cuando el conjunto de coincidencias estaba vacío (mostraba TODOS): para `vencidos_sla` se excluyó de ese comportamiento; los demás filtros quedan como estaban (fuera de alcance).
+- E5: la escala azul NO se reescaló al SLA (sigue yendo de 0 a `AUDITORIA_ESCALA_DIAS_MAX`=365 días, fija). Con SLA=90 los equipos entre 0 y 90 días sólo usan el primer cuarto de la escala (tonos claros) y todo lo que pasa el SLA salta al naranja. Si se prefiere que la escala vaya de 0 al SLA, es un cambio de una línea en `color_escala_auditoria`, pero cambia el significado del color según la config.
+- E5: la fecha ilegible cuenta como "vencido" (criterio de E2 vía `julianday`), no como "nunca auditado" en la escala; ambos dan naranja.
+- Los tests de Kivy escriben en `core/log.txt` (archivo versionado): revertirlo (`git checkout core/log.txt`) antes de armar el diff.
+
+## Current Focus (sesión anterior)
 
 **Sesión 2026-09-23T20:45 — Grupo D de `plan_auditoria_fecha_edicion_v1.md` (cobertura de auditoría por rack), sobre `main` en `029c120` (PR #69, D1 ya mergeado). D2 (GTK) y D3 (Kivy) entregados como diffs separados (D3 apilado sobre D2).**
 
