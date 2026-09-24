@@ -100,7 +100,9 @@ class PatcherasVista(Gtk.Dialog):
         # conexiones): en vez de verde/rojo/oscuro por estado de conexión,
         # cada punto se pinta según hace cuánto se auditó el EQUIPO
         # instalado en ese slot (Modelo.color_escala_auditoria) — más
-        # claro = reciente, más oscuro = viejo o nunca auditado. Disponible
+        # claro = reciente, más oscuro = más viejo; naranja = vencido según
+        # el SLA de auditoría o nunca auditado (Modelo.
+        # devolver_colores_auditoria_equipos, Grupo E/E5). Disponible
         # en los dos modos (por equipo y global): ambos ya identifican, por
         # columna, qué equipo (módulo patchera) está instalado ahí.
         self._auditoria_color_activo = False
@@ -169,8 +171,10 @@ class PatcherasVista(Gtk.Dialog):
             "Pinta cada punto según hace cuánto se auditó el equipo "
             "instalado en ese slot (Modelo.marcar_auditado), en vez del "
             "color verde/rojo/oscuro de conexión: más CLARO = auditado "
-            "hace poco, más OSCURO = auditado hace mucho (más de "
-            f"{Modelo.AUDITORIA_ESCALA_DIAS_MAX} días) o nunca auditado."
+            "hace poco, más OSCURO = auditado hace más tiempo (el tono más "
+            f"oscuro llega a los {Modelo.AUDITORIA_ESCALA_DIAS_MAX} días); "
+            "NARANJA = auditoría vencida según el SLA (más vieja que el SLA "
+            "de auditoría, o nunca auditado)."
         )
         self._btn_auditoria.connect("toggled", self._toggle_auditoria)
         hb.pack_start(self._btn_auditoria, False, False, 0)
@@ -274,13 +278,10 @@ class PatcherasVista(Gtk.Dialog):
         self._auditoria_color_activo = btn.get_active()
         if self._auditoria_color_activo:
             try:
-                fechas = Modelo.devolver_fechas_auditoria_equipos()
+                self._auditoria_cache = (
+                    Modelo.devolver_colores_auditoria_equipos())
             except Exception:
-                fechas = {}
-            self._auditoria_cache = {
-                id_eq: Modelo.color_escala_auditoria(fecha)
-                for id_eq, fecha in fechas.items()
-            }
+                self._auditoria_cache = {}
         for da in self._das.values():
             da.queue_draw()
 

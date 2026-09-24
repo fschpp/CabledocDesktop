@@ -382,7 +382,7 @@ class EquiposListado(Popup):
     """Listado de Equipos en tarjetas (foto + resumen + chevron).
 
     filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' |
-        'sin_img_conectores' | 'sin_auditar' | 'sin_manual' |
+        'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla' | 'sin_manual' |
         'sin_configuraciones'
     modo_seleccion/on_seleccionar: igual que ListadoPopup — al tocar una
         tarjeta se confirma la selección y se cierra, en vez de abrir
@@ -420,6 +420,8 @@ class EquiposListado(Popup):
             titulo = _("Equipos — Sin imagen c/ conectores")
         elif filtro_pendiente == "sin_auditar":
             titulo = _("Equipos — Sin auditar")
+        elif filtro_pendiente == "vencidos_sla":
+            titulo = _("Equipos — Auditoría vencida")
         elif filtro_pendiente == "sin_manual":
             titulo = _("Equipos — Sin manual")
         elif filtro_pendiente == "sin_configuraciones":
@@ -630,6 +632,13 @@ class EquiposListado(Popup):
                 "SELECT id_equipo FROM equipo WHERE id_equipo != 0 "
                 "AND (ultima_auditoria_fecha IS NULL OR ultima_auditoria_fecha = '')")
             self._ids_resaltar = {str(r[0]) for r in rows}
+        elif self._filtro_pendiente == "vencidos_sla":
+            # Grupo E de plan_auditoria_fecha_edicion_v1.md (E4): auditoría
+            # vencida según el SLA configurado (Modelo.devolver_vencidos_
+            # sla_auditoria) — incluye a los nunca auditados y también a
+            # los auditados hace más de dias_sla_auditoria días. Mismo
+            # criterio que el contador de Inicio y que EquiposListado GTK.
+            self._ids_resaltar = set(Modelo.devolver_vencidos_sla_auditoria())
         elif self._filtro_pendiente == "sin_manual":
             rows = Modelo._query(
                 "SELECT id_equipo FROM equipo WHERE id_equipo != 0 "
@@ -684,7 +693,11 @@ class EquiposListado(Popup):
                 continue
             if txt and txt not in f"{nombre} {marca} {modelo} {tipo}".lower():
                 continue
-            if self._filtro_pendiente and self._ids_resaltar:
+            # "vencidos_sla" con 0 vencidos tiene que dar una lista vacía,
+            # no TODOS los equipos (el resto de los filtros conserva el
+            # comportamiento histórico de no filtrar si no hay coincidencias).
+            if self._filtro_pendiente and (
+                    self._ids_resaltar or self._filtro_pendiente == "vencidos_sla"):
                 if id_eq not in self._ids_resaltar:
                     continue
             sub = " · ".join(v for v in (marca, tipo, modelo) if v)

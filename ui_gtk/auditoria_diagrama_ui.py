@@ -4,9 +4,13 @@ auditoria_diagrama_ui.py — Mixin de UI para DiagramaConexiones
 Agrega "🕓 Colorear por auditoría" al diagrama de conexiones: cuando está
 prendido, la cabecera de cada nodo se pinta con Modelo.color_escala_auditoria
 (core/modelo.py) según su ultima_auditoria_fecha — más claro = auditado hace
-poco, más oscuro = auditado hace mucho o nunca. Es una escala de un solo
+poco, más oscuro = auditado hace más tiempo. Es una escala de un solo
 tono, no relativa a los demás equipos del diagrama: agregar o quitar nodos
-no cambia el color de los que ya estaban.
+no cambia el color de los que ya estaban. Los equipos con la auditoría
+vencida según el SLA (Modelo.devolver_vencidos_sla_auditoria: más viejos que
+dias_sla_auditoria días, o nunca auditados) se pintan de un tercer tono,
+naranja (Modelo.AUDITORIA_COLOR_VENCIDO) — Modelo.devolver_colores_
+auditoria_equipos() resuelve ambos casos (Grupo E, E5).
 
 Mismo patrón que senal_diagrama_ui.SenalDiagramaMixin (mismo autor de
 diseño): init/cache + un CheckMenuItem + un método de una sola línea para
@@ -52,16 +56,14 @@ class AuditoriaDiagramaMixin:
 
     def _auditoria_cargar_cache(self) -> None:
         """Recalcula el color de cada equipo a partir de su
-        ultima_auditoria_fecha. Barato: una sola consulta (Modelo.
-        devolver_fechas_auditoria_equipos), sin tocar el motor de grafo."""
+        ultima_auditoria_fecha y del SLA de auditoría (Modelo.
+        devolver_colores_auditoria_equipos). Barato: dos consultas en
+        total, sin tocar el motor de grafo."""
         try:
-            fechas = Modelo.devolver_fechas_auditoria_equipos()
+            self._auditoria_cache = (
+                Modelo.devolver_colores_auditoria_equipos())
         except Exception:
-            fechas = {}
-        self._auditoria_cache = {
-            id_eq: Modelo.color_escala_auditoria(fecha)
-            for id_eq, fecha in fechas.items()
-        }
+            self._auditoria_cache = {}
 
     # ── Ítem de menú ─────────────────────────────────────────────────────
     def _auditoria_crear_item_menu(self) -> Gtk.CheckMenuItem:
@@ -71,8 +73,10 @@ class AuditoriaDiagramaMixin:
         self._auditoria_btn_toggle.set_tooltip_text(
             "Pinta la cabecera de cada equipo según hace cuánto se auditó "
             "en el campo (Modelo.marcar_auditado): más CLARO = auditado "
-            "hace poco, más OSCURO = auditado hace mucho (más de "
-            f"{Modelo.AUDITORIA_ESCALA_DIAS_MAX} días) o nunca auditado."
+            "hace poco, más OSCURO = auditado hace más tiempo (el tono más "
+            f"oscuro llega a los {Modelo.AUDITORIA_ESCALA_DIAS_MAX} días); "
+            "NARANJA = auditoría vencida según el SLA (más vieja que el SLA "
+            "de auditoría, o nunca auditado)."
         )
         self._auditoria_btn_toggle.connect("toggled", self._auditoria_on_toggle)
         return self._auditoria_btn_toggle

@@ -692,11 +692,16 @@ class Modelo:
     # Escala de color para el toggle "colorear por auditoría" del diagrama
     # de conexiones y del diagrama de patcheras (ui_gtk y ui_kivy). Un solo
     # tono, de más claro (recién auditado) a más oscuro (auditado hace
-    # AUDITORIA_ESCALA_DIAS_MAX días o más, O NUNCA auditado — mismo tono
-    # que "hace mucho", para que salte a la vista igual que un vencido).
+    # AUDITORIA_ESCALA_DIAS_MAX días o más).
     # Escala FIJA en el tiempo: el color de un equipo no cambia por auditar
     # otros equipos, ni con cuántos equipos haya en el diagrama.
+    # Los equipos con la auditoría VENCIDA según el SLA (Grupo E, E2: más
+    # viejos que dias_sla_auditoria días, o nunca auditados) no usan esta
+    # escala sino un tercer tono aparte, AUDITORIA_COLOR_VENCIDO (E5): ver
+    # devolver_colores_auditoria_equipos(), que es lo que consumen los
+    # cuatro puntos del toggle.
     AUDITORIA_ESCALA_DIAS_MAX = 365
+    AUDITORIA_COLOR_VENCIDO = "#c2571a"   # naranja quemado, fuera de la gama azul
     _AUDITORIA_COLOR_CLARO  = (0xcf, 0xe8, 0xff)   # recién auditado
     _AUDITORIA_COLOR_OSCURO = (0x16, 0x28, 0x3a)   # vencido / nunca auditado
 
@@ -720,6 +725,30 @@ class Modelo:
         g = round(claro[1] + (oscuro[1] - claro[1]) * t)
         b = round(claro[2] + (oscuro[2] - claro[2]) * t)
         return f"#{r:02x}{g:02x}{b:02x}"
+
+    @staticmethod
+    def devolver_colores_auditoria_equipos():
+        """{str(id_equipo): "#rrggbb"} para el toggle "colorear por
+        auditoría" (Grupo E, E5). Un equipo con la auditoría VENCIDA según
+        el SLA (Modelo.devolver_vencidos_sla_auditoria: más viejo que
+        dias_sla_auditoria días, o nunca auditado) se pinta con
+        AUDITORIA_COLOR_VENCIDO; el resto, con la escala clara→oscura de
+        color_escala_auditoria. Como el conjunto de vencidos sale de la
+        misma función que el contador y el listado "Vencidos" de Inicio,
+        los equipos naranja del diagrama son exactamente los que cuenta
+        ese contador. Si no se puede calcular el SLA, degrada a la escala
+        sola (comportamiento previo a E5). Dos consultas en total, no una
+        por nodo."""
+        fechas = Modelo.devolver_fechas_auditoria_equipos()
+        try:
+            vencidos = Modelo.devolver_vencidos_sla_auditoria()
+        except Exception:
+            vencidos = {}
+        return {
+            id_eq: (Modelo.AUDITORIA_COLOR_VENCIDO if id_eq in vencidos
+                    else Modelo.color_escala_auditoria(fecha))
+            for id_eq, fecha in fechas.items()
+        }
 
     @staticmethod
     def devolver_fechas_auditoria_equipos():

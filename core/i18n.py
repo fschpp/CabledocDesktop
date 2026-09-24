@@ -689,6 +689,13 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Un equipo se considera vencido si su última auditoría es más vieja que esta cantidad de días, o si nunca se auditó.": {
         "en": "A device is considered overdue if its last audit is older than this number of days, or if it was never audited.",
         "pt": "Um equipamento é considerado vencido se a última auditoria for mais antiga que esta quantidade de dias, ou se nunca foi auditado."},
+
+    # pantallas_config_sla_auditoria.py + tarjeta "Vencidos" del panel de auditoría de Inicio en Kivy (E4, plan_auditoria_fecha_edicion_v1.md)
+    "Vencidos (SLA {} d)": {"en": "Overdue (SLA {} d)", "pt": "Vencidos (SLA {} d)"},
+    "SLA": {"en": "SLA", "pt": "SLA"},
+    "Ingresá un número entero de días entre {} y {}.": {
+        "en": "Enter a whole number of days between {} and {}.",
+        "pt": "Informe um número inteiro de dias entre {} e {}."},
 }
 
 
