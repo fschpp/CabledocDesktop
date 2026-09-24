@@ -46,15 +46,21 @@ if _REPO_ROOT not in sys.path:
 
 from kivy.config import Config
 from kivy.utils import platform
+import os
 
 from core.logger_cabledoc import log_debug
 log_debug(f"[inmersivo] arrancando main.py — kivy.utils.platform = {platform!r}")
 
-if platform == "android":
-    # En Android, Kivy toma la resolución real del dispositivo (p.ej.
-    # 720×1600 px). No forzamos width/height: eso rompería el tamaño real
-    # de pantalla. Solo pedimos que no rote sola (la UI está pensada para
-    # retrato) — si preferís permitir horizontal, borrá esta línea.
+# Deteccion de Pydroid 3: en Android real platform es 'android', pero en Pydroid 3
+# puede reportarse como 'linux'. Verificamos tambien la variable de entorno ANDROID_DATA
+is_android = platform == "android" or os.environ.get("ANDROID_DATA") is not None
+
+if is_android:
+    # En Android (incluyendo Pydroid 3), Kivy toma la resolución real del
+    # dispositivo (p.ej. 720×1600 px). No forzamos width/height: eso
+    # rompería el tamaño real de pantalla. Solo pedimos que no rote sola
+    # (la UI está pensada para retrato) — si preferís permitir horizontal,
+    # borrá esta línea.
     Config.set("graphics", "orientation", "portrait")
     # Modo inmersivo: oculta la barra de estado y los botones de
     # navegación del sistema (atrás/inicio/recientes) para que la app
@@ -63,12 +69,13 @@ if platform == "android":
     # vuelva a ocultar solo.
     Config.set("graphics", "fullscreen", "auto")
     Config.set("graphics", "borderless", "1")
-    log_debug("[inmersivo] platform=='android' -> Config fullscreen=auto, "
-             "borderless=1, orientation=portrait")
+    log_debug("[inmersivo] Android detectado (platform=%r, ANDROID_DATA=%r) -> "
+             "Config fullscreen=auto, borderless=1, orientation=portrait",
+             platform, os.environ.get("ANDROID_DATA", "not set"))
 else:
-    log_debug("[inmersivo] platform != 'android' (es "
-             f"{platform!r}) -> NO se pide fullscreen ni se va a intentar "
-             "el modo inmersivo nativo más adelante")
+    log_debug("[inmersivo] NO es Android (platform=%r, ANDROID_DATA=%r) -> "
+             "NO se pide fullscreen ni se va a intentar el modo inmersivo nativo",
+             platform, os.environ.get("ANDROID_DATA", "not set"))
     # En desktop (para probar el layout de celular sin un dispositivo a
     # mano), simulamos el aspect ratio de un teléfono 720×1600.
     Config.set("graphics", "width", "360")
@@ -703,7 +710,8 @@ class PantallaPrincipal(FloatLayout):
         super().__init__(**kwargs)
 
         Modelo.asegurar_columnas_equipo()
-        Modelo.asegurar_columnas_auditoria()
+        if hasattr(Modelo, 'asegurar_columnas_auditoria'):
+            Modelo.asegurar_columnas_auditoria()
 
         raiz = BoxLayout(orientation="vertical")
         self.add_widget(raiz)
