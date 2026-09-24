@@ -2,14 +2,12 @@
 
 **Broadcast cable and infrastructure management software.**
 
-CableDoc is a desktop application for documenting and analyzing the cabling
+CableDoc is a desktop and smartphone application for documenting and analyzing the cabling
 and signal flow of a real broadcast/AV facility (digital and analog video and audio chain). It manages the physical infrastructure — equipment,
 connectors, cables, connections, racks, frames, slots, patch bays, routing matrices, and signal entities — and layers impact
 analysis, risk scoring, and fault diagnosis on top of it.
 
-Development is AI assisted, driven by real cases found during on-site cabling surveys,
-in particular the diagnosis of recurring audio failures traceable to
-weaknesses in the analog chain.
+Development is AI assisted, driven by real cases found during on-site cabling surveys.
 
 > The application's UI, domain vocabulary, comments, and changelog are
 > entirely in **Spanish**, since it is built for and used by a real
