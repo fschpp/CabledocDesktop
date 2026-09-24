@@ -138,6 +138,7 @@ from pantallas_salas import (
     SalasListado, RackPorSalaListado, EquiposNoRackSalaListado,
 )
 from pantallas_planos import PlanosListado, MueblesListado
+from pantallas_cobertura_auditoria import abrir_cobertura_auditoria
 from pantallas_vistas import VistaRack, PatcherasVista
 from pantallas_diagrama import abrir_diagrama_conexiones
 # El asistente de diagnóstico ("🩺 Diagnóstico") ya no se abre desde un
@@ -560,6 +561,7 @@ def _abrir_menu_completo():
             (_("Vista gráfica de rack…"), abrir_vista_rack_elegir),
             (_("Planos"), abrir_planos),
             (_("Muebles"), abrir_muebles),
+            (_("Cobertura de auditoría"), abrir_cobertura_auditoria),
         ]),
         (_("Catálogos"), [
             (_("Marcas"), abrir_marcas),

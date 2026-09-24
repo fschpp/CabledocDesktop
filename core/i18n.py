@@ -658,6 +658,24 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
 
     # signal_risk_diagrama_ui.py
     "🎨 Colorear por riesgo de señal": {"en": "🎨 Color by signal risk", "pt": "🎨 Colorir por risco de sinal"},
+
+    # cobertura_auditoria_ui.py (D2, plan_auditoria_fecha_edicion_v1.md)
+    "🕓 Cobertura de auditoría…": {"en": "🕓 Audit coverage…", "pt": "🕓 Cobertura de auditoria…"},
+    "Cobertura de auditoría": {"en": "Audit coverage", "pt": "Cobertura de auditoria"},
+    "Auditados": {"en": "Audited", "pt": "Auditados"},
+    "Total": {"en": "Total", "pt": "Total"},
+    "Cobertura": {"en": "Coverage", "pt": "Cobertura"},
+    "Ventana:": {"en": "Window:", "pt": "Janela:"},
+    "Últimos {} días": {"en": "Last {} days", "pt": "Últimos {} dias"},
+    "Cobertura global: {} de {} equipos auditados en los últimos {} días ({} %)": {
+        "en": "Overall coverage: {} of {} devices audited in the last {} days ({} %)",
+        "pt": "Cobertura global: {} de {} equipamentos auditados nos últimos {} dias ({} %)"},
+    "No hay equipos ubicados en racks.": {
+        "en": "There is no equipment located in racks.",
+        "pt": "Não há equipamentos localizados em racks."},
+    "Sólo cuenta equipos instalados en racks (directos o como módulo de un frame rackeado).": {
+        "en": "Only counts equipment installed in racks (directly or as a module of a racked frame).",
+        "pt": "Conta apenas equipamentos instalados em racks (diretos ou como módulo de um frame em rack)."},
 }
 
 

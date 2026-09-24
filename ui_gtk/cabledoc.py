@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260919000000"
+APP_VERSION = "1.20260923204500"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -411,6 +411,8 @@ class VentanaPrincipal(Gtk.Window):
             ("---", None),
             (_("🗺 Planos"), self._abrir_planos),
             (_("🪑 Muebles"), self._abrir_muebles),
+            ("---", None),
+            (_("🕓 Cobertura de auditoría…"), self._abrir_cobertura_auditoria),
         ])
         menu(_("Catálogos"), [
             (_("Marcas"), self._abrir_marcas),
@@ -933,6 +935,13 @@ class VentanaPrincipal(Gtk.Window):
 
     def _abrir_reportes_senal(self, *a):
         abrir_reportes_senal(parent=self)
+
+    def _abrir_cobertura_auditoria(self, *a):
+        """Reporte de cobertura de auditoría por rack (D2 de
+        plan_auditoria_fecha_edicion_v1.md): % de equipos auditados en los
+        últimos N días, sobre Modelo.devolver_cobertura_auditoria()."""
+        from cobertura_auditoria_ui import abrir_cobertura_auditoria
+        abrir_cobertura_auditoria(parent=self)
 
     def _abrir_zonas_sospechosas(self, *a):
         """Listado general de zonas sospechosas (ver plan_bitacora_
