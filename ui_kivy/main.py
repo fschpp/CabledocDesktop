@@ -115,6 +115,10 @@ def _popup_init_sin_autodismiss(self, **kwargs):
 Popup.__init__ = _popup_init_sin_autodismiss
 
 from core.modelo import Modelo, DB_PATH
+log_debug("[init] Modelo importado correctamente")
+log_debug(f"[init] Modelo tiene asegurar_columnas_equipo: {hasattr(Modelo, 'asegurar_columnas_equipo')}")
+log_debug(f"[init] Modelo tiene asegurar_columnas_auditoria: {hasattr(Modelo, 'asegurar_columnas_auditoria')}")
+
 from core.logger_cabledoc import instalar_hook_excepciones, log_error, log_debug
 from widgets_base import (
     mostrar_info, mostrar_error, confirmar, _,
@@ -122,6 +126,7 @@ from widgets_base import (
     set_lang, get_lang, IDIOMAS_DISPONIBLES, fila_cerrar_arriba,
     barra_superior_dialogo,
 )
+log_debug("[init] Todos los imports de widgets_base completados")
 from tema import (
     tema, Tarjeta, Chip, BotonIcono, BotonFAB, BarraSuperior, BarraInferior,
     IconoImg,
@@ -707,11 +712,20 @@ def _contar(sql):
 
 class PantallaPrincipal(FloatLayout):
     def __init__(self, **kwargs):
+        log_debug("[PantallaPrincipal] Iniciando __init__")
         super().__init__(**kwargs)
+        log_debug("[PantallaPrincipal] super().__init__ completado")
 
+        log_debug("[PantallaPrincipal] Llamando Modelo.asegurar_columnas_equipo()")
         Modelo.asegurar_columnas_equipo()
+        log_debug("[PantallaPrincipal] Modelo.asegurar_columnas_equipo() completado")
+        
         if hasattr(Modelo, 'asegurar_columnas_auditoria'):
+            log_debug("[PantallaPrincipal] Llamando Modelo.asegurar_columnas_auditoria()")
             Modelo.asegurar_columnas_auditoria()
+            log_debug("[PantallaPrincipal] Modelo.asegurar_columnas_auditoria() completado")
+        else:
+            log_debug("[PantallaPrincipal] WARNING: Modelo.asegurar_columnas_auditoria NO disponible")
 
         raiz = BoxLayout(orientation="vertical")
         self.add_widget(raiz)
@@ -1187,11 +1201,14 @@ class CableDocApp(App):
 
     def build(self):
         log_debug("[inmersivo] === CableDocApp.build() ===")
+        log_debug(f"[build] DB_PATH existe: {os.path.exists(DB_PATH)}")
         if not os.path.exists(DB_PATH):
+            log_error("[build] ERROR: DB_PATH no existe!")
             mostrar_error(
                 f"No se encontró el archivo de base de datos:\n{DB_PATH}\n\n"
                 f"Copiá db.db al directorio 'database/' de la aplicación.")
         try:
+            log_debug("[build] Creando PantallaPrincipal...")
             return PantallaPrincipal()
         except Exception as e:
             log_error("CableDocApp.build", e)
@@ -1304,5 +1321,13 @@ class CableDocApp(App):
 
 
 if __name__ == "__main__":
+    log_debug("[main] Iniciando aplicacion...")
     instalar_hook_excepciones()
-    CableDocApp().run()
+    log_debug("[main] instalar_hook_excepciones() completado")
+    try:
+        log_debug("[main] Llamando CableDocApp().run()...")
+        CableDocApp().run()
+        log_debug("[main] CableDocApp().run() finalizado")
+    except Exception as e:
+        log_error("[main] Excepcion en CableDocApp().run()", e)
+        raise
