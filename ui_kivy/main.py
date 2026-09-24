@@ -703,7 +703,8 @@ class PantallaPrincipal(FloatLayout):
         super().__init__(**kwargs)
 
         Modelo.asegurar_columnas_equipo()
-        Modelo.asegurar_columnas_auditoria()
+        if hasattr(Modelo, 'asegurar_columnas_auditoria'):
+            Modelo.asegurar_columnas_auditoria()
 
         raiz = BoxLayout(orientation="vertical")
         self.add_widget(raiz)
