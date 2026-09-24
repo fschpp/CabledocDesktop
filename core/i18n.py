@@ -676,6 +676,19 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Sólo cuenta equipos instalados en racks (directos o como módulo de un frame rackeado).": {
         "en": "Only counts equipment installed in racks (directly or as a module of a racked frame).",
         "pt": "Conta apenas equipamentos instalados em racks (diretos ou como módulo de um frame em rack)."},
+
+    # config_sla_auditoria_ui.py + tarjeta "Vencidos" del panel de auditoría (E3, plan_auditoria_fecha_edicion_v1.md)
+    "⏰ Vencidos (SLA {} d)": {"en": "⏰ Overdue (SLA {} d)", "pt": "⏰ Vencidos (SLA {} d)"},
+    "⚙ SLA…": {"en": "⚙ SLA…", "pt": "⚙ SLA…"},
+    "Cambiar los días del SLA de auditoría": {
+        "en": "Change the audit SLA days",
+        "pt": "Alterar os dias do SLA de auditoria"},
+    "Equipos — Auditoría vencida": {"en": "Equipment — Audit overdue", "pt": "Equipamentos — Auditoria vencida"},
+    "SLA de auditoría": {"en": "Audit SLA", "pt": "SLA de auditoria"},
+    "Días de SLA:": {"en": "SLA days:", "pt": "Dias de SLA:"},
+    "Un equipo se considera vencido si su última auditoría es más vieja que esta cantidad de días, o si nunca se auditó.": {
+        "en": "A device is considered overdue if its last audit is older than this number of days, or if it was never audited.",
+        "pt": "Um equipamento é considerado vencido se a última auditoria for mais antiga que esta quantidade de dias, ou se nunca foi auditado."},
 }
 
 

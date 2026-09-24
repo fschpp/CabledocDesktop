@@ -76,7 +76,7 @@ from pantallas_avanzadas import (
 # ─── Equipos ──────────────────────────────────────────────────────────────────
 
 class EquiposListado(VentanaListado):
-    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar'
+    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla'
     def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None,
                  excluir_modulos_de_frame=False):
         self._ocultar_patcheras = True   # debe existir antes de super().__init__
@@ -101,6 +101,8 @@ class EquiposListado(VentanaListado):
             titulo = _("Equipos — Sin imagen c/ conectores")
         elif filtro_pendiente == "sin_auditar":
             titulo = _("Equipos — Sin auditar")
+        elif filtro_pendiente == "vencidos_sla":
+            titulo = _("Equipos — Auditoría vencida")
         super().__init__(
             titulo,
             [_("ID"), _("Nombre"), _("Marca"), _("Modelo"), _("Inventario"), _("Serie"), _("Tipo"),
@@ -234,6 +236,12 @@ class EquiposListado(VentanaListado):
                 "SELECT id_equipo FROM equipo WHERE id_equipo != 0 "
                 "AND (ultima_auditoria_fecha IS NULL OR ultima_auditoria_fecha = '')")
             self._ids_resaltar = {str(r[0]) for r in rows}
+            color = "#c8a800"
+        elif self._filtro_pendiente == "vencidos_sla":
+            # Grupo E de plan_auditoria_fecha_edicion_v1.md (E3): auditoría
+            # vencida según el SLA configurado (Modelo.devolver_vencidos_sla_
+            # auditoria, E2) — mismo criterio que el contador del dashboard.
+            self._ids_resaltar = set(Modelo.devolver_vencidos_sla_auditoria())
             color = "#c8a800"
         todos = Modelo.devolver_todos_los_equipos()
         if self._excluir_modulos_de_frame:

@@ -876,6 +876,96 @@ class Modelo:
             }
         return resultado
 
+    # ── Configuración del SLA de auditoría (Grupo E, plan_auditoria_fecha_edicion_v1.md) ──
+    # Mismo patrón que config_riesgo_analogico (clave TEXT PRIMARY KEY,
+    # valor REAL, defaults sembrados sólo si la clave no existe, tabla
+    # creada de forma perezosa desde los propios getters/setters). Un solo
+    # valor global para arrancar — un SLA por tipo de equipo, si hace
+    # falta, es una vuelta aparte.
+    #   dias_sla_auditoria: un equipo cuya última auditoría es más vieja
+    #   que esta cantidad de días (o que nunca se auditó) está "vencido"
+    #   según la política de auditoría (ver E2).
+    CONFIG_AUDITORIA_DEFAULTS = {
+        "dias_sla_auditoria": 90.0,
+    }
+
+    @staticmethod
+    def asegurar_tabla_config_auditoria():
+        """Crea config_auditoria y siembra los defaults que falten (no pisa
+        valores ya establecidos). Idempotente: seguro de llamar en cada
+        lectura/escritura, igual que asegurar_tablas_bitacora()."""
+        with Modelo._conn_ctx() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS config_auditoria ("
+                "  clave TEXT PRIMARY KEY,"
+                "  valor REAL NOT NULL"
+                ")"
+            )
+            for clave, valor in Modelo.CONFIG_AUDITORIA_DEFAULTS.items():
+                conn.execute(
+                    "INSERT OR IGNORE INTO config_auditoria (clave, valor) "
+                    "VALUES (?,?)", (clave, valor))
+
+    @staticmethod
+    def devolver_config_auditoria():
+        """dict {clave: valor} — ver defaults en CONFIG_AUDITORIA_DEFAULTS."""
+        Modelo.asegurar_tabla_config_auditoria()
+        return {r[0]: r[1] for r in Modelo._query(
+            "SELECT clave, valor FROM config_auditoria")}
+
+    @staticmethod
+    def establecer_config_auditoria(clave, valor):
+        Modelo.asegurar_tabla_config_auditoria()
+        Modelo._exec(
+            "INSERT INTO config_auditoria (clave, valor) VALUES (?,?) "
+            "ON CONFLICT(clave) DO UPDATE SET valor=excluded.valor",
+            (clave, valor))
+
+    @staticmethod
+    def devolver_vencidos_sla_auditoria():
+        """Equipos cuya auditoría está vencida según la política de
+        auditoría (Grupo E, E2): la última auditoría es más vieja que
+        `dias_sla_auditoria` (config_auditoria, ver E1), o el equipo nunca
+        se auditó.
+        Criterio de vencimiento: pasaron MÁS de `dias_sla_auditoria` días
+        COMPLETOS desde ultima_auditoria_fecha (mismo criterio de días
+        enteros que color_escala_auditoria), así el número de días que
+        devuelve siempre es mayor que el SLA. La fecha se guarda en hora
+        local (marcar_auditado), por eso se compara contra 'localtime'.
+        Una fecha vacía o ilegible se trata como "nunca auditado" (mismo
+        criterio que color_escala_auditoria). Excluye el id_equipo=0 de
+        "sin equipo"/placeholder, igual que devolver_pendientes_auditoria.
+        Si el valor configurado es inválido (no numérico o negativo) se usa
+        el default.
+        Devuelve {str(id_equipo): {"fecha_auditoria": str | None,
+        "dias": int | None}}; "dias" es None si nunca se auditó.
+        """
+        dias_sla = Modelo.CONFIG_AUDITORIA_DEFAULTS["dias_sla_auditoria"]
+        try:
+            valor = float(Modelo.devolver_config_auditoria().get(
+                "dias_sla_auditoria", dias_sla))
+            if valor >= 0:
+                dias_sla = valor
+        except (TypeError, ValueError):
+            pass
+        filas = Modelo._query(
+            "SELECT id_equipo, ultima_auditoria_fecha, "
+            "CAST(julianday('now','localtime') "
+            "     - julianday(ultima_auditoria_fecha) AS INTEGER) "
+            "FROM equipo WHERE id_equipo != 0 "
+            "AND (julianday(ultima_auditoria_fecha) IS NULL "
+            "     OR CAST(julianday('now','localtime') "
+            "             - julianday(ultima_auditoria_fecha) AS INTEGER) > ?)",
+            (dias_sla,))
+        resultado = {}
+        for id_equipo, fecha, dias in filas:
+            nunca = dias is None   # julianday() NULL: sin fecha o ilegible
+            resultado[str(id_equipo)] = {
+                "fecha_auditoria": None if nunca else fecha,
+                "dias": None if nunca else dias,
+            }
+        return resultado
+
     # ── Riesgo de falla (IRF) ────────────────────────────────────────────────
     @staticmethod
     def asegurar_tablas_riesgo():
