@@ -513,9 +513,11 @@ class EquiposListado(Popup):
         root.add_widget(hb_busqueda)
 
         # ── RecycleView de tarjetas ──
+        log_debug("[EquiposListado] __init__ creando RecycleView")
         self.rv = RecycleView(do_scroll_x=False, do_scroll_y=True,
                               bar_width=dp(6))
         self._rv_data = []
+        log_debug("[EquiposListado] __init__ creando RecycleBoxLayout")
         _layout = RecycleBoxLayout(
             default_size=(None, _TarjetaEquipoRV.ALTURA),
             default_size_hint=(1, None), size_hint_y=None,
@@ -524,7 +526,14 @@ class EquiposListado(Popup):
         _layout.bind(minimum_height=_layout.setter("height"))
         self.rv.add_widget(_layout)
         self.rv.viewclass = _TarjetaEquipoRV
+        # Loguear eventos de scroll para detectar scroll rápido
+        self.rv.fbind("on_scroll_start", self._on_scroll_start)
+        self.rv.fbind("on_scroll_stop", self._on_scroll_stop)
+        # Monitorear cambios en rv.data
+        self._last_data_len = 0
+        Clock.schedule_interval(self._check_rv_data, 0.5)
         root.add_widget(self.rv)
+        log_debug("[EquiposListado] __init__ RecycleView creado")
 
         # Sin botonera propia: el alta de equipos (rápida, con plantilla
         # de conectores) se hace desde el '+' de la barra de navegación
@@ -611,6 +620,7 @@ class EquiposListado(Popup):
         self._refiltrar()
 
     def cargar_datos(self):
+        log_debug("[EquiposListado] cargar_datos() INICIO")
         self._ids_resaltar = set()
         if self._filtro_pendiente == "sin_conectores":
             rows = Modelo._query(
@@ -665,6 +675,7 @@ class EquiposListado(Popup):
                 "SELECT id_equipo FROM equipo WHERE es_modulo_de_frame=1")
             self._ids_modulos_frame = {str(r[0]) for r in rows}
         self._poblar_carrusel_tipos()
+        log_debug("[EquiposListado] cargar_datos() FINAL - llamando _refiltrar()")
         self._refiltrar()
 
     def _es_fantasma(self, marca, modelo, picon, n_con):
@@ -673,8 +684,10 @@ class EquiposListado(Popup):
         return not marca and not modelo and not picon and int(n_con or 0) == 0
 
     def _refiltrar(self):
+        log_debug("[EquiposListado] _refiltrar() INICIO")
         txt = self.entry_filtro.text.lower().strip() if hasattr(
             self, "entry_filtro") else ""
+        log_debug(f"[EquiposListado] _refiltrar() filtro_texto='{txt}', filtro_tipos={self._filtro_tipos}")
         data = []
         for fila in self._filas_completas:
             (id_eq, nombre, marca, modelo, tipo, picon, n_con, n_cx,
@@ -725,8 +738,25 @@ class EquiposListado(Popup):
                 "n_patch": n_patch or 0,
                 "popup_ref": self,
             })
+        log_debug(f"[EquiposListado] _refiltrar() data generado: {len(data)} equipos")
         self._rv_data = data
+        log_debug("[EquiposListado] _refiltrar() asignando self.rv.data")
         self.rv.data = self._rv_data
+        log_debug("[EquiposListado] _refiltrar() FINAL")
+
+    def _on_scroll_start(self, *args):
+        log_debug("[EquiposListado] SCROLL START")
+        log_debug(f"[EquiposListado] scroll_start - rv.data length: {len(self.rv.data) if self.rv.data else 0}")
+
+    def _on_scroll_stop(self, *args):
+        log_debug("[EquiposListado] SCROLL STOP")
+        log_debug(f"[EquiposListado] scroll_stop - rv.data length: {len(self.rv.data) if self.rv.data else 0}")
+
+    def _check_rv_data(self, dt):
+        current_len = len(self.rv.data) if self.rv.data else 0
+        if current_len != self._last_data_len:
+            log_debug(f"[EquiposListado] _check_rv_data: data length CAMBIO de {self._last_data_len} a {current_len}")
+            self._last_data_len = current_len
 
     def _fila_datos(self, fila_id):
         return next((f for f in self._filas_completas if s(f[0]) == fila_id),
