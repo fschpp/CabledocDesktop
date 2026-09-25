@@ -74,13 +74,11 @@ if is_android:
     Config.set("graphics", "fullscreen", "auto")
     log_debug("[inmersivo] fullscreen configurado OK")
     
-    log_debug("[inmersivo] Configurando borderless=1")
-    Config.set("graphics", "borderless", "1")
-    log_debug("[inmersivo] borderless configurado OK")
+    # NOTE: borderless=1 puede causar crash en algunos dispositivos Android/Pydroid 3
+    # Config.set("graphics", "borderless", "1")
+    # log_debug("[inmersivo] borderless configurado OK")
     
-    log_debug("[inmersivo] Android detectado (platform=%r, ANDROID_DATA=%r) -> "
-             "Config fullscreen=auto, borderless=1, orientation=portrait",
-             platform, os.environ.get("ANDROID_DATA", "not set"))
+    log_debug("[inmersivo] Android detectado -> Config fullscreen=auto, orientation=portrait")
 else:
     log_debug("[inmersivo] NO es Android (platform=%r, ANDROID_DATA=%r) -> "
              "NO se pide fullscreen ni se va a intentar el modo inmersivo nativo",
