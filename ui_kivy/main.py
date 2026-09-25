@@ -46,7 +46,6 @@ if _REPO_ROOT not in sys.path:
 
 from kivy.config import Config
 from kivy.utils import platform
-import os
 
 from core.logger_cabledoc import log_debug
 log_debug(f"[inmersivo] arrancando main.py — kivy.utils.platform = {platform!r}")
@@ -54,6 +53,7 @@ log_debug(f"[inmersivo] arrancando main.py — kivy.utils.platform = {platform!r
 # Deteccion de Pydroid 3: en Android real platform es 'android', pero en Pydroid 3
 # puede reportarse como 'linux'. Verificamos tambien la variable de entorno ANDROID_DATA
 is_android = platform == "android" or os.environ.get("ANDROID_DATA") is not None
+log_debug(f"[inmersivo] is_android = {is_android}")
 
 if is_android:
     # En Android (incluyendo Pydroid 3), Kivy toma la resolución real del
@@ -61,14 +61,23 @@ if is_android:
     # rompería el tamaño real de pantalla. Solo pedimos que no rote sola
     # (la UI está pensada para retrato) — si preferís permitir horizontal,
     # borrá esta línea.
+    log_debug("[inmersivo] Configurando orientation=portrait")
     Config.set("graphics", "orientation", "portrait")
+    log_debug("[inmersivo] orientation configurado OK")
+    
     # Modo inmersivo: oculta la barra de estado y los botones de
     # navegación del sistema (atrás/inicio/recientes) para que la app
     # ocupe toda la pantalla, como una app Android moderna. 'auto' deja
     # que SDL2 los muestre de nuevo con un swipe desde el borde y los
     # vuelva a ocultar solo.
+    log_debug("[inmersivo] Configurando fullscreen=auto")
     Config.set("graphics", "fullscreen", "auto")
+    log_debug("[inmersivo] fullscreen configurado OK")
+    
+    log_debug("[inmersivo] Configurando borderless=1")
     Config.set("graphics", "borderless", "1")
+    log_debug("[inmersivo] borderless configurado OK")
+    
     log_debug("[inmersivo] Android detectado (platform=%r, ANDROID_DATA=%r) -> "
              "Config fullscreen=auto, borderless=1, orientation=portrait",
              platform, os.environ.get("ANDROID_DATA", "not set"))
