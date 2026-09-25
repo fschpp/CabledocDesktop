@@ -751,6 +751,20 @@ class EquiposListado(Popup):
     def _on_scroll_stop(self, *args):
         log_debug("[EquiposListado] SCROLL STOP")
         log_debug(f"[EquiposListado] scroll_stop - rv.data length: {len(self.rv.data) if self.rv.data else 0}")
+        # Fix: forzar refresh del RecycleView después de scroll para evitar vistas vacías
+        # Problema conocido en Android con scroll rápido: las vistas recicladas quedan
+        # en estado inconsistente. _trigger_reset_populate() las reinicia.
+        Clock.schedule_once(lambda dt: self._refresh_rv(), 0.1)
+
+    def _refresh_rv(self):
+        """Fuerza refresh del RecycleView para arreglar vistas vacías después de scroll."""
+        if hasattr(self, 'rv') and self.rv:
+            try:
+                # Opción 1: reset completo del layout
+                self.rv._trigger_reset_populate()
+                log_debug("[EquiposListado] _refresh_rv() -> _trigger_reset_populate() llamado")
+            except Exception as e:
+                log_debug(f"[EquiposListado] _refresh_rv() ERROR en _trigger_reset_populate: {e}")
 
     def _check_rv_data(self, dt):
         current_len = len(self.rv.data) if self.rv.data else 0
