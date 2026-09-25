@@ -177,9 +177,11 @@ class _TarjetaEquipoRV(RecycleDataViewBehavior, BoxLayout):
     ANCHO_BARRA_CATEGORIA = dp(5)
 
     def __init__(self, **kwargs):
+        log_debug("[TarjetaEquipoRV] __init__ INICIO")
         super().__init__(orientation="vertical", size_hint=(1, None),
                          height=self.ALTURA, spacing=dp(4),
                          padding=(dp(14), dp(10), dp(10), dp(10)), **kwargs)
+        log_debug("[TarjetaEquipoRV] __init__ FINAL")
         with self.canvas.before:
             self._c_fondo = Color(*tema.c("superficie"))
             self._rect = RoundedRectangle(pos=self.pos, size=self.size,
@@ -256,10 +258,12 @@ class _TarjetaEquipoRV(RecycleDataViewBehavior, BoxLayout):
         self._c_img_fondo.rgba = tema.c("secundario_bg")
 
     def refresh_view_attrs(self, rv, index, data):
+        log_debug(f"[TarjetaEquipoRV] refresh_view_attrs index={index}, fila_id={data.get('fila_id', '?')}, nombre={data.get('nombre', '?')[:20]}")
         self.index = index
         self.fila_id = data.get("fila_id", "")
         self.popup_ref = data.get("popup_ref")
         self._reconstruir(data)
+        log_debug(f"[TarjetaEquipoRV] refresh_view_attrs FINAL para fila_id={self.fila_id}")
         return super().refresh_view_attrs(rv, index, data)
 
     def _reconstruir(self, data):
@@ -758,13 +762,19 @@ class EquiposListado(Popup):
 
     def _refresh_rv(self):
         """Fuerza refresh del RecycleView para arreglar vistas vacías después de scroll."""
+        log_debug("[EquiposListado] _refresh_rv() INICIO")
         if hasattr(self, 'rv') and self.rv:
             try:
                 # Opción 1: reset completo del layout
+                log_debug(f"[EquiposListado] _refresh_rv() rv.data length ANTES: {len(self.rv.data) if self.rv.data else 0}")
                 self.rv._trigger_reset_populate()
                 log_debug("[EquiposListado] _refresh_rv() -> _trigger_reset_populate() llamado")
+                log_debug(f"[EquiposListado] _refresh_rv() rv.data length DESPUÉS: {len(self.rv.data) if self.rv.data else 0}")
             except Exception as e:
                 log_debug(f"[EquiposListado] _refresh_rv() ERROR en _trigger_reset_populate: {e}")
+        else:
+            log_debug("[EquiposListado] _refresh_rv() ERROR: self.rv no existe")
+        log_debug("[EquiposListado] _refresh_rv() FINAL")
 
     def _check_rv_data(self, dt):
         current_len = len(self.rv.data) if self.rv.data else 0
