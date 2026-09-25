@@ -90,6 +90,7 @@ else:
     Config.set("graphics", "width", "360")
     Config.set("graphics", "height", "800")
 
+log_debug("[inmersivo] A punto de importar kivy.app.App")
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.metrics import dp, sp
