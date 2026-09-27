@@ -1,0 +1,76 @@
+"""
+linter_topologia.py — Linter de reglas de diseño de topología para CableDoc
+=============================================================================
+Fase 3 de plan_inteligencia_implicita_v1.md: convierte reglas de diseño que
+hoy sólo viven en la cabeza de Fede (equipos fuera de patchera, referencia
+en cascada, loop usado como distribución) en chequeos automáticos sobre
+datos que ya están cargados — mismo espíritu que risk_engine.py /
+graph_impact.py / escenario_engine.py: no rediseña nada, cruza lo que ya
+existe.
+
+Esta entrega (Fase 3) implementa sólo la primera regla: "equipos fuera de
+patchera" (equipamiento cableado directo, sin pasar por un panel de
+parcheo — Modelo.devolver_equipos_fuera_de_patchera(), Fase 3.1). Las
+Fases 2 (referencia en cascada) y 4 (loop usado como distribución) quedan
+para entregas siguientes, en este mismo módulo.
+
+Decisión de diseño (Fase 3.2 — priorización): el plan original preveía una
+función nueva de Fase 1 ("calcular_criticidad_todos", blast radius vía
+escenario_engine.py) para ordenar los hallazgos del linter por gravedad
+real. Esa función todavía no existe, y no hace falta escribirla para esta
+entrega: el "riesgo" (probabilidad × impacto, 0-100) que ya calcula
+risk_engine.RiskEngine —donde el factor Impacto sale de
+GraphImpactAnalyzer.simular_falla_equipo(), exactamente el mismo cálculo
+de blast radius que pedía la Fase 1.1— queda cacheado en
+riesgo_equipo_cache y se expone en lote vía
+Modelo.devolver_riesgo_todos_los_equipos(). Se reutiliza tal cual (ver
+ways-of-working: "extender sistemas existentes en vez de crear
+paralelos") en lugar de duplicar el cálculo.
+"""
+
+from __future__ import annotations
+
+from core.modelo import Modelo
+
+
+def equipos_fuera_de_patchera_priorizados(db_path=None) -> list:
+    """Fase 3.1 (detección) + 3.2 (priorización): cruza
+    Modelo.devolver_equipos_fuera_de_patchera() con el último cálculo de
+    riesgo cacheado (ver docstring del módulo) para que un equipo CRÍTICO
+    y fuera de patchera aparezca primero — es el caso que realmente
+    importa revisar, no sólo "existe un cable directo".
+
+    `db_path` se acepta por simetría con el resto de los engines
+    (risk_engine.RiskEngine, GraphImpactAnalyzer) aunque hoy no se use —
+    Modelo ya apunta a la única base activa del proceso.
+
+    Devuelve una lista de dicts, ordenada por riesgo descendente (los
+    equipos sin riesgo calculado todavía — nunca se corrió "🔺 Recalcular
+    riesgo" — van al final, no se excluyen):
+        {"id_equipo": str, "nombre": str,
+         "riesgo": float | None, "nivel": str | None}
+    """
+    equipos = Modelo.devolver_equipos_fuera_de_patchera()
+    if not equipos:
+        return []
+
+    riesgo_por_equipo = Modelo.devolver_riesgo_todos_los_equipos()  # {id: (riesgo, nivel)}
+
+    resultado = []
+    for id_eq, nombre in equipos:
+        riesgo, nivel = riesgo_por_equipo.get(str(id_eq), (None, None))
+        resultado.append({
+            "id_equipo": str(id_eq), "nombre": nombre,
+            "riesgo": riesgo, "nivel": nivel,
+        })
+
+    resultado.sort(key=lambda r: (r["riesgo"] is None, -(r["riesgo"] or 0)))
+    return resultado
+
+
+def ids_equipos_fuera_de_patchera_priorizados(db_path=None) -> list:
+    """Atajo para la UI (ver ui_gtk/equipos_ui.py,
+    filtro_pendiente='fuera_de_patchera'): sólo los ids, ya en el orden de
+    prioridad de equipos_fuera_de_patchera_priorizados()."""
+    return [r["id_equipo"]
+            for r in equipos_fuera_de_patchera_priorizados(db_path)]

@@ -103,6 +103,8 @@ class EquiposListado(VentanaListado):
             titulo = _("Equipos — Sin auditar")
         elif filtro_pendiente == "vencidos_sla":
             titulo = _("Equipos — Auditoría vencida")
+        elif filtro_pendiente == "fuera_de_patchera":
+            titulo = _("Equipos — Fuera de patchera")
         super().__init__(
             titulo,
             [_("ID"), _("Nombre"), _("Marca"), _("Modelo"), _("Inventario"), _("Serie"), _("Tipo"),
@@ -242,6 +244,14 @@ class EquiposListado(VentanaListado):
             # vencida según el SLA configurado (Modelo.devolver_vencidos_sla_
             # auditoria, E2) — mismo criterio que el contador del dashboard.
             self._ids_resaltar = set(Modelo.devolver_vencidos_sla_auditoria())
+            color = "#c8a800"
+        elif self._filtro_pendiente == "fuera_de_patchera":
+            # Fase 3 de plan_inteligencia_implicita_v1.md ("linter de
+            # topología"): mismo criterio que el contador del dashboard
+            # (Modelo.devolver_pendientes_equipos()["fuera_de_patchera"]),
+            # ya priorizado por riesgo — ver core/linter_topologia.py.
+            from core.linter_topologia import ids_equipos_fuera_de_patchera_priorizados
+            self._ids_resaltar = set(ids_equipos_fuera_de_patchera_priorizados())
             color = "#c8a800"
         todos = Modelo.devolver_todos_los_equipos()
         if self._excluir_modulos_de_frame:

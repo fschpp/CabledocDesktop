@@ -4808,6 +4808,12 @@ class Modelo:
             "AND (e.picon IS NULL OR TRIM(e.picon) = '') "
             "AND COALESCE(te.rol_senal, '') != 'FANTASMA'"
         )[0][0]
+        # Fase 3 de plan_inteligencia_implicita_v1.md ("linter de
+        # topología"): equipos cableados directo, sin pasar por ninguna
+        # patchera — misma detección que alimenta la priorización por
+        # riesgo (ver core/linter_topologia.py), así el número de esta
+        # tarjeta nunca puede discrepar con lo que se ve al tocar "ver →".
+        fuera_de_patchera = len(Modelo.devolver_equipos_fuera_de_patchera())
         return {
             "sin_conectores":    sin_conectores,
             "sin_imagen":        sin_imagen,
@@ -4816,6 +4822,7 @@ class Modelo:
             "sin_auditar":        sin_auditar,
             "sin_manual":         sin_manual,
             "sin_configuraciones": sin_configuraciones,
+            "fuera_de_patchera": fuera_de_patchera,
         }
 
     @staticmethod
@@ -6407,6 +6414,41 @@ class Modelo:
             "SELECT e.id_equipo, e.nombre FROM equipo e "
             "JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
             "WHERE te.rol_senal = 'FANTASMA' ORDER BY e.nombre"
+        )
+
+    @staticmethod
+    def devolver_equipos_fuera_de_patchera():
+        """Fase 3.1 de plan_inteligencia_implicita_v1.md ("linter de
+        topología"): equipos reales (ni PATCHERA ni FANTASMA — un módulo de
+        parcheo o un placeholder no son candidatos de esta regla) que
+        tienen al menos un cable documentado pero NINGUNO de esos cables
+        llega, del otro lado, a un equipo con rol_senal='PATCHERA'. Es
+        decir: cableado directo que nunca pasa por un panel de parcheo —
+        la regla de diseño que hoy sólo vive en la cabeza de Fede.
+
+        No duplica la tarjeta "🔌 Sin conectores": un equipo sin ningún
+        cable documentado no entra acá (no hay nada que "saltee" la
+        patchera todavía, sólo falta relevarlo).
+
+        Devuelve [(id_equipo, nombre), ...] ordenado por nombre."""
+        return Modelo._query(
+            "SELECT DISTINCT e.id_equipo, e.nombre "
+            "FROM equipo e "
+            "JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
+            "JOIN conector c ON c.id_equipo = e.id_equipo "
+            "JOIN conexion cx ON cx.id_conector = c.id_conector "
+            "WHERE e.id_equipo != 0 "
+            "AND COALESCE(te.rol_senal, '') NOT IN ('PATCHERA', 'FANTASMA') "
+            "AND NOT EXISTS ("
+            "  SELECT 1 FROM conexion cx2 "
+            "  JOIN conector c2 ON c2.id_conector = cx2.id_conector "
+            "  JOIN equipo e2 ON e2.id_equipo = c2.id_equipo "
+            "  JOIN tipo_equipo te2 ON te2.id_tipo_equipo = e2.id_tipo_equipo "
+            "  WHERE cx2.id_cable = cx.id_cable "
+            "  AND cx2.id_conector != cx.id_conector "
+            "  AND te2.rol_senal = 'PATCHERA'"
+            ") "
+            "ORDER BY e.nombre"
         )
 
     @staticmethod
