@@ -122,6 +122,9 @@ las Fases 2 y 4 son especulación.
       4.2 hoy encontraría casi nada: conviene ver primero si compensa.
       Sigue en pie el aviso del checklist: confirmar con Fede antes de
       tocar esquema o datos del catálogo.
+      **Decisión (Fede, 2026-09-27):** el tipo `LOOP` con dirección `IN`
+      es un error de dato: debe ser `OUT`. Corregido en 4.1b (migración
+      única). Los moldes (`conector_catalogo`) se resuelven en otro plan.
 - [x] **0.3** — Confirmar qué valores de `tipo_equipo` actúan hoy como
       distribuidores de sincronismo legítimos (candidato: DDV), para
       poder armar la lista blanca que usa Fase 2.
@@ -221,13 +224,30 @@ Sin dependencias — se puede hacer primero si se quiere algo rápido.
 
 Condicional al resultado de **0.2**.
 
-- [ ] **4.1** — Si 0.2 confirma que no hay marca de loop-through hoy:
+- [x] **4.1** — Si 0.2 confirma que no hay marca de loop-through hoy:
       agregar columna (ej. `conector.es_loop`) + función `asegurar_*`
       de migración idempotente, siguiendo el patrón ya usado para
       auditoría.
-- [ ] **4.2** — Detección: conectores marcados como loop con más de una
+      **Resultado (2026-09-27):** en vez de un booleano `es_loop`, la
+      columna es `conector.id_conector_loop_de` (FK a `conector`,
+      `ON DELETE SET NULL`): guarda de QUÉ entrada es loop la salida
+      (ej. MULTIVIEW 16 in / 16 loop out). Migración:
+      `Modelo.asegurar_columna_loop_conector()`. API:
+      `establecer_loop_de_conector` / `devolver_loop_de_conector` /
+      `devolver_loops_de_conector`. Sin semilla automática y sin UI
+      todavía; los moldes (`conector_catalogo`) quedan fuera.
+      **4.1c (2026-09-27):** UI para cargar la marca: sección
+      "Loop-through" en `_DialogoConector` (combo "Es loop de:"), mismo
+      patrón que `es_entrada_referencia`.
+- [x] **4.2** — Detección: conectores marcados como loop con más de una
       conexión saliente hacia equipos distintos (en vez de una sola,
       hacia el siguiente eslabón de la cadena).
+      **Resultado (2026-09-27):** `Modelo.devolver_loops_como_distribucion()`
+      + `linter_topologia.loops_como_distribucion_priorizados()` (ordena por
+      riesgo del equipo dueño). Cuenta equipos destino distintos (ignora
+      internos/virtuales, extremos sueltos, FANTASMA y el propio equipo;
+      una PATCHERA cuenta). Sólo ve loops ya marcados en su ficha (4.1c).
+
 - [ ] **4.3** — UI: tarjeta "⚠️ Loop usado como distribución".
 
 ---
