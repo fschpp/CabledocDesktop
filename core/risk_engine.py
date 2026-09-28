@@ -273,3 +273,70 @@ class RiskEngine:
             detalle = {"modo_impacto": "general"}
 
         return min(100.0, max(0.0, impacto)), n_impact, detalle
+
+
+# ── Fase 1.1 de plan_inteligencia_implicita_v1.md (ranking de criticidad) ──
+
+def calcular_criticidad_todos(db_path=None) -> list:
+    """Ranking de equipos por "blast radius" (impacto de una falla
+    individual, 0-100), de mayor a menor.
+
+    Decisión de diseño (mismo criterio que Fase 3.2 documentada en
+    core/linter_topologia.py): esta función NO vuelve a simular nada.
+    RiskEngine.calcular_todos() ya llama GraphImpactAnalyzer.
+    simular_falla_equipo() por cada equipo — exactamente el cálculo de
+    blast radius que pedía este ítem — y lo deja cacheado en
+    riesgo_equipo_cache.impacto. Acá sólo se lee y ordena ese cache vía
+    Modelo.devolver_impacto_todos_los_equipos(), en vez de duplicar la
+    simulación (ver ways-of-working: "extender sistemas existentes en vez
+    de crear paralelos").
+
+    `db_path` se acepta por simetría con el resto de los engines
+    (RiskEngine, GraphImpactAnalyzer) aunque hoy no se use — Modelo ya
+    apunta a la única base activa del proceso.
+
+    Devuelve [(id_equipo: str, blast_radius: float), ...] ordenado
+    descendente. Equipos sin cálculo de riesgo corrido todavía (nunca se
+    ejecutó "🔺 Recalcular riesgo") no aparecen: a diferencia del listado
+    de equipos fuera de patchera (Fase 3), este ranking alimenta un "top N"
+    (Fase 1.3), donde no corresponde rellenar con un impacto inventado.
+    """
+    impacto_por_equipo = Modelo.devolver_impacto_todos_los_equipos()
+    return sorted(impacto_por_equipo.items(), key=lambda par: -par[1])
+
+
+# ── Fase 1.2 de plan_inteligencia_implicita_v1.md (cruce con IRF) ──────────
+
+UMBRAL_CUADRANTE = 50.0  # mismo corte que nivel_de()/NIVELES usa para "Alto"
+
+
+def clasificar_criticidad_cuadrante(db_path=None) -> list:
+    """Cruza probabilidad e impacto (los dos factores del IRF, ya cacheados
+    por RiskEngine.calcular_todos() — no se recalcula nada) en un cuadrante
+    2x2, para complementar el ranking de blast radius puro de
+    calcular_criticidad_todos() (Fase 1.1) con la otra mitad del IRF: un
+    equipo con blast radius alto pero probabilidad de falla baja (ej. bien
+    mantenido, nuevo) no pide la misma urgencia que uno alto/alto.
+
+    Umbral: "alto" = probabilidad o impacto >= UMBRAL_CUADRANTE (50), el
+    mismo corte que ya usa nivel_de()/NIVELES para clasificar el riesgo
+    combinado como "Alto" — no se inventa un umbral nuevo para esto.
+
+    `db_path` se acepta por simetría con el resto de los engines, igual que
+    calcular_criticidad_todos (no se usa hoy).
+
+    Devuelve [(id_equipo: str, probabilidad: float, impacto: float,
+    cuadrante: str), ...] ordenado por impacto descendente (mismo orden que
+    calcular_criticidad_todos). `cuadrante` es "<probabilidad>/<impacto>",
+    cada uno "alto" o "bajo" — ej. "alto/alto", "bajo/alto". Mismo criterio
+    de exclusión que Fase 1.1: equipos sin cálculo de riesgo corrido
+    todavía no aparecen.
+    """
+    datos = Modelo.devolver_probabilidad_impacto_todos_los_equipos()
+    resultado = []
+    for id_eq, (probabilidad, impacto) in datos.items():
+        eje_prob = "alto" if probabilidad >= UMBRAL_CUADRANTE else "bajo"
+        eje_imp = "alto" if impacto >= UMBRAL_CUADRANTE else "bajo"
+        resultado.append((id_eq, probabilidad, impacto, f"{eje_prob}/{eje_imp}"))
+    resultado.sort(key=lambda t: -t[2])
+    return resultado

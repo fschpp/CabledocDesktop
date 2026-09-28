@@ -76,7 +76,7 @@ from pantallas_avanzadas import (
 # ─── Equipos ──────────────────────────────────────────────────────────────────
 
 class EquiposListado(VentanaListado):
-    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla' | 'fuera_de_patchera' | 'loop_en_uso'
+    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla' | 'fuera_de_patchera' | 'loop_en_uso' | 'criticidad_alta'
     def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None,
                  excluir_modulos_de_frame=False):
         self._ocultar_patcheras = True   # debe existir antes de super().__init__
@@ -107,6 +107,8 @@ class EquiposListado(VentanaListado):
             titulo = _("Equipos — Fuera de patchera")
         elif filtro_pendiente == "loop_en_uso":
             titulo = _("Equipos — Loop en uso")
+        elif filtro_pendiente == "criticidad_alta":
+            titulo = _("Equipos — Criticidad alta")
         super().__init__(
             titulo,
             [_("ID"), _("Nombre"), _("Marca"), _("Modelo"), _("Inventario"), _("Serie"), _("Tipo"),
@@ -262,6 +264,19 @@ class EquiposListado(VentanaListado):
             # contador del dashboard, ya priorizado por riesgo.
             from core.linter_topologia import ids_equipos_loop_en_uso_priorizados
             self._ids_resaltar = set(ids_equipos_loop_en_uso_priorizados())
+            color = "#c8a800"
+        elif self._filtro_pendiente == "criticidad_alta":
+            # Fase 1.3 de plan_inteligencia_implicita_v1.md ("ranking de
+            # criticidad IRF × blast radius"): mismo criterio que el
+            # contador del dashboard (Modelo.devolver_pendientes_equipos()
+            # ["criticidad_alta"]) — equipos en cuadrante alto/alto de
+            # probabilidad × impacto, ver core/risk_engine.py
+            # clasificar_criticidad_cuadrante (Fase 1.2).
+            from core.risk_engine import clasificar_criticidad_cuadrante
+            self._ids_resaltar = {
+                id_eq for id_eq, _p, _i, cuad in clasificar_criticidad_cuadrante()
+                if cuad == "alto/alto"
+            }
             color = "#c8a800"
         todos = Modelo.devolver_todos_los_equipos()
         if self._excluir_modulos_de_frame:

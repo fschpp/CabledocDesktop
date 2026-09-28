@@ -1140,6 +1140,37 @@ class Modelo:
         return {str(r[0]): (r[1], r[2]) for r in Modelo._query(
             "SELECT id_equipo, riesgo, nivel FROM riesgo_equipo_cache")}
 
+    @staticmethod
+    def devolver_impacto_todos_los_equipos():
+        """dict {id_equipo(str): impacto(float)} — "blast radius" cacheado
+        (0-100: fracción del parque, o del conjunto equipo_critico si está
+        cargado, que queda sin señal si ese equipo falla). Base de Fase 1.1
+        de plan_inteligencia_implicita_v1.md (ver risk_engine.
+        calcular_criticidad_todos): NO recalcula el grafo, sólo lee lo que
+        RiskEngine.calcular_todos() ya cachea en riesgo_equipo_cache.impacto
+        (mismo criterio de reutilización que Fase 3.2 en linter_topologia.py).
+        Equipos sin cálculo de riesgo corrido todavía (impacto NULL) no
+        aparecen en el dict — a diferencia de devolver_riesgo_todos_los_
+        equipos(), acá no tiene sentido devolver un impacto inventado."""
+        Modelo.asegurar_tablas_riesgo()
+        return {str(r[0]): r[1] for r in Modelo._query(
+            "SELECT id_equipo, impacto FROM riesgo_equipo_cache "
+            "WHERE impacto IS NOT NULL")}
+
+    @staticmethod
+    def devolver_probabilidad_impacto_todos_los_equipos():
+        """dict {id_equipo(str): (probabilidad, impacto)} — los dos factores
+        del IRF por separado (a diferencia de devolver_riesgo_todos_los_
+        equipos(), que sólo expone el producto ya combinado). Base de Fase
+        1.2 de plan_inteligencia_implicita_v1.md (ver risk_engine.
+        clasificar_criticidad_cuadrante): mismo criterio de sólo-lectura del
+        cache que devolver_impacto_todos_los_equipos() — equipos sin cálculo
+        de riesgo corrido todavía (impacto NULL) no aparecen."""
+        Modelo.asegurar_tablas_riesgo()
+        return {str(r[0]): (r[1], r[2]) for r in Modelo._query(
+            "SELECT id_equipo, probabilidad, impacto FROM riesgo_equipo_cache "
+            "WHERE impacto IS NOT NULL")}
+
     # ── Conjunto de equipos críticos (mejora el factor Impacto del IRF) ────
     @staticmethod
     def devolver_ids_equipos_criticos():
@@ -4820,6 +4851,17 @@ class Modelo:
         # "ver →" (una fila por equipo): así el número nunca discrepa.
         loop_en_uso = len({
             r["id_equipo"] for r in Modelo.devolver_loops_en_uso()})
+        # Fase 1.3 de plan_inteligencia_implicita_v1.md ("ranking de
+        # criticidad IRF × blast radius"): equipos en cuadrante alto/alto
+        # (probabilidad de falla Y blast radius por encima del umbral) —
+        # mismo cálculo que alimenta el "ver →" de esta tarjeta (ver
+        # core/risk_engine.py clasificar_criticidad_cuadrante, Fase 1.2).
+        # Import diferido: risk_engine importa Modelo, evita ciclo.
+        from core.risk_engine import clasificar_criticidad_cuadrante
+        criticidad_alta = sum(
+            1 for _id, _p, _i, cuad in clasificar_criticidad_cuadrante()
+            if cuad == "alto/alto"
+        )
         return {
             "sin_conectores":    sin_conectores,
             "sin_imagen":        sin_imagen,
@@ -4830,6 +4872,7 @@ class Modelo:
             "sin_configuraciones": sin_configuraciones,
             "fuera_de_patchera": fuera_de_patchera,
             "loop_en_uso": loop_en_uso,
+            "criticidad_alta":   criticidad_alta,
         }
 
     @staticmethod
