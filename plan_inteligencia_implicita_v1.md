@@ -13,7 +13,7 @@ solo cruzar datos que hoy están dispersos:
    *todos* los equipos se obtiene un ranking objetivo, cruzable con el IRF
    (probabilidad × impacto).
 2. **Linter de topología**: reglas de diseño que hoy viven en la cabeza de
-   Fede (referencia en cascada, salidas loop mal usadas, equipos fuera de
+   Fede (referencia en cascada, uso de salidas loop, equipos fuera de
    patchera) se pueden convertir en chequeos automáticos sobre el grafo,
    mostrados como tarjetas nuevas en el panel de pendientes (mismo patrón
    que "🔍 Sin auditar").
@@ -220,9 +220,22 @@ Sin dependencias — se puede hacer primero si se quiere algo rápido.
 
 ---
 
-## Fase 4 — Detección: loop usado como distribución
+## Fase 4 — Detección: loop en uso
 
 Condicional al resultado de **0.2**.
+
+> **Regla revisada (2026-09-28, decisión de Fede):** para el linter, TODA
+> salida loop-through con un cable real conectado está mal vista. No
+> importa a cuántos destinos vaya ni a qué tipo de equipo: un loop
+> conectado a un solo equipo, a una PATCHERA, a un ENRUTADOR o a un
+> FANTASMA también es hallazgo. Un loop no es una salida de distribución;
+> la señal debe salir por las salidas normales. La definición original
+> ("más de una conexión saliente hacia equipos distintos") dejaba pasar
+> el caso común (p. ej. las salidas loop de un MULTIVIEW cableadas a
+> patchera) y sobre la base real no detectaba ningún loop. Confirmado con
+> Fede (2026-09-28): incluir también los destinos FANTASMA — un loop
+> conectado a un extremo desconectado sigue siendo un loop en uso, no un
+> extremo suelto real.
 
 - [x] **4.1** — Si 0.2 confirma que no hay marca de loop-through hoy:
       agregar columna (ej. `conector.es_loop`) + función `asegurar_*`
@@ -239,21 +252,28 @@ Condicional al resultado de **0.2**.
       **4.1c (2026-09-27):** UI para cargar la marca: sección
       "Loop-through" en `_DialogoConector` (combo "Es loop de:"), mismo
       patrón que `es_entrada_referencia`.
-- [x] **4.2** — Detección: conectores marcados como loop con más de una
-      conexión saliente hacia equipos distintos (en vez de una sola,
-      hacia el siguiente eslabón de la cadena).
-      **Resultado (2026-09-27):** `Modelo.devolver_loops_como_distribucion()`
-      + `linter_topologia.loops_como_distribucion_priorizados()` (ordena por
-      riesgo del equipo dueño). Cuenta equipos destino distintos (ignora
-      internos/virtuales, extremos sueltos, FANTASMA y el propio equipo;
-      una PATCHERA cuenta). Sólo ve loops ya marcados en su ficha (4.1c).
+- [x] **4.2** — Detección: conectores marcados como loop que tengan
+      alguna conexión real (a un equipo, patchera o enrutador).
+      **Resultado (2026-09-28, regla revisada):**
+      `Modelo.devolver_loops_en_uso()` +
+      `linter_topologia.loops_en_uso_priorizados()` (ordena por riesgo del
+      equipo dueño, luego por cantidad de cables). Ignora cables
+      internos/virtuales, extremos sueltos y equipo 0; el resto cuenta,
+      PATCHERA, ENRUTADOR y FANTASMA incluidos (ajuste 2026-09-28: los
+      FANTASMA se excluían en la primera versión de esta regla revisada;
+      Fede confirmó que también deben contar). Sólo ve loops ya marcados
+      en su ficha (4.1c). *Versión 2026-09-27
+      (`devolver_loops_como_distribucion`, exigía 2+ equipos destino):
+      reemplazada.* Sobre la base real: 5 loops en uso en 3 equipos
+      (MULTIVIEW ×3 a patchera, AUDIO MONITOR, WAVEFORM MONITOR); ninguno
+      va hoy a un FANTASMA. La regla vieja detectaba 0.
 
-- [x] **4.3** — UI: tarjeta "⚠️ Loop usado como distribución".
-      **Resultado (2026-09-28):** tarjeta "⚠️ Loop como distribución" en
+- [x] **4.3** — UI: tarjeta "⚠️ Loop en uso".
+      **Resultado (2026-09-28):** tarjeta "⚠️ Loop en uso" en
       el panel "Trabajo pendiente — Equipos" (`ui_gtk/cabledoc.py`), clave
-      `loop_como_distribucion` en `Modelo.devolver_pendientes_equipos()` y
-      `filtro_pendiente="loop_como_distribucion"` en `EquiposListado`
-      (ids vía `linter_topologia.ids_equipos_loop_como_distribucion_priorizados`,
+      `loop_en_uso` en `Modelo.devolver_pendientes_equipos()` y
+      `filtro_pendiente="loop_en_uso"` en `EquiposListado`
+      (ids vía `linter_topologia.ids_equipos_loop_en_uso_priorizados`,
       ordenados por riesgo). El contador cuenta EQUIPOS distintos (no
       loops), igual que las filas del "ver →". Incluye el bugfix 4.1d:
       `establecer_loop_de_conector` normaliza ids a `int` (la ficha pasa

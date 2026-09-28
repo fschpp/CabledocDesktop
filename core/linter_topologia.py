@@ -3,7 +3,7 @@ linter_topologia.py — Linter de reglas de diseño de topología para CableDoc
 =============================================================================
 Fase 3 de plan_inteligencia_implicita_v1.md: convierte reglas de diseño que
 hoy sólo viven en la cabeza de Fede (equipos fuera de patchera, referencia
-en cascada, loop usado como distribución) en chequeos automáticos sobre
+en cascada, loop en uso) en chequeos automáticos sobre
 datos que ya están cargados — mismo espíritu que risk_engine.py /
 graph_impact.py / escenario_engine.py: no rediseña nada, cruza lo que ya
 existe.
@@ -11,9 +11,9 @@ existe.
 La entrega de la Fase 3 implementó sólo la primera regla: "equipos fuera de
 patchera" (equipamiento cableado directo, sin pasar por un panel de
 parcheo — Modelo.devolver_equipos_fuera_de_patchera(), Fase 3.1). Las
-Fases 2 (referencia en cascada) y 4 (loop usado como distribución) quedan
+Fases 2 (referencia en cascada) y 4 (loop en uso) quedan
 para entregas siguientes, en este mismo módulo. La Fase 4.2 agrega la
-regla "loop usado como distribución" (loops_como_distribucion_priorizados,
+regla "loop en uso" (loops_en_uso_priorizados,
 al final del módulo).
 
 Decisión de diseño (Fase 3.2 — priorización): el plan original preveía una
@@ -78,23 +78,26 @@ def ids_equipos_fuera_de_patchera_priorizados(db_path=None) -> list:
             for r in equipos_fuera_de_patchera_priorizados(db_path)]
 
 
-def loops_como_distribucion_priorizados(db_path=None) -> list:
-    """Fase 4.2 (detección) del linter: cruza
-    Modelo.devolver_loops_como_distribucion() con el riesgo cacheado del
-    EQUIPO dueño de la salida loop (mismo criterio y misma fuente que
-    equipos_fuera_de_patchera_priorizados — ver docstring del módulo) para
-    que un loop-distribuidor en un equipo crítico aparezca primero. A igual
-    riesgo, primero el que reparte a más equipos.
+def loops_en_uso_priorizados(db_path=None) -> list:
+    """Fase 4.2 (detección) del linter: cruza Modelo.devolver_loops_en_uso()
+    con el riesgo cacheado del EQUIPO dueño de la salida loop (mismo
+    criterio y misma fuente que equipos_fuera_de_patchera_priorizados — ver
+    docstring del módulo) para que un loop en uso en un equipo crítico
+    aparezca primero. A igual riesgo, primero el que tiene más cables.
+
+    Regla (revisada 2026-09-28): toda salida loop con un cable real
+    conectado está mal vista, vaya a un equipo, a una patchera, a un
+    enrutador o a un FANTASMA. Ver el docstring de
+    Modelo.devolver_loops_en_uso().
 
     `db_path` se acepta por simetría con el resto de los engines, aunque
     hoy no se use.
 
-    Devuelve los mismos dicts que Modelo.devolver_loops_como_distribucion()
-    más las claves "riesgo" (float | None) y "nivel" (str | None) del
-    equipo dueño; los equipos sin riesgo calculado todavía van al final, no
-    se excluyen.
+    Devuelve los mismos dicts que Modelo.devolver_loops_en_uso() más las
+    claves "riesgo" (float | None) y "nivel" (str | None) del equipo dueño;
+    los equipos sin riesgo calculado todavía van al final, no se excluyen.
     """
-    loops = Modelo.devolver_loops_como_distribucion()
+    loops = Modelo.devolver_loops_en_uso()
     if not loops:
         return []
 
@@ -105,18 +108,17 @@ def loops_como_distribucion_priorizados(db_path=None) -> list:
 
     # sort estable: el orden por equipo/nombre de Modelo desempata.
     loops.sort(key=lambda r: (r["riesgo"] is None, -(r["riesgo"] or 0),
-                              -len(r["destinos"])))
+                              -r["n_cables"]))
     return loops
 
 
-def ids_equipos_loop_como_distribucion_priorizados(db_path=None) -> list:
+def ids_equipos_loop_en_uso_priorizados(db_path=None) -> list:
     """Atajo para la UI (ver ui_gtk/equipos_ui.py,
-    filtro_pendiente='loop_como_distribucion', Fase 4.3): ids (str) de los
-    EQUIPOS dueños de al menos una salida loop usada como distribución,
-    sin repetir, en el orden de prioridad de
-    loops_como_distribucion_priorizados() (primero el de más riesgo)."""
+    filtro_pendiente='loop_en_uso', Fase 4.3): ids (str) de los EQUIPOS
+    dueños de al menos una salida loop en uso, sin repetir, en el orden de
+    prioridad de loops_en_uso_priorizados() (primero el de más riesgo)."""
     vistos = []
-    for r in loops_como_distribucion_priorizados(db_path):
+    for r in loops_en_uso_priorizados(db_path):
         id_eq = str(r["id_equipo"])
         if id_eq not in vistos:
             vistos.append(id_eq)

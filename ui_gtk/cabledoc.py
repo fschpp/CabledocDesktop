@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260927120000"
+APP_VERSION = "1.20260928153000"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -719,8 +719,8 @@ class VentanaPrincipal(Gtk.Window):
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_auditar")),
             (_("⚠️ Fuera de patchera"),     p["fuera_de_patchera"], "#5a3d00",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="fuera_de_patchera")),
-            (_("⚠️ Loop como distribución"), p["loop_como_distribucion"], "#5a2d00",
-             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="loop_como_distribucion")),
+            (_("⚠️ Loop en uso"), p["loop_en_uso"], "#5a2d00",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="loop_en_uso")),
         ]
         for col, (titulo, valor, color, cb) in enumerate(items):
             frame = Gtk.Frame()
