@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-23T23:15 — Grupo E de `plan_auditoria_fecha_edicion_v1.md` (E4 Kivy + E5 tono de color para vencidos según SLA), sobre `main` en `c2e76b8`_
+_Última actualización: 2026-09-27 — Fase 0 de `plan_inteligencia_implicita_v1.md` (0.1, 0.2, 0.3: confirmación de esquema, sólo documentación), sobre `main` en `00ce421`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -206,6 +206,32 @@ referencia rápida para no repetirlos:
 ---
 
 ## Current Focus
+
+**Sesión 2026-09-27 — Fase 0 de `plan_inteligencia_implicita_v1.md` (confirmar esquema), sobre `main` en `00ce421` (PR #75: Fase 3 del mismo plan ya mergeada). 0.1, 0.2 y 0.3 entregadas como diffs y luego corregidas al revisar la base real (`db.db`); sólo documentación, sin cambios de código ni de APP_VERSION.**
+
+### Current Focus
+Cerrar la Fase 0: confirmar contra el esquema y los datos reales qué necesitan las Fases 2 (referencia en cascada) y 4 (loop usado como distribución) antes de escribir queries de detección.
+
+### Todo List
+- [x] Fase 3 (fuera de patchera) — ya en `main` (PR #75).
+- [x] 0.1 — `rol_senal` es columna de `tipo_equipo`, no de `conexion`; no existe rol de referencia/sync; la referencia se marca por conector. Verificado en la base real (8 roles en uso).
+- [x] 0.2 — el loop se marca en los datos, no en una columna: tipo de conector `LOOP` (14 conectores, dirección `IN`, 0 cableados) y 26 conectores `OUT` con "LOOP" en el nombre (5 cableados). Corrige la primera versión, que decía "no existe marca".
+- [x] 0.3 — `DDV` no es distribuidor de sync en la base real; candidatos: `SYNC PULSE GENERATOR` (21), `DISTRIBUIDOR TRILEVEL` (25), `DISTRIBUIDOR DE REFERENCIA DE FRAME` (56).
+- [ ] Fede: confirmar la lista blanca de 0.3.
+- [ ] Fede: decidir la convención de loop y si la dirección `IN` del tipo `LOOP` es un error de dato (0.2) antes de tocar esquema (4.1).
+- [ ] Fase 1 (ranking de criticidad) — no depende de la Fase 0; pendiente.
+- [ ] Fase 2 y Fase 4 — bloqueadas por las dos decisiones de arriba; además hay muy poca referencia y pocos loops cableados (ver Discoveries).
+
+### Latest Blockers/Discoveries
+- El plan asumía `SELECT DISTINCT rol_senal FROM conexion`: esa columna no existe (vive en `tipo_equipo`). El texto de 3.1 del plan quedó impreciso, aunque la Fase 3 ya implementada usa el join correcto.
+- Error de método de esta sesión: 0.1–0.3 se hicieron primero sólo desde el código y el esquema, sin pedir la base real; 0.2 y 0.3 salieron mal (se corrigieron). Para tareas de "confirmar contra la BD" hay que pedir `db.db` antes de empezar.
+- Referencia casi sin cablear en la base real: de 24 conectores `REFOUT` sólo 1 tiene cable (`REFERENCE OUT` de `CCU 1`). La Fase 2 hoy encontraría a lo sumo ese caso.
+- `tipo_conector.direccion` del tipo `LOOP` es `IN` (semilla por nombre); si es un error, `graph_impact.py` lo trata como entrada. Sin verificar el efecto.
+- `DISTRIBUIDOR` es el default de `tipo_equipo.rol_senal` y agrupa 28 tipos: una lista blanca por rol no discrimina.
+- Las columnas de referencia las agrega `asegurar_columnas_control_idioma()` y no están en `schema_db.sql`; la base real trae además una columna vieja `tipo_conector.es_entrada_referencia` (todo 0, sin uso).
+- El plan no estaba versionado en el repo: `0.1.diff` lo agrega.
+
+## Current Focus (sesión anterior)
 
 **Sesión 2026-09-23T23:00 — Grupo E de `plan_auditoria_fecha_edicion_v1.md` (SLA de auditoría), sobre `main` en `c2e76b8` (PR #71: E1, E2 y E3 ya mergeados). E4 (Kivy) y E5 (3er tono de color) entregados como diffs separados, E5 apilado sobre E4.**
 
