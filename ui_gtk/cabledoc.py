@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260928190000"
+APP_VERSION = "1.20260928193000"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -510,88 +510,65 @@ class VentanaPrincipal(Gtk.Window):
             grid.attach(btn, i % 3, i // 3, 1, 1)
         center.pack_start(grid, False, False, 0)
 
-        # ── Panel de pendientes de cables ──
+        # ── Trabajo pendiente: una columna por categoría (Cables, Equipos,
+        # Frames, Riesgo de señal, Auditoría) lado a lado, en vez de
+        # apiladas una debajo de la otra — separador vertical entre
+        # columnas; la fila entera puede requerir scroll horizontal (mismo
+        # ScrolledWindow de siempre, sw_center, ya con policy AUTOMATIC).
         sep_p = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         sep_p.set_margin_top(20); sep_p.set_margin_bottom(8)
         center.pack_start(sep_p, False, False, 0)
 
-        lbl_pend = Gtk.Label()
-        lbl_pend.set_markup("<b>" + _("Trabajo pendiente — Cables") + "</b>")
-        lbl_pend.set_margin_bottom(6)
-        center.pack_start(lbl_pend, False, False, 0)
+        def _columna_pendientes(titulo_col):
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            col.set_valign(Gtk.Align.START)
+            lbl = Gtk.Label()
+            lbl.set_markup("<b>" + titulo_col + "</b>")
+            lbl.set_margin_bottom(6)
+            col.pack_start(lbl, False, False, 0)
+            grid = Gtk.Grid(
+                column_spacing=10, row_spacing=6,
+                halign=Gtk.Align.CENTER,
+            )
+            col.pack_start(grid, False, False, 0)
+            return col, grid
 
-        self._panel_pendientes = Gtk.Grid(
-            column_spacing=10, row_spacing=6,
+        columnas_pendientes = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=16,
             halign=Gtk.Align.CENTER,
         )
-        center.pack_start(self._panel_pendientes, False, False, 0)
+
+        col_cab, self._panel_pendientes = _columna_pendientes(_("Trabajo pendiente — Cables"))
+        columnas_pendientes.pack_start(col_cab, False, False, 0)
         self._actualizar_panel_pendientes()
 
-        sep_eq = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        sep_eq.set_margin_top(16); sep_eq.set_margin_bottom(8)
-        center.pack_start(sep_eq, False, False, 0)
-
-        lbl_pend_eq = Gtk.Label()
-        lbl_pend_eq.set_markup("<b>" + _("Trabajo pendiente — Equipos") + "</b>")
-        lbl_pend_eq.set_margin_bottom(6)
-        center.pack_start(lbl_pend_eq, False, False, 0)
-
-        self._panel_pendientes_eq = Gtk.Grid(
-            column_spacing=10, row_spacing=6,
-            halign=Gtk.Align.CENTER,
-        )
-        center.pack_start(self._panel_pendientes_eq, False, False, 0)
+        columnas_pendientes.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        col_eq, self._panel_pendientes_eq = _columna_pendientes(_("Trabajo pendiente — Equipos"))
+        columnas_pendientes.pack_start(col_eq, False, False, 0)
         self._actualizar_panel_pendientes_eq()
 
-        sep_fr = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        sep_fr.set_margin_top(16); sep_fr.set_margin_bottom(8)
-        center.pack_start(sep_fr, False, False, 0)
-
-        lbl_pend_fr = Gtk.Label()
-        lbl_pend_fr.set_markup("<b>" + _("Trabajo pendiente — Frames") + "</b>")
-        lbl_pend_fr.set_margin_bottom(6)
-        center.pack_start(lbl_pend_fr, False, False, 0)
-
-        self._panel_pendientes_fr = Gtk.Grid(
-            column_spacing=10, row_spacing=6,
-            halign=Gtk.Align.CENTER,
-        )
-        center.pack_start(self._panel_pendientes_fr, False, False, 0)
+        columnas_pendientes.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        col_fr, self._panel_pendientes_fr = _columna_pendientes(_("Trabajo pendiente — Frames"))
+        columnas_pendientes.pack_start(col_fr, False, False, 0)
         self._actualizar_panel_pendientes_fr()
 
-        # ── Riesgo de señal (plan_riesgo_senal_audio.md) ──
-        sep_rs = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        sep_rs.set_margin_top(16); sep_rs.set_margin_bottom(8)
-        center.pack_start(sep_rs, False, False, 0)
-
-        lbl_pend_rs = Gtk.Label()
-        lbl_pend_rs.set_markup("<b>" + _("Trabajo pendiente — Riesgo de señal") + "</b>")
-        lbl_pend_rs.set_margin_bottom(6)
-        center.pack_start(lbl_pend_rs, False, False, 0)
-
-        self._panel_pendientes_rs = Gtk.Grid(
-            column_spacing=10, row_spacing=6,
-            halign=Gtk.Align.CENTER,
-        )
-        center.pack_start(self._panel_pendientes_rs, False, False, 0)
+        # Riesgo de señal (plan_riesgo_senal_audio.md)
+        columnas_pendientes.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        col_rs, self._panel_pendientes_rs = _columna_pendientes(_("Trabajo pendiente — Riesgo de señal"))
+        columnas_pendientes.pack_start(col_rs, False, False, 0)
         self._actualizar_panel_pendientes_rs()
 
-        # ── Auditoría (plan_auditoria_fecha_edicion_v1.md, Grupo A) ──
-        sep_aud = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        sep_aud.set_margin_top(16); sep_aud.set_margin_bottom(8)
-        center.pack_start(sep_aud, False, False, 0)
-
-        lbl_pend_aud = Gtk.Label()
-        lbl_pend_aud.set_markup("<b>" + _("Trabajo pendiente — Auditoría") + "</b>")
-        lbl_pend_aud.set_margin_bottom(6)
-        center.pack_start(lbl_pend_aud, False, False, 0)
-
-        self._panel_pendientes_aud = Gtk.Grid(
-            column_spacing=10, row_spacing=6,
-            halign=Gtk.Align.CENTER,
-        )
-        center.pack_start(self._panel_pendientes_aud, False, False, 0)
+        # Auditoría (plan_auditoria_fecha_edicion_v1.md, Grupo A)
+        columnas_pendientes.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        col_aud, self._panel_pendientes_aud = _columna_pendientes(_("Trabajo pendiente — Auditoría"))
+        columnas_pendientes.pack_start(col_aud, False, False, 0)
         self._actualizar_panel_pendientes_aud()
+
+        center.pack_start(columnas_pendientes, False, False, 0)
 
         # ── Armar layout: árbol izquierda | contenido derecha ──
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
