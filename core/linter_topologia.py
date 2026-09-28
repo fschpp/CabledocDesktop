@@ -8,11 +8,13 @@ datos que ya están cargados — mismo espíritu que risk_engine.py /
 graph_impact.py / escenario_engine.py: no rediseña nada, cruza lo que ya
 existe.
 
-Esta entrega (Fase 3) implementa sólo la primera regla: "equipos fuera de
+La entrega de la Fase 3 implementó sólo la primera regla: "equipos fuera de
 patchera" (equipamiento cableado directo, sin pasar por un panel de
 parcheo — Modelo.devolver_equipos_fuera_de_patchera(), Fase 3.1). Las
 Fases 2 (referencia en cascada) y 4 (loop usado como distribución) quedan
-para entregas siguientes, en este mismo módulo.
+para entregas siguientes, en este mismo módulo. La Fase 4.2 agrega la
+regla "loop usado como distribución" (loops_como_distribucion_priorizados,
+al final del módulo).
 
 Decisión de diseño (Fase 3.2 — priorización): el plan original preveía una
 función nueva de Fase 1 ("calcular_criticidad_todos", blast radius vía
@@ -74,3 +76,34 @@ def ids_equipos_fuera_de_patchera_priorizados(db_path=None) -> list:
     prioridad de equipos_fuera_de_patchera_priorizados()."""
     return [r["id_equipo"]
             for r in equipos_fuera_de_patchera_priorizados(db_path)]
+
+
+def loops_como_distribucion_priorizados(db_path=None) -> list:
+    """Fase 4.2 (detección) del linter: cruza
+    Modelo.devolver_loops_como_distribucion() con el riesgo cacheado del
+    EQUIPO dueño de la salida loop (mismo criterio y misma fuente que
+    equipos_fuera_de_patchera_priorizados — ver docstring del módulo) para
+    que un loop-distribuidor en un equipo crítico aparezca primero. A igual
+    riesgo, primero el que reparte a más equipos.
+
+    `db_path` se acepta por simetría con el resto de los engines, aunque
+    hoy no se use.
+
+    Devuelve los mismos dicts que Modelo.devolver_loops_como_distribucion()
+    más las claves "riesgo" (float | None) y "nivel" (str | None) del
+    equipo dueño; los equipos sin riesgo calculado todavía van al final, no
+    se excluyen.
+    """
+    loops = Modelo.devolver_loops_como_distribucion()
+    if not loops:
+        return []
+
+    riesgo_por_equipo = Modelo.devolver_riesgo_todos_los_equipos()  # {id: (riesgo, nivel)}
+    for r in loops:
+        r["riesgo"], r["nivel"] = riesgo_por_equipo.get(
+            str(r["id_equipo"]), (None, None))
+
+    # sort estable: el orden por equipo/nombre de Modelo desempata.
+    loops.sort(key=lambda r: (r["riesgo"] is None, -(r["riesgo"] or 0),
+                              -len(r["destinos"])))
+    return loops

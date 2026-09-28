@@ -36,6 +36,7 @@ from pantallas_avanzadas import abrir_coords_imagen
 
 from pantallas_comunes import (
     s,
+    mostrar_error,
     VentanaListado,
     DialogoNombre,
     _grid,
@@ -316,6 +317,52 @@ class _DialogoConector(Gtk.Dialog):
             self.chk_salida_referencia_frame.set_active(
                 bool(Modelo.devolver_es_salida_referencia_frame_conector(id_conector)))
 
+        # ── Loop-through (Fase 4.1c de plan_inteligencia_implicita_v1.md) ──
+        # Mismo criterio que Referencia/Armado de arriba: atributo de ESTE
+        # conector puntual, sólo con el conector ya guardado, y se aplica
+        # al aceptar la ficha. A diferencia de es_entrada_referencia no es
+        # un checkbox: una salida loop repite UNA entrada puntual del mismo
+        # equipo, así que se elige de cuál (ej. MULTIVIEW de 16 entradas y
+        # 16 salidas loop: cada salida loop apunta a su entrada). Si este
+        # conector ya es la entrada de otras salidas loop no puede ser a la
+        # vez una salida (sin cadenas): se muestra el aviso en vez del combo.
+        self.c_loop_de = None
+        self._loop_de_inicial = None
+        if id_conector is not None:
+            frame_loop = Gtk.Frame(label=" " + _("Loop-through") + " ")
+            g7 = _grid()
+            loops_propios = Modelo.devolver_loops_de_conector(id_conector)
+            if loops_propios:
+                nombres_loop = []
+                for id_l in loops_propios:
+                    fila_l = Modelo.devolver_conector(id_l)
+                    nombres_loop.append(s(fila_l[0][1]) if fila_l else str(id_l))
+                lbl_loop = Gtk.Label(
+                    label=_("Este conector es la entrada de {n} salida(s) loop: {lista}. "
+                            "No puede ser a la vez una salida loop.").format(
+                        n=len(loops_propios), lista=", ".join(nombres_loop)))
+                lbl_loop.set_line_wrap(True)
+                lbl_loop.set_xalign(0)
+                g7.attach(lbl_loop, 0, 0, 3, 1)
+            else:
+                _lbl_entry(g7, _("Es loop de:"), 0)
+                self.c_loop_de = Gtk.ComboBoxText()
+                self.c_loop_de.set_tooltip_text(
+                    _("Si este conector es una salida loop-through (repite la señal de "
+                      "una entrada del mismo equipo), elegí acá de cuál entrada. Se usa "
+                      "para detectar un loop usado como distribución (más de un cable "
+                      "saliendo de la misma salida loop hacia equipos distintos)."))
+                self.c_loop_de.append("", _("(no es una salida loop)"))
+                for id_c, nom_c, tipo_c in Modelo.devolver_candidatos_origen_loop(id_conector):
+                    self.c_loop_de.append(
+                        str(id_c), "%s (%s)" % (nom_c, tipo_c) if tipo_c else nom_c)
+                g7.attach(self.c_loop_de, 1, 0, 2, 1)
+                self._loop_de_inicial = Modelo.devolver_loop_de_conector(id_conector)
+                self.c_loop_de.set_active_id(
+                    str(self._loop_de_inicial) if self._loop_de_inicial else "")
+            frame_loop.add(g7)
+            self.get_content_area().pack_start(frame_loop, False, False, 6)
+
         # _pack_auditoria ya incluye la fecha de última edición en la
         # misma línea (ver docstring en pantallas_comunes.py) — no
         # llamar también a _pack_ultima_edicion, quedaría duplicada.
@@ -449,6 +496,23 @@ class _DialogoConector(Gtk.Dialog):
             if self.id_conector is not None and self.chk_entrada_referencia is not None:
                 Modelo.establecer_es_entrada_referencia_conector(
                     self.id_conector, self.chk_entrada_referencia.get_active())
+
+            # Loop-through (Fase 4.1c): va al final a propósito — el setter
+            # valida coherencia (mismo equipo, sin cadenas) y puede
+            # rechazar; si eso pasa, todo lo anterior de la ficha ya quedó
+            # guardado y sólo se avisa este campo. Sólo se llama si el valor
+            # cambió (get_active_id() None = el origen guardado no estaba en
+            # la lista de candidatos: se deja como está).
+            if self.id_conector is not None and self.c_loop_de is not None:
+                sel_loop = self.c_loop_de.get_active_id()
+                if sel_loop is not None:
+                    nuevo_loop = int(sel_loop) if sel_loop else None
+                    if nuevo_loop != self._loop_de_inicial:
+                        try:
+                            Modelo.establecer_loop_de_conector(
+                                self.id_conector, nuevo_loop)
+                        except ValueError as ex:
+                            mostrar_error(self, str(ex))
         self.destroy()
 
 

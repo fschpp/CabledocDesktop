@@ -6452,6 +6452,80 @@ class Modelo:
         )
 
     @staticmethod
+    def devolver_loops_como_distribucion():
+        """Fase 4.2 de plan_inteligencia_implicita_v1.md ("linter de
+        topología"): salidas loop-through (conector.id_conector_loop_de
+        no nulo, ver 4.1) de las que salen cables hacia MÁS DE UN equipo
+        distinto. Un loop existe para pasar la señal al siguiente eslabón
+        de la cadena (una sola conexión); si alimenta a varios equipos se
+        lo está usando como distribuidor, y ese no es su trabajo (no está
+        buffereado/terminado como una salida de distribución).
+
+        Cuenta sólo destinos reales: se ignoran los cables internos/
+        virtuales (cable.es_cable_conexion_interna=1, ej. referencia
+        virtual de frame), los extremos sueltos (conexion sin conector), el
+        equipo 0 ("sin equipo"), los FANTASMA (placeholder de un extremo
+        desconectado) y el propio equipo del loop. Una PATCHERA sí cuenta
+        como destino: un loop que va a un panel y además directo a otro
+        equipo está repartiendo. Dos cables al MISMO equipo no disparan la
+        regla (es un solo destino).
+
+        Sólo ve los loops ya marcados en su ficha; un conector loop sin
+        marcar (tipo LOOP / "LOOP" en el nombre pero sin id_conector_
+        loop_de) no aparece.
+
+        Devuelve una lista de dicts ordenada por equipo y nombre de
+        conector (orden natural):
+            {"id_conector", "nombre", "id_equipo", "equipo",
+             "id_conector_origen", "nombre_origen", "n_cables",
+             "destinos": [{"id_equipo", "nombre"}, ...]}
+        """
+        Modelo.asegurar_columna_loop_conector()
+        filas = Modelo._query(
+            "SELECT c.id_conector, c.nombre, c.id_equipo, e.nombre, "
+            "c.id_conector_loop_de, co.nombre, cx.id_cable, "
+            "e2.id_equipo, e2.nombre "
+            "FROM conector c "
+            "JOIN equipo e ON e.id_equipo = c.id_equipo "
+            "LEFT JOIN conector co ON co.id_conector = c.id_conector_loop_de "
+            "JOIN conexion cx ON cx.id_conector = c.id_conector "
+            "JOIN cable cb ON cb.id_cable = cx.id_cable "
+            "JOIN conexion cx2 ON cx2.id_cable = cx.id_cable "
+            "  AND cx2.id_conexion != cx.id_conexion "
+            "JOIN conector c2 ON c2.id_conector = cx2.id_conector "
+            "JOIN equipo e2 ON e2.id_equipo = c2.id_equipo "
+            "LEFT JOIN tipo_equipo te2 ON te2.id_tipo_equipo = e2.id_tipo_equipo "
+            "WHERE c.id_conector_loop_de IS NOT NULL "
+            "AND COALESCE(cb.es_cable_conexion_interna, 0) = 0 "
+            "AND e2.id_equipo != 0 AND e2.id_equipo != c.id_equipo "
+            "AND COALESCE(te2.rol_senal, '') != 'FANTASMA'"
+        )
+        por_loop = {}
+        for (id_c, nom_c, id_e, nom_e, id_o, nom_o,
+             id_cable, id_dest, nom_dest) in filas:
+            d = por_loop.setdefault(id_c, {
+                "id_conector": id_c, "nombre": nom_c or "",
+                "id_equipo": id_e, "equipo": nom_e or "",
+                "id_conector_origen": id_o, "nombre_origen": nom_o or "",
+                "_cables": set(), "_destinos": {},
+            })
+            d["_cables"].add(id_cable)
+            d["_destinos"][id_dest] = nom_dest or ""
+        resultado = []
+        for d in por_loop.values():
+            if len(d["_destinos"]) < 2:
+                continue
+            d["n_cables"] = len(d.pop("_cables"))
+            d["destinos"] = [
+                {"id_equipo": i, "nombre": n}
+                for i, n in sorted(d.pop("_destinos").items(),
+                                   key=lambda kv: Modelo._clave_natural(kv[1]))]
+            resultado.append(d)
+        resultado.sort(key=lambda d: (d["equipo"].lower(),
+                                      Modelo._clave_natural(d["nombre"])))
+        return resultado
+
+    @staticmethod
     def devolver_patcheras_con_estado(id_equipo_seleccionado):
         """
         Para todos los conectores de MODULO PATCHERA devuelve:
@@ -7007,6 +7081,69 @@ class Modelo:
                 "  FOREIGN KEY(id_conector_consultado) REFERENCES conector(id_conector) ON DELETE CASCADE"
                 ")"
             )
+            conn.commit()
+
+    @staticmethod
+    def asegurar_columna_loop_conector():
+        """Fase 4.1 de plan_inteligencia_implicita_v1.md: agrega
+        conector.id_conector_loop_de, la marca de \"salida loop-through\".
+
+        No es un booleano: una salida loop repite la señal de UNA entrada
+        puntual del mismo equipo, así que la columna guarda EL CONECTOR de
+        entrada del que es loop (ej. en un MULTIVIEW de 16 entradas y 16
+        salidas loop, cada salida loop apunta a su entrada). NULL = el
+        conector no es una salida loop.
+
+        Hasta ahora el loop sólo se distinguía por convención de texto
+        (tipo LOOP con direccion IN, o tipo OUT con \"LOOP\" en el nombre,
+        ver 0.2 del plan) — sin decir de qué entrada. Sin semilla
+        automática a propósito: emparejar por nombre sería adivinar (mismo
+        criterio que conector.es_entrada_referencia); se completa a mano
+        con Modelo.establecer_loop_de_conector().
+
+        También corrige, una sola vez, tipo_conector.direccion del tipo
+        'LOOP' de IN a OUT (ver comentario en el cuerpo).
+
+        ON DELETE SET NULL: si se borra la entrada de origen, la salida
+        queda sin marca en vez de borrarse o dejar un id huérfano.
+        Sólo aplica a `conector` (equipos reales): los moldes
+        (conector_catalogo) quedan fuera de esta tarea. Idempotente,
+        seguro de llamar en cada arranque.
+        """
+        Modelo.asegurar_columnas_control_idioma()  # crea tipo_conector.direccion
+        with Modelo._conn_ctx() as conn:
+            # Corrección de dato única (decisión de Fede, 2026-09-27, ver
+            # 0.2 del plan): el tipo de conector 'LOOP' quedó con
+            # direccion='IN' porque la semilla de asegurar_columnas_control_
+            # idioma sólo mira "OUT" en el nombre — pero un loop-through es
+            # una SALIDA. Con sentinel (mismo patrón que rol_patchera_
+            # fantasma) para no pisar en cada arranque un valor que alguien
+            # cambie a mano después. Sólo el tipo llamado exactamente LOOP:
+            # los tipos OUT/REFOUT con "LOOP" en el nombre del conector ya
+            # tienen dirección OUT.
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS _migracion_hardcode_idioma ("
+                "  clave TEXT PRIMARY KEY)")
+            if not conn.execute(
+                    "SELECT 1 FROM _migracion_hardcode_idioma WHERE clave=?",
+                    ("direccion_tipo_loop_out",)).fetchone():
+                conn.execute(
+                    "UPDATE tipo_conector SET direccion='OUT' "
+                    "WHERE UPPER(TRIM(nombre))='LOOP'")
+                conn.execute(
+                    "INSERT OR IGNORE INTO _migracion_hardcode_idioma (clave) "
+                    "VALUES (?)", ("direccion_tipo_loop_out",))
+            cols = [c[1] for c in conn.execute(
+                "PRAGMA table_info(conector)").fetchall()]
+            if "id_conector_loop_de" not in cols:
+                conn.execute(
+                    "ALTER TABLE conector ADD COLUMN id_conector_loop_de "
+                    "INTEGER REFERENCES conector(id_conector) "
+                    "ON DELETE SET NULL")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS ix_conector_loop_de "
+                "ON conector(id_conector_loop_de) "
+                "WHERE id_conector_loop_de IS NOT NULL")
             conn.commit()
 
     @staticmethod
@@ -7754,6 +7891,99 @@ class Modelo:
             (id_conector,),
         )
         return int(filas[0][0] or 0) if filas else 0
+
+    # -- loop-through por conector puntual (Fase 4.1, plan_inteligencia_implicita_v1) --
+    @staticmethod
+    def establecer_loop_de_conector(id_conector, id_conector_origen):
+        """Marca ESTE conector como salida loop de `id_conector_origen`
+        (la entrada del mismo equipo cuya señal repite). Con
+        id_conector_origen=None/0 le saca la marca. Levanta ValueError si
+        el vínculo no es coherente: conector inexistente, el mismo
+        conector, equipos distintos, o un origen que a su vez es loop (o
+        un conector que ya es origen de otros loops) — se evitan cadenas y
+        ciclos, un loop siempre apunta directo a una entrada."""
+        Modelo.asegurar_columna_loop_conector()
+        if not id_conector_origen:
+            Modelo._exec(
+                "UPDATE conector SET id_conector_loop_de=NULL "
+                "WHERE id_conector=?", (id_conector,))
+            return
+        if id_conector == id_conector_origen:
+            raise ValueError("Un conector no puede ser loop de sí mismo.")
+        filas = Modelo._query(
+            "SELECT id_conector, id_equipo, id_conector_loop_de "
+            "FROM conector WHERE id_conector IN (?,?)",
+            (id_conector, id_conector_origen))
+        por_id = {f[0]: f for f in filas}
+        if id_conector not in por_id or id_conector_origen not in por_id:
+            raise ValueError("El conector o su origen no existen.")
+        if por_id[id_conector][1] != por_id[id_conector_origen][1]:
+            raise ValueError(
+                "La salida loop y su entrada de origen deben ser del mismo equipo.")
+        if por_id[id_conector_origen][2]:
+            raise ValueError(
+                "El origen elegido ya es una salida loop; un loop debe "
+                "apuntar a una entrada.")
+        if Modelo._query(
+                "SELECT 1 FROM conector WHERE id_conector_loop_de=? LIMIT 1",
+                (id_conector,)):
+            raise ValueError(
+                "Este conector es origen de otro loop; no puede ser a la vez loop.")
+        Modelo._exec(
+            "UPDATE conector SET id_conector_loop_de=? WHERE id_conector=?",
+            (id_conector_origen, id_conector))
+
+    @staticmethod
+    def devolver_loop_de_conector(id_conector):
+        """id del conector de entrada del que este conector es loop, o
+        None si no es una salida loop."""
+        Modelo.asegurar_columna_loop_conector()
+        filas = Modelo._query(
+            "SELECT id_conector_loop_de FROM conector WHERE id_conector=?",
+            (id_conector,))
+        return filas[0][0] if filas and filas[0][0] else None
+
+    @staticmethod
+    def _clave_natural(texto):
+        """Clave de orden natural para nombres (IN2 antes que IN10): los
+        tramos numéricos comparan como número, el resto como texto."""
+        return [(0, int(t), "") if t.isdigit() else (1, 0, t)
+                for t in re.split(r"(\d+)", (texto or "").lower()) if t != ""]
+
+    @staticmethod
+    def devolver_candidatos_origen_loop(id_conector):
+        """Conectores del MISMO equipo que pueden ser el origen (la
+        entrada) de una salida loop `id_conector`: todos los demás del
+        equipo salvo los que ya son loop de otro (un loop apunta directo a
+        una entrada, sin cadenas). No filtra por tipo_conector.direccion a
+        propósito: esa columna se pobló con un criterio laxo por nombre y
+        ocultaría entradas válidas. Devuelve [(id, nombre, tipo)] en orden
+        natural de nombre (IN2 antes que IN10). Lista vacía si el conector
+        no existe."""
+        Modelo.asegurar_columna_loop_conector()
+        fila = Modelo._query(
+            "SELECT id_equipo FROM conector WHERE id_conector=?", (id_conector,))
+        if not fila or fila[0][0] is None:
+            return []
+        filas = Modelo._query(
+            "SELECT c.id_conector, c.nombre, tc.nombre "
+            "FROM conector c "
+            "LEFT JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector "
+            "WHERE c.id_equipo=? AND c.id_conector<>? "
+            "AND c.id_conector_loop_de IS NULL",
+            (fila[0][0], id_conector))
+
+        return [(f[0], f[1] or "", f[2] or "")
+                for f in sorted(filas, key=lambda f: Modelo._clave_natural(f[1]))]
+
+    @staticmethod
+    def devolver_loops_de_conector(id_conector_origen):
+        """ids de las salidas loop que repiten la entrada dada (lista
+        vacía si no tiene ninguna)."""
+        Modelo.asegurar_columna_loop_conector()
+        return [f[0] for f in Modelo._query(
+            "SELECT id_conector FROM conector WHERE id_conector_loop_de=? "
+            "ORDER BY id_conector", (id_conector_origen,))]
 
     # ── Diagramas personalizados (guardados) ────────────────────────────────
     # Feature aparte: diagramas armados a mano por el usuario (equipos +
