@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-28 — Fase 4.3 de `plan_inteligencia_implicita_v1.md` (tarjeta "Loop como distribución" + bugfix 4.1d), sobre `main` en `17b30af` (PR #77)_
+_Última actualización: 2026-09-28 — Fase 4.3 de `plan_inteligencia_implicita_v1.md` (regla "Loop en uso" ajustada: incluye destino FANTASMA), sobre `main` en `2d2fd0b`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -210,13 +210,15 @@ referencia rápida para no repetirlos:
 **Sesión 2026-09-28 — Fase 4.3 de `plan_inteligencia_implicita_v1.md`, sobre `main` en `17b30af` (PR #77: 4.1 y 4.2 ya mergeadas). Tarjeta "⚠️ Loop como distribución" en el panel de pendientes de equipos + bugfix 4.1d (str/int en `establecer_loop_de_conector`). Pendiente de smoke test GTK/Xvfb y commit de Fede.**
 
 ### Current Focus
-Cerrar la Fase 4 del plan (4.3: UI de la detección de loop usado como distribución).
+Regla de la Fase 4 revisada por Fede: toda salida loop con un cable real está mal vista (equipo, patchera, enrutador o FANTASMA; no sólo "2+ destinos"). Detección, contador, filtro, tarjeta y plan reescritos como "Loop en uso".
 
 ### Todo List
 - [x] 4.1 / 4.1b / 4.1c — columna `conector.id_conector_loop_de`, tipo `LOOP` a `OUT`, UI en la ficha (en `main`).
-- [x] 4.2 — `devolver_loops_como_distribucion` + priorización por riesgo (en `main`).
+- [x] 4.2 — `devolver_loops_en_uso` (reemplaza a `devolver_loops_como_distribucion`) + priorización por riesgo.
 - [x] 4.3 — tarjeta, contador y filtro del listado (diff presentado; validado con py_compile, pyflakes y smoke test de datos).
 - [x] 4.1d — `establecer_loop_de_conector` normaliza ids a `int`.
+- [x] `ui_gtk/equipos_ui.py`: el filtro `loop_en_uso` faltaba en `main` (la entrega anterior no lo incluyó); agregado.
+- [x] Ajuste 2026-09-28: destino FANTASMA también cuenta como loop en uso (antes se excluía).
 - [/] Fede: smoke test GTK real de la tarjeta y commit.
 - [ ] Fase 2 (referencia en cascada) y Fase 1 (criticidad) — pendientes; Fase 2 sigue bloqueada por la lista blanca de 0.3.
 

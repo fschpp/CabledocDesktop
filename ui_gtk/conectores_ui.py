@@ -350,8 +350,9 @@ class _DialogoConector(Gtk.Dialog):
                 self.c_loop_de.set_tooltip_text(
                     _("Si este conector es una salida loop-through (repite la señal de "
                       "una entrada del mismo equipo), elegí acá de cuál entrada. Se usa "
-                      "para detectar un loop usado como distribución (más de un cable "
-                      "saliendo de la misma salida loop hacia equipos distintos)."))
+                      "para que el linter avise si la salida loop tiene un cable "
+                      "conectado (un loop no debe usarse en la cadena, ni siquiera "
+                      "hacia una patchera o un enrutador)."))
                 self.c_loop_de.append("", _("(no es una salida loop)"))
                 for id_c, nom_c, tipo_c in Modelo.devolver_candidatos_origen_loop(id_conector):
                     self.c_loop_de.append(

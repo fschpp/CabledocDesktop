@@ -4814,12 +4814,12 @@ class Modelo:
         # riesgo (ver core/linter_topologia.py), así el número de esta
         # tarjeta nunca puede discrepar con lo que se ve al tocar "ver →".
         fuera_de_patchera = len(Modelo.devolver_equipos_fuera_de_patchera())
-        # Fase 4.3: equipos con al menos una salida loop usada como
-        # distribución (Modelo.devolver_loops_como_distribucion, 4.2). Se
+        # Fase 4.3: equipos con al menos una salida loop en uso, o sea con
+        # un cable real conectado (Modelo.devolver_loops_en_uso, 4.2). Se
         # cuentan EQUIPOS distintos (no loops) porque es lo que lista el
         # "ver →" (una fila por equipo): así el número nunca discrepa.
-        loop_como_distribucion = len({
-            r["id_equipo"] for r in Modelo.devolver_loops_como_distribucion()})
+        loop_en_uso = len({
+            r["id_equipo"] for r in Modelo.devolver_loops_en_uso()})
         return {
             "sin_conectores":    sin_conectores,
             "sin_imagen":        sin_imagen,
@@ -4829,7 +4829,7 @@ class Modelo:
             "sin_manual":         sin_manual,
             "sin_configuraciones": sin_configuraciones,
             "fuera_de_patchera": fuera_de_patchera,
-            "loop_como_distribucion": loop_como_distribucion,
+            "loop_en_uso": loop_en_uso,
         }
 
     @staticmethod
@@ -6459,23 +6459,29 @@ class Modelo:
         )
 
     @staticmethod
-    def devolver_loops_como_distribucion():
+    def devolver_loops_en_uso():
         """Fase 4.2 de plan_inteligencia_implicita_v1.md ("linter de
-        topología"): salidas loop-through (conector.id_conector_loop_de
-        no nulo, ver 4.1) de las que salen cables hacia MÁS DE UN equipo
-        distinto. Un loop existe para pasar la señal al siguiente eslabón
-        de la cadena (una sola conexión); si alimenta a varios equipos se
-        lo está usando como distribuidor, y ese no es su trabajo (no está
-        buffereado/terminado como una salida de distribución).
+        topología"), regla revisada 2026-09-28: TODA salida loop-through
+        (conector.id_conector_loop_de no nulo, ver 4.1) que tenga un cable
+        real conectado está mal vista, sin importar hacia dónde vaya (un
+        equipo, una PATCHERA, un ENRUTADOR) ni a cuántos destinos. Un loop
+        no es una salida de distribución (no está buffereada/terminada
+        como tal): la señal debe salir por las salidas normales, y el loop
+        queda libre. Ejemplo típico: las salidas loop de un MULTIVIEW
+        cableadas a la patchera.
 
-        Cuenta sólo destinos reales: se ignoran los cables internos/
-        virtuales (cable.es_cable_conexion_interna=1, ej. referencia
-        virtual de frame), los extremos sueltos (conexion sin conector), el
-        equipo 0 ("sin equipo"), los FANTASMA (placeholder de un extremo
-        desconectado) y el propio equipo del loop. Una PATCHERA sí cuenta
-        como destino: un loop que va a un panel y además directo a otro
-        equipo está repartiendo. Dos cables al MISMO equipo no disparan la
-        regla (es un solo destino).
+        (La versión anterior sólo marcaba loops que alimentaban a MÁS DE UN
+        equipo distinto; eso dejaba pasar justamente el caso común, un loop
+        a patchera, y sobre la base real no detectaba ninguno.)
+
+        Cuenta sólo cables reales: se ignoran los cables internos/virtuales
+        (cable.es_cable_conexion_interna=1, ej. referencia virtual de
+        frame), los extremos sueltos (conexion sin conector), el equipo 0
+        ("sin equipo") y el propio equipo del loop. Un FANTASMA (placeholder
+        de un extremo desconectado) SÍ cuenta como destino: un loop cableado
+        a un FANTASMA sigue siendo un loop en uso, no es un extremo suelto
+        real (decisión de Fede, 2026-09-28). Un loop sin ningún cable no
+        aparece.
 
         Sólo ve los loops ya marcados en su ficha; un conector loop sin
         marcar (tipo LOOP / "LOOP" en el nombre pero sin id_conector_
@@ -6485,13 +6491,13 @@ class Modelo:
         conector (orden natural):
             {"id_conector", "nombre", "id_equipo", "equipo",
              "id_conector_origen", "nombre_origen", "n_cables",
-             "destinos": [{"id_equipo", "nombre"}, ...]}
+             "destinos": [{"id_equipo", "nombre", "rol_senal"}, ...]}
         """
         Modelo.asegurar_columna_loop_conector()
         filas = Modelo._query(
             "SELECT c.id_conector, c.nombre, c.id_equipo, e.nombre, "
             "c.id_conector_loop_de, co.nombre, cx.id_cable, "
-            "e2.id_equipo, e2.nombre "
+            "e2.id_equipo, e2.nombre, te2.rol_senal "
             "FROM conector c "
             "JOIN equipo e ON e.id_equipo = c.id_equipo "
             "LEFT JOIN conector co ON co.id_conector = c.id_conector_loop_de "
@@ -6504,12 +6510,11 @@ class Modelo:
             "LEFT JOIN tipo_equipo te2 ON te2.id_tipo_equipo = e2.id_tipo_equipo "
             "WHERE c.id_conector_loop_de IS NOT NULL "
             "AND COALESCE(cb.es_cable_conexion_interna, 0) = 0 "
-            "AND e2.id_equipo != 0 AND e2.id_equipo != c.id_equipo "
-            "AND COALESCE(te2.rol_senal, '') != 'FANTASMA'"
+            "AND e2.id_equipo != 0 AND e2.id_equipo != c.id_equipo"
         )
         por_loop = {}
         for (id_c, nom_c, id_e, nom_e, id_o, nom_o,
-             id_cable, id_dest, nom_dest) in filas:
+             id_cable, id_dest, nom_dest, rol_dest) in filas:
             d = por_loop.setdefault(id_c, {
                 "id_conector": id_c, "nombre": nom_c or "",
                 "id_equipo": id_e, "equipo": nom_e or "",
@@ -6517,16 +6522,14 @@ class Modelo:
                 "_cables": set(), "_destinos": {},
             })
             d["_cables"].add(id_cable)
-            d["_destinos"][id_dest] = nom_dest or ""
+            d["_destinos"][id_dest] = (nom_dest or "", rol_dest or "")
         resultado = []
         for d in por_loop.values():
-            if len(d["_destinos"]) < 2:
-                continue
             d["n_cables"] = len(d.pop("_cables"))
             d["destinos"] = [
-                {"id_equipo": i, "nombre": n}
-                for i, n in sorted(d.pop("_destinos").items(),
-                                   key=lambda kv: Modelo._clave_natural(kv[1]))]
+                {"id_equipo": i, "nombre": n, "rol_senal": r}
+                for i, (n, r) in sorted(d.pop("_destinos").items(),
+                                        key=lambda kv: Modelo._clave_natural(kv[1][0]))]
             resultado.append(d)
         resultado.sort(key=lambda d: (d["equipo"].lower(),
                                       Modelo._clave_natural(d["nombre"])))
