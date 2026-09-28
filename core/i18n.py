@@ -131,6 +131,9 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Equipos — Sin picon": {
         "en": "Equipment — No picon",
         "pt": "Equipamentos — Sem picon"},
+    "Equipos — Criticidad alta": {
+        "en": "Equipment — High criticality",
+        "pt": "Equipamentos — Criticidade alta"},
     "Equipos — Sin imagen": {
         "en": "Equipment — No image",
         "pt": "Equipamentos — Sem imagem"},
@@ -228,6 +231,7 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "❓ Sin conexión": {"en": "❓ No connection",   "pt": "❓ Sem conexão"},
     "🔌 Sin conectores":     {"en": "🔌 No connectors","pt": "🔌 Sem conectores"},
     "📷 Sin picon":          {"en": "📷 No picon",      "pt": "📷 Sem picon"},
+    "🎯 Criticidad alta":    {"en": "🎯 High criticality", "pt": "🎯 Criticidade alta"},
     "🖼 Sin imagen":         {"en": "🖼 No image",     "pt": "🖼 Sem imagem"},
     "📍 Sin imagen c/ conect.": {
         "en": "📍 No image w/ conn.",
