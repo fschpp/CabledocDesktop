@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260923231500"
+APP_VERSION = "1.20260927120000"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -634,6 +634,9 @@ class VentanaPrincipal(Gtk.Window):
         # dedicadas (tipo_equipo.rol_senal ampliado, tipo_conector.direccion/
         # es_referencia_generada, conector.fila_patchera).
         Modelo.asegurar_columnas_control_idioma()
+        # plan_inteligencia_implicita_v1.md — Fase 4.1: conector.
+        # id_conector_loop_de (de qué entrada es loop una salida).
+        Modelo.asegurar_columna_loop_conector()
         # plan_riesgo_senal_audio.md: columnas de los 3 ejes de riesgo de
         # calidad de señal (atenuación / ancho de banda / mismatch de
         # formato), separado del impacto lógico de asegurar_tablas_riesgo.
