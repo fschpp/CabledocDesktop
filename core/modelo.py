@@ -4814,6 +4814,12 @@ class Modelo:
         # riesgo (ver core/linter_topologia.py), así el número de esta
         # tarjeta nunca puede discrepar con lo que se ve al tocar "ver →".
         fuera_de_patchera = len(Modelo.devolver_equipos_fuera_de_patchera())
+        # Fase 4.3: equipos con al menos una salida loop usada como
+        # distribución (Modelo.devolver_loops_como_distribucion, 4.2). Se
+        # cuentan EQUIPOS distintos (no loops) porque es lo que lista el
+        # "ver →" (una fila por equipo): así el número nunca discrepa.
+        loop_como_distribucion = len({
+            r["id_equipo"] for r in Modelo.devolver_loops_como_distribucion()})
         return {
             "sin_conectores":    sin_conectores,
             "sin_imagen":        sin_imagen,
@@ -4823,6 +4829,7 @@ class Modelo:
             "sin_manual":         sin_manual,
             "sin_configuraciones": sin_configuraciones,
             "fuera_de_patchera": fuera_de_patchera,
+            "loop_como_distribucion": loop_como_distribucion,
         }
 
     @staticmethod
@@ -7903,11 +7910,17 @@ class Modelo:
         un conector que ya es origen de otros loops) — se evitan cadenas y
         ciclos, un loop siempre apunta directo a una entrada."""
         Modelo.asegurar_columna_loop_conector()
+        # La ficha (_DialogoConector) guarda id_conector como str y el combo
+        # devuelve el origen como int, mientras que Modelo._query devuelve
+        # ids int: sin normalizar, el chequeo de existencia de más abajo
+        # (`in por_id`) fallaba siempre con "no existen" (bugfix 4.1d).
+        id_conector = int(id_conector)
         if not id_conector_origen:
             Modelo._exec(
                 "UPDATE conector SET id_conector_loop_de=NULL "
                 "WHERE id_conector=?", (id_conector,))
             return
+        id_conector_origen = int(id_conector_origen)
         if id_conector == id_conector_origen:
             raise ValueError("Un conector no puede ser loop de sí mismo.")
         filas = Modelo._query(

@@ -248,7 +248,16 @@ Condicional al resultado de **0.2**.
       internos/virtuales, extremos sueltos, FANTASMA y el propio equipo;
       una PATCHERA cuenta). Sólo ve loops ya marcados en su ficha (4.1c).
 
-- [ ] **4.3** — UI: tarjeta "⚠️ Loop usado como distribución".
+- [x] **4.3** — UI: tarjeta "⚠️ Loop usado como distribución".
+      **Resultado (2026-09-28):** tarjeta "⚠️ Loop como distribución" en
+      el panel "Trabajo pendiente — Equipos" (`ui_gtk/cabledoc.py`), clave
+      `loop_como_distribucion` en `Modelo.devolver_pendientes_equipos()` y
+      `filtro_pendiente="loop_como_distribucion"` en `EquiposListado`
+      (ids vía `linter_topologia.ids_equipos_loop_como_distribucion_priorizados`,
+      ordenados por riesgo). El contador cuenta EQUIPOS distintos (no
+      loops), igual que las filas del "ver →". Incluye el bugfix 4.1d:
+      `establecer_loop_de_conector` normaliza ids a `int` (la ficha pasa
+      `str`; el chequeo de existencia fallaba siempre).
 
 ---
 

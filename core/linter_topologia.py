@@ -107,3 +107,17 @@ def loops_como_distribucion_priorizados(db_path=None) -> list:
     loops.sort(key=lambda r: (r["riesgo"] is None, -(r["riesgo"] or 0),
                               -len(r["destinos"])))
     return loops
+
+
+def ids_equipos_loop_como_distribucion_priorizados(db_path=None) -> list:
+    """Atajo para la UI (ver ui_gtk/equipos_ui.py,
+    filtro_pendiente='loop_como_distribucion', Fase 4.3): ids (str) de los
+    EQUIPOS dueños de al menos una salida loop usada como distribución,
+    sin repetir, en el orden de prioridad de
+    loops_como_distribucion_priorizados() (primero el de más riesgo)."""
+    vistos = []
+    for r in loops_como_distribucion_priorizados(db_path):
+        id_eq = str(r["id_equipo"])
+        if id_eq not in vistos:
+            vistos.append(id_eq)
+    return vistos

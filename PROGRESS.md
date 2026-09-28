@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-27 — Fase 0 de `plan_inteligencia_implicita_v1.md` (0.1, 0.2, 0.3: confirmación de esquema, sólo documentación), sobre `main` en `00ce421`_
+_Última actualización: 2026-09-28 — Fase 4.3 de `plan_inteligencia_implicita_v1.md` (tarjeta "Loop como distribución" + bugfix 4.1d), sobre `main` en `17b30af` (PR #77)_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -206,6 +206,25 @@ referencia rápida para no repetirlos:
 ---
 
 ## Current Focus
+
+**Sesión 2026-09-28 — Fase 4.3 de `plan_inteligencia_implicita_v1.md`, sobre `main` en `17b30af` (PR #77: 4.1 y 4.2 ya mergeadas). Tarjeta "⚠️ Loop como distribución" en el panel de pendientes de equipos + bugfix 4.1d (str/int en `establecer_loop_de_conector`). Pendiente de smoke test GTK/Xvfb y commit de Fede.**
+
+### Current Focus
+Cerrar la Fase 4 del plan (4.3: UI de la detección de loop usado como distribución).
+
+### Todo List
+- [x] 4.1 / 4.1b / 4.1c — columna `conector.id_conector_loop_de`, tipo `LOOP` a `OUT`, UI en la ficha (en `main`).
+- [x] 4.2 — `devolver_loops_como_distribucion` + priorización por riesgo (en `main`).
+- [x] 4.3 — tarjeta, contador y filtro del listado (diff presentado; validado con py_compile, pyflakes y smoke test de datos).
+- [x] 4.1d — `establecer_loop_de_conector` normaliza ids a `int`.
+- [/] Fede: smoke test GTK real de la tarjeta y commit.
+- [ ] Fase 2 (referencia en cascada) y Fase 1 (criticidad) — pendientes; Fase 2 sigue bloqueada por la lista blanca de 0.3.
+
+### Latest Blockers/Discoveries
+- Gtk no está disponible en el entorno de trabajo de Claude: la tarjeta sólo se validó en la capa de datos.
+- Sin cambios de esquema en esta entrega.
+
+## Current Focus (sesión anterior)
 
 **Sesión 2026-09-27 — Fase 0 de `plan_inteligencia_implicita_v1.md` (confirmar esquema), sobre `main` en `00ce421` (PR #75: Fase 3 del mismo plan ya mergeada). 0.1, 0.2 y 0.3 entregadas como diffs y luego corregidas al revisar la base real (`db.db`); sólo documentación, sin cambios de código ni de APP_VERSION.**
 
