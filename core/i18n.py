@@ -216,6 +216,10 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Trabajo pendiente — Auditoría": {
         "en": "Pending work — Audit",
         "pt": "Trabalho pendente — Auditoria"},
+    "Trabajo pendiente":        {"en": "Pending work",   "pt": "Trabalho pendente"},
+    "Topología":                {"en": "Topology",       "pt": "Topologia"},
+    "Riesgo de señal":          {"en": "Signal risk",    "pt": "Risco de sinal"},
+    "Auditoría":                {"en": "Audit",          "pt": "Auditoria"},
     "Listo":                    {"en": "Ready",         "pt": "Pronto"},
 
     # Accesos rápidos
@@ -239,6 +243,10 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "📷 Sin picon":          {"en": "📷 No picon",      "pt": "📷 Sem picon"},
     "🎯 Criticidad alta":    {"en": "🎯 High criticality", "pt": "🎯 Criticidade alta"},
     "⚠️ Referencia en cascada": {"en": "⚠️ Cascaded reference", "pt": "⚠️ Referência em cascata"},
+    "⚠️ Fuera de distribuidor": {"en": "⚠️ Outside distributor", "pt": "⚠️ Fora do distribuidor"},
+    "Equipos — Fuera de distribuidor": {
+        "en": "Equipment — Outside distributor",
+        "pt": "Equipamentos — Fora do distribuidor"},
     "🖼 Sin imagen":         {"en": "🖼 No image",     "pt": "🖼 Sem imagem"},
     "📍 Sin imagen c/ conect.": {
         "en": "📍 No image w/ conn.",

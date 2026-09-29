@@ -76,7 +76,7 @@ from pantallas_avanzadas import (
 # ─── Equipos ──────────────────────────────────────────────────────────────────
 
 class EquiposListado(VentanaListado):
-    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla' | 'fuera_de_patchera' | 'loop_en_uso' | 'referencia_en_cascada' | 'criticidad_alta'
+    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla' | 'fuera_de_patchera' | 'fuera_de_distribuidor' | 'loop_en_uso' | 'referencia_en_cascada' | 'criticidad_alta'
     def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None,
                  excluir_modulos_de_frame=False):
         self._ocultar_patcheras = True   # debe existir antes de super().__init__
@@ -105,6 +105,8 @@ class EquiposListado(VentanaListado):
             titulo = _("Equipos — Auditoría vencida")
         elif filtro_pendiente == "fuera_de_patchera":
             titulo = _("Equipos — Fuera de patchera")
+        elif filtro_pendiente == "fuera_de_distribuidor":
+            titulo = _("Equipos — Fuera de distribuidor")
         elif filtro_pendiente == "loop_en_uso":
             titulo = _("Equipos — Loop en uso")
         elif filtro_pendiente == "referencia_en_cascada":
@@ -258,6 +260,14 @@ class EquiposListado(VentanaListado):
             # ya priorizado por riesgo — ver core/linter_topologia.py.
             from core.linter_topologia import ids_equipos_fuera_de_patchera_priorizados
             self._ids_resaltar = set(ids_equipos_fuera_de_patchera_priorizados())
+            color = "#c8a800"
+        elif self._filtro_pendiente == "fuera_de_distribuidor":
+            # Regla "Fuera de distribuidor" del linter de topología: equipos
+            # cuyas salidas cableadas no entran directo a un distribuidor
+            # (Modelo.devolver_equipos_fuera_de_distribuidor) — mismo
+            # criterio que el contador del dashboard, priorizado por riesgo.
+            from core.linter_topologia import ids_equipos_fuera_de_distribuidor_priorizados
+            self._ids_resaltar = set(ids_equipos_fuera_de_distribuidor_priorizados())
             color = "#c8a800"
         elif self._filtro_pendiente == "loop_en_uso":
             # Fase 4.3 de plan_inteligencia_implicita_v1.md: equipos con al
