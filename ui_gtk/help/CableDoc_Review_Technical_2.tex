@@ -7,6 +7,11 @@
 %  the 2026-09-01 delivery (pantallas_avanzadas.py refactor
 %  completion, Entregas 5-6; splice tracking; ghost quick-add;
 %  quick-wiring canvas reuse; SVG + percentage coordinates).
+%  REVISION 2026-09-29: brought up to the state of main as of
+%  2026-09-28 (PR #82). Adds: cabledoc.py refactor (Entregas 1-10),
+%  core/ui_gtk/ui_kivy split and GraphQLite removal, floor plans,
+%  vector panels, virtual frame reference, audit-date features,
+%  topology linter, Kivy parity phases, plans ledger.
 % ============================================================
 
 \usepackage{fontspec}
@@ -46,7 +51,7 @@
 \renewcommand{\footrulewidth}{0.3pt}
 \fancyhead[L]{\headfont\small\textcolor{BDgray}{PATCH \& CODE}}
 \fancyhead[R]{\headfont\small\textcolor{BDgray}{Plant-software audit}}
-\fancyfoot[L]{\headfont\footnotesize\textcolor{BDgray}{September 2026 — 2nd edition}}
+\fancyfoot[L]{\headfont\footnotesize\textcolor{BDgray}{September 2026 — 2nd edition, rev. 28 Sep}}
 \fancyfoot[C]{\headfont\footnotesize\textcolor{BDgray}{\thepage}}
 \fancyfoot[R]{\headfont\footnotesize\textcolor{BDgray}{CableDoc Desktop — Technical Review}}
 
@@ -82,12 +87,12 @@
   colback=BDpanel, colframe=BDrule, boxrule=0.6pt, arc=1pt,
   fonttitle=\headfont\bfseries, coltitle=BDink,
   colbacktitle=white, top=3pt, bottom=3pt, left=5pt, right=5pt,
-  title=#1, breakable
+  title={#1}, breakable
 }
 \newtcolorbox{bugbox}[1]{
   colback=white, colframe=BDwarn, boxrule=0.7pt, arc=1pt,
   fonttitle=\headfont\bfseries, coltitle=white, colbacktitle=BDwarn,
-  title=#1, breakable, left=5pt, right=5pt, top=3pt, bottom=3pt
+  title={#1}, breakable, left=5pt, right=5pt, top=3pt, bottom=3pt
 }
 
 \newcommand{\dropcap}[1]{\lettrine[lines=3,lraise=0.05,nindent=0pt,slope=0pt,findent=2pt]{\headfont\color{BDaccent}#1}{}}
@@ -104,7 +109,7 @@
 {\headfont\bfseries\color{BDink}\fontsize{26}{30}\selectfont CableDoc Desktop}\\[0.12cm]
 {\headfont\color{BDaccent}\large From the Paper Patch Bay to a Directed Graph — and Back to a Facade}\\[0.28cm]
 {\color{BDgray}\normalsize An exhaustive, rack-by-rack review of a cable-plant documentation tool that stopped being a spreadsheet with pretty pictures and started reasoning about its own topology}\\[0.32cm]
-{\headfont\small\color{BDgray}By a plant engineer turned software developer \;\textbullet\; Second edition, updated through September 2026}\\[0.4cm]
+{\headfont\small\color{BDgray}By a plant engineer turned software developer \;\textbullet\; Second edition, revised against the 28 September 2026 state of \texttt{main}}\\[0.4cm]
 \textcolor{BDrule}{\rule{\linewidth}{1.0pt}}
 \vspace{0.25cm}
 \par}]
@@ -127,10 +132,10 @@ CableDoc Desktop is a Python 3 desktop application on GTK3 (PyGObject), with SQL
 
 \begin{specbox}{Spec sheet (as of this edition)}
 \begin{itemize}[leftmargin=1.0em,itemsep=1pt,topsep=2pt]
-\item \textbf{Stack:} Python 3.10+, GTK3/PyGObject, Cairo, SQLite 3
-\item \textbf{Graph engine:} GraphQLite (\texttt{graphqlite.graph.Graph}), a Rust/C SQLite extension with Cypher support
-\item \textbf{Schema:} 47 tables, 17 SQL views (grown from 44/14 at the previous edition)
-\item \textbf{Python modules:} at least 34 named files across the changelog, up from 19 at first writing --- the growth is almost entirely the product of the internal refactor described in \S\ref{sec:refactor}, not of duplicated logic
+\item \textbf{Stack:} Python 3.10+, GTK3/PyGObject and Cairo (desktop), Kivy on Pydroid 3 (Android), SQLite 3
+\item \textbf{Graph engine:} a pure-Python adjacency mirror inside \texttt{graph\_impact.py}. GraphQLite and the Cypher console were retired on 11 September 2026 (see \S\ref{sec:core})
+\item \textbf{Schema:} 48 tables, 17 SQL views in \texttt{data/schema\_db.sql} (44/14 at first writing, 47/17 at the previous revision)
+\item \textbf{Python modules:} about 87 files and 66{,}800 lines, measured on the clone: 14 in \texttt{core/} (15{,}433 lines), 47 in \texttt{ui\_gtk/} (31{,}614) and 26 in \texttt{ui\_kivy/} (19{,}741). The growth since first writing is the product of the refactors in \S\ref{sec:refactor} and \S\ref{sec:core}, not of duplicated logic
 \item \textbf{i18n:} Spanish (base) + English + Portuguese, 300+ translated keys
 \item \textbf{Production data cited in the changelog:} on the order of 414 pieces of equipment, 216 patch bays, 35 GHOST-type placeholders
 \end{itemize}
@@ -144,7 +149,7 @@ Before this CableDoc there was a VB.NET/WinForms version. The full rewrite to Py
 
 The Python version dropped Graphviz entirely. The project's own \texttt{README.md} says so plainly: Graphviz and the \texttt{dot} command are no longer needed --- diagrams are drawn with Cairo, no more PDFs generated via Graphviz. All drawing --- nodes, Bézier curves for patch cords, the minimap, status badges, coloring by signal or by risk --- happens directly on a \texttt{Gtk.DrawingArea} with Cairo. No intermediate text, no external process, no re-parsing.
 
-But the deeper change is not in rendering, it's in analysis. The VB.NET version, as far as I can reconstruct its scope, had no real impact-simulation engine; the graph, where it existed, was mostly for drawing. The Python version introduced \texttt{graph\_impact.py}, which builds the full signal graph in memory using \textbf{GraphQLite}, a SQLite extension written in Rust and C with Cypher query support. That is an uncommon architectural choice, and in my judgment the right one: instead of hand-rolling a BFS/Dijkstra over Python dictionaries --- which works, but scales poorly and is easy to get subtly wrong --- the project leans on a real embedded graph engine with its own query language, no separate server required.
+But the deeper change is not in rendering, it's in analysis. The VB.NET version, as far as I can reconstruct its scope, had no real impact-simulation engine; the graph, where it existed, was mostly for drawing. The Python version introduced \texttt{graph\_impact.py}, which builds the full signal graph in memory. Earlier versions of this review praised the project for leaning on \textbf{GraphQLite}, an embedded graph engine with Cypher support, instead of hand-rolling a traversal. A closer reading of the code corrected that judgment: the graph was loaded into GraphQLite once and never queried again, and every BFS, GHOST exclusion, matrix routing and AND/OR rule ran over a plain-Python adjacency mirror the module built itself. On 11 September 2026 the dependency, the Cypher console and about seventeen i18n keys were removed at the developer's explicit request, and \texttt{graph\_impact.py} now carries a plain boolean flag where the engine handle used to be. Impact results did not change, which is the strongest evidence the removal was safe.
 
 \begin{bugbox}{The one piece that crossed over intact}
 Of the entire data-access layer of the prior version, exactly one piece survived the full rewrite unchanged in substance: the SQL view \texttt{CONEXIONES\_AMBOS\_EXTREMOS}, a self-join over the base view \texttt{CONEXIONES} that resolves both ends of a cable (equipment, type, connector) into a single row. Eleven years of UI code --- CRUD forms, exports, the graph engine itself via \texttt{\_leer\_bd()} --- still query it by column position. A single piece of logic surviving a full rewrite of framework, rendering language, and analysis engine says something about how well that query was designed in the first place.
@@ -157,12 +162,11 @@ An honest review can't skip the size distribution of the files, because that's w
 
 \begin{specbox}{Where the lines live now}
 \begin{itemize}[leftmargin=1.0em,itemsep=1pt,topsep=2pt]
-\item \texttt{cabledoc.py} --- main window, menus, every CRUD dialog; still the single largest file (grew slightly, then shrank again once the legacy node editor was removed in Entrega 6)
-\item \texttt{modelo.py} --- the entire data-access layer, now past 5{,}000 lines after absorbing splice tracking, percentage coordinates and the ghost quick-add helpers
-\item \texttt{diagrama\_conexiones\_ui.py} --- 1{,}694 lines; the connection-diagram window itself plus its remaining satellite dialogs, composed from \textbf{fifteen} mixins spread across as many files
-\item \texttt{patcheras\_ui.py} --- 1{,}519 lines; the global patch-bay view, extracted whole in Entrega 3
-\item \texttt{cypher\_console.py} --- 1{,}864 lines (interactive Cypher console)
-\item \texttt{graph\_impact.py} --- 1{,}369 lines (the signal graph engine)
+\item \texttt{cabledoc.py} --- main window, menus and the home dashboard: 1{,}258 lines after the ten-stage refactor of September (it stood at roughly 9{,}400 before), with the CRUD dialogs now living in a dozen domain modules
+\item \texttt{core/modelo.py} --- the entire data-access layer, now the largest file in the project: 9{,}414 lines and 463 methods in a single \texttt{Modelo} class. The mixin split planned for it has not started (see \S\ref{sec:plans})
+\item \texttt{diagrama\_conexiones\_ui.py} --- 1{,}709 lines; the connection-diagram window itself plus its remaining satellite dialogs, composed from \textbf{fifteen} mixins spread across as many files
+\item \texttt{patcheras\_ui.py} --- 1{,}594 lines; the global patch-bay view, extracted whole in Entrega 3
+\item \texttt{core/graph\_impact.py} --- 1{,}767 lines (the signal graph engine)
 \end{itemize}
 \end{specbox}
 
@@ -170,7 +174,7 @@ The mixin-by-inheritance pattern that already organized the diagram window at fi
 
 \subsection{The data model: catalog vs.\ instance, still strict}
 
-The SQLite schema now has 47 tables and 17 views. One design detail that keeps showing up in the changelog, and is worth calling out because it's easy to overlook in smaller projects: the strict separation between \emph{catalog} tables (reusable templates: \texttt{equipo\_catalogo}, \texttt{conector\_catalogo}, \texttt{slot\_catalogo}, \texttt{frame\_catalogo}) and \emph{real instance} tables (\texttt{equipo}, \texttt{conector}, \texttt{slot}, \texttt{frame}). When the AND/OR logic-rule engine was added for equipment gates (modeling a DSK or any multi-input conditional combiner), the project didn't mix rule definition with rule instance: it created \texttt{regla\_logica\_catalogo} / \texttt{\_miembro} / \texttt{\_salida} as tables separate from \texttt{regla\_logica} / \texttt{\_miembro} / \texttt{\_salida}, deliberately mirroring the same pattern equipment and connectors already used. That same discipline was applied again a month later to the two biggest additions in this edition --- splice tracking and electrical-format fields --- and it's the kind of discipline that's easy to drop under deadline pressure and, here, wasn't.
+The SQLite schema now has 48 tables and 17 views. One design detail that keeps showing up in the changelog, and is worth calling out because it's easy to overlook in smaller projects: the strict separation between \emph{catalog} tables (reusable templates: \texttt{equipo\_catalogo}, \texttt{conector\_catalogo}, \texttt{slot\_catalogo}, \texttt{frame\_catalogo}) and \emph{real instance} tables (\texttt{equipo}, \texttt{conector}, \texttt{slot}, \texttt{frame}). When the AND/OR logic-rule engine was added for equipment gates (modeling a DSK or any multi-input conditional combiner), the project didn't mix rule definition with rule instance: it created \texttt{regla\_logica\_catalogo} / \texttt{\_miembro} / \texttt{\_salida} as tables separate from \texttt{regla\_logica} / \texttt{\_miembro} / \texttt{\_salida}, deliberately mirroring the same pattern equipment and connectors already used. That same discipline was applied again a month later to the two biggest additions in this edition --- splice tracking and electrical-format fields --- and it's the kind of discipline that's easy to drop under deadline pressure and, here, wasn't.
 
 \section{The core of the system: the signal-impact engine}
 
@@ -214,7 +218,7 @@ Every cut that fails to reconstruct the full chain is classified into one of six
 
 CableDoc was born in Spanish and internationalized to English and Portuguese without touching the data model or rewriting the UI. The mechanism is deliberately simple: a 300-plus-key \texttt{i18n.py} dictionary (key = Spanish text, value = per-language translations) accessed through a gettext-style \texttt{\_()} function. What makes the process interesting, more than the result, is the application pipeline: rather than hand-translating hundreds of scattered string literals across 8{,}000-plus lines of GTK dialogs, the project built \texttt{auto\_wrap.py}, an AST-based script that automatically wraps relevant string literals in \texttt{\_()} calls, operating by byte offset to avoid the risk of a naive text replacement corrupting similar strings in different contexts.
 
-That automated approach covers the general case but --- as with any AST transform over real UI code --- leaves out cases that require judgment: interpolated f-strings, literals inside tuples, dynamically built radio-button text, and constants evaluated at import time (the documented case is \texttt{SNIPPETS} in \texttt{cypher\_console.py}, a module-level constant that had to become a function, \texttt{\_construir\_snippets()}, so translation resolves at the right moment instead of at module-load time, before the language is even configured). This is a lesson worth generalizing to any refactor-automation pipeline: automate the mechanical 90\% and treat the remaining 10\% as a known special-case list, rather than forcing the script to cover 100\% at the cost of ever more brittle rules. In late August, a full translation pass swept the roughly ten \texttt{*\_ui.py} files that had shipped features without translations, and in the same pass caught a genuinely blocking bug: nine of those files used \texttt{\_()} without importing \texttt{i18n} at all, which meant a real \texttt{NameError} the first time a user opened, say, the Impact menu.
+That automated approach covers the general case but --- as with any AST transform over real UI code --- leaves out cases that require judgment: interpolated f-strings, literals inside tuples, dynamically built radio-button text, and constants evaluated at import time (the documented case is \texttt{SNIPPETS} in \texttt{cypher\_console.py} (a module since retired, see \S\ref{sec:core}), a module-level constant that had to become a function, \texttt{\_construir\_snippets()}, so translation resolves at the right moment instead of at module-load time, before the language is even configured). This is a lesson worth generalizing to any refactor-automation pipeline: automate the mechanical 90\% and treat the remaining 10\% as a known special-case list, rather than forcing the script to cover 100\% at the cost of ever more brittle rules. In late August, a full translation pass swept the roughly ten \texttt{*\_ui.py} files that had shipped features without translations, and in the same pass caught a genuinely blocking bug: nine of those files used \texttt{\_()} without importing \texttt{i18n} at all, which meant a real \texttt{NameError} the first time a user opened, say, the Impact menu.
 
 \section{Recurring patterns (for the better)}
 
@@ -233,7 +237,9 @@ A handful of conventions show up again and again, delivery after delivery, and -
 
 No serious review is praise alone. A few concrete points I'd flag before a long sprint of new features:
 
-\textbf{Two files still concentrate a lot of surface.} \texttt{cabledoc.py} and \texttt{diagrama\_conexiones\_ui.py} together still hold a disproportionate share of the project's Python. The mixin pattern keeps \emph{new} logic isolated, but the host classes remain mandatory integration points that keep growing. Not urgent --- GTK3 doesn't leave many better alternatives short of a custom plugin framework --- but it's the kind of file that, eventually, costs more to open in an editor than to reason about.
+\textbf{The concentration moved, it did not disappear.} With \texttt{cabledoc.py} down to about 1{,}250 lines, the heaviest single file is now \texttt{core/modelo.py} at 9{,}414 lines in one class, followed by \texttt{graph\_impact.py} and \texttt{diagrama\_conexiones\_ui.py}. The mixin split drafted for the model layer is still a plan on paper. The mixin pattern keeps \emph{new} logic isolated, but the host classes remain mandatory integration points that keep growing. Not urgent, but it is the natural next refactor, and its shape is already known from the two that finished.
+
+\textbf{Plan documents drift from the code.} \texttt{plan\_inteligencia\_implicita\_v1.md} in the repository still shows 9 of 15 tasks ticked, while the git history and the code show its phases 0 to 4 merged. Plans that were meant to be the source of progress are becoming stale the day after the merge, so the checkboxes need updating in the same commit as the work.
 
 \textbf{Positional indexing over a wide view.} The documented decision \emph{not} to add new columns to \texttt{CONEXIONES\_AMBOS\_EXTREMOS}, to avoid disturbing its column order because several call sites read it by numeric position, is pragmatic short-term and a long-term fragility source. Any future change to that view requires auditing every consumer by position rather than letting the language itself (named columns, or an explicit dataclass mapping) guarantee correctness by design.
 
@@ -353,26 +359,114 @@ Image dimensions themselves aren't stored anywhere --- there's no column for it 
 
 The SVG rendering itself is worth a technical footnote for anyone who has to make the same call: the project explicitly chose the modern \texttt{render\_document} API over the deprecated \texttt{render\_cairo} (removed from librsvg 2.58), and verified the choice with a test that fails on any \texttt{DeprecationWarning} rather than trusting a changelog entry from the library. A lightweight \texttt{\_ImagenSVG} wrapper duck-types \texttt{get\_width()}/\texttt{get\_height()} to match \texttt{GdkPixbuf.Pixbuf}, so the half-dozen call sites across four different UI files that read \texttt{.pixbuf} directly kept working unmodified --- one more instance of the project choosing an interface shape specifically so a downstream refactor touches nothing.
 
-\section{The pocket edition: Kivy on Pydroid 3}
+\section{One core, two skins: \texttt{core/}, \texttt{ui\_gtk/} and \texttt{ui\_kivy/}}
+\label{sec:core}
 
-A parallel, ambitious effort: a full migration of CableDoc to \textbf{Kivy}, aimed specifically at running on an Android phone through \textbf{Pydroid 3}, without a traditional APK build step. As of this edition it documents six complete, real-data-validated phases, with a seventh explicitly marked optional and low priority.
+Between 3 and 11 September the repository changed shape twice. First, the ten-stage refactor of \texttt{cabledoc.py} (Entregas 1 to 10, 3--4 September) applied the same facade recipe used earlier on \texttt{pantallas\_avanzadas.py}: shared helpers were consolidated into \texttt{pantallas\_comunes.py}, then cables and connections, equipment and quick-add, connectors, the equipment catalog, signal catalog, racks/rooms, frames/slots, basic catalogs and the navigation tree each moved into their own module, with \texttt{cabledoc.py} re-exporting every name so no external import changed. Entrega 10 closed the facade.
 
-\begin{specbox}{CableDoc Kivy --- surveyed state}
-\begin{itemize}[leftmargin=1.0em,itemsep=1pt,topsep=2pt]
-\item \textbf{Scope:} 100\% of CRUD modules and the 3 main graphical views (rack, frame/slots, patch bays) migrated and tested
-\item \textbf{Code:} \textasciitilde15{,}200 lines across 20 Python files
-\item \textbf{Reused unmodified:} \texttt{modelo.py} (the entire data layer) and \texttt{i18n.py}
-\item \textbf{Pending (phase 7, low priority):} the full interactive impact diagram and bulk coordinate editors
+Second, on 11 September a unification refactor split the tree in three: \textbf{\texttt{core/}} holds the data layer and every analysis engine, with no GTK and no Kivy imports; \textbf{\texttt{ui\_gtk/}} holds the desktop screens; \textbf{\texttt{ui\_kivy/}} holds the Android screens. The point, written down in the integration plan, is that there is one \texttt{modelo.py} shared by both interfaces rather than a frozen copy inside the mobile app, so a change merged for the desktop reaches the phone with a \texttt{git pull}.
+
+\begin{specbox}{The three layers, measured on the clone}
+\begin{itemize}[leftmargin=1.0em,itemsep=2pt,topsep=2pt]
+\item \texttt{core/}: 14 files, 15{,}433 lines. \texttt{modelo.py}, \texttt{graph\_impact.py}, \texttt{risk\_engine.py}, \texttt{escenario\_engine.py}, \texttt{senal\_propagation.py}, \texttt{senal\_estado.py}, \texttt{senal\_visual.py}, \texttt{riesgo\_analogico.py}, \texttt{diagnostico\_falla.py}, \texttt{signal\_risk.py}, \texttt{linter\_topologia.py}, \texttt{i18n.py}, \texttt{logger\_cabledoc.py}.
+\item \texttt{ui\_gtk/}: 47 files, 31{,}614 lines, including \texttt{cabledoc.py} at 1{,}258 lines and \texttt{pantallas\_avanzadas.py} at 145 (still the pure facade).
+\item \texttt{ui\_kivy/}: 26 files, 19{,}741 lines.
 \end{itemize}
 \end{specbox}
 
-What jumps out, and speaks to the quality of the original split between data and presentation layers, is that \texttt{modelo.py} --- nearly 5{,}000 lines of SQLite access underpinning the entire desktop app --- is reused in the Kivy version \textbf{without a single change}. The same \texttt{db.db}, the same schema, the same parameterized queries: only the presentation layer changed end to end. It's the practical proof, beyond any theoretical argument about separation of concerns, that keeping that boundary clean over years of desktop development paid off: when it came time to port to a completely different UI framework on a completely different operating system, the larger, more critical half of the code --- the half that guarantees data-model integrity --- didn't need to be touched.
+Two details of that move are instructive. The integration plan had only proposed wrapping the GraphQLite import in a \texttt{try/except}; the developer instead asked for the dependency to be removed outright, which turned a cosmetic hardening into a real simplification (see the spec box at the top of this review). And the move surfaced two hidden dependencies the plan had not listed: \texttt{senal\_visual.py} turned out to be required by the diagnostic engine, and the mobile fork had carried its own \texttt{logger\_cabledoc.py}, which the desktop did not have.
 
-The deepest architectural change between the two UIs is not cosmetic, it's about the UI concurrency model: \texttt{Gtk.Dialog.run()} in GTK3 is blocking, letting synchronous, linear code drive a dialog's result. Kivy has no blocking equivalent --- every \texttt{Popup} opens with \texttt{.open()}, which returns immediately, and the user's answer arrives later through a callback. The migration applied that transformation --- linear flow to callback flow --- consistently across every dialog in the project, a control-flow paradigm shift that runs through every one of the twenty files, not a one-off patch in a couple of screens.
+\section{Where things are: floor plans, rooms and racks}
+
+Until September a piece of equipment ``knew where it was'' only through borrowed columns: the client loaded a whole floor plan into the image field meant for a photograph of the unit and clicked one pixel on it. The plan \texttt{plan\_desarrollo\_ubicacion\_fisica\_planos.md} replaced that with a model of physical space, delivered in phases between 5 and 7 September and polished afterward.
+
+The new entities are the \textbf{plan} (a named image, one per floor or building), the \textbf{room} (a free-form polygon drawn over a plan, since real rooms are not rectangles), the \textbf{rack} (a point inside its room) and the \textbf{furniture piece} (a rectangle inside a room, with equipment positioned relative to it so that moving the desk moves everything on it). All positions are stored as percentages of the plan image, following the resolution-independence rule of the previous section.
+
+The design choice worth noting is inheritance. A rack-mounted unit is never marked by hand: its location is resolved on the fly through \texttt{Modelo.devolver\_ubicacion\_fisica\_de\_equipo()}, in a fixed order: directly in a rack, then as a module inside a frame that sits in a rack, then on a piece of furniture, then as a loose unit with its own point (with a floor or wall icon). A module flagged as belonging to a frame but not installed in one deliberately resolves to \emph{no location}, because a card that needs its frame's power and signal has no meaningful position of its own. Because nothing is copied, moving a rack on the plan moves every unit in it.
+
+The delivery followed the phase table exactly: polygon mode in the coordinate selector (phase 3), rooms overlay (4), rack squares (5), furniture (6), loose units and frame modules (7), a read-only ``view location'' action on the equipment card (8), and a polish pass (9) that gave wall-mounted units their own color, added hover tooltips and cached the plan contents. A usability round on 10 September and a direct menu entry on 19 September followed. The mobile port arrived on 17--18 September as \texttt{pantallas\_planos.py}, including an interactive plan view.
+
+\section{Vector panels and scale calibration}
+
+The vector-panel plan (v3, consolidated after an analyst-style interview) attacks a different problem: photographs of rear panels are noisy, and placing connectors on them one by one is slow. The pipeline is a clean AI-generated SVG of the chassis (about 11 KB of simple primitives; photorealistic vectorization was tried and rejected at roughly 2 MB of meaningless paths), with connectors placed on top and drawn with real symbols.
+
+Phases 0 and 1 shipped on 7 September and phase 2 on 8 September. The schema gained a symbol catalog, physical dimensions (\texttt{ancho\_mm}, \texttt{alto\_mm}, \texttt{profundidad\_mm}) on equipment, frames and their catalog molds, and a calibration value \texttt{mm\_por\_pixel} on the image. A symbol is drawn only when the connector type has one \emph{and} the background is an SVG, so every already-documented photo keeps its old look. The size of a symbol follows a formula rather than the neighborhood of other connectors: relative physical size of the connector family, times a base size in millimetres, divided by \texttt{mm\_por\_pixel}. The scale itself comes from a three-source cascade: a manual ``measure on the image'' tool, then the datasheet width, then a conservative global fallback.
+
+Three things changed relative to the plan while building it. The symbol turned out to be keyed by \emph{plug type} (\texttt{tipo\_ficha}) rather than connector type, corrected on the same day as phase 2. A real bug appeared in the bulk editor, where symbols did not scale with zoom because the radius helper returned native image pixels; it was fixed the same day. And the measuring tool and the millimetre fields, initially missing from the UI, landed in a follow-up on 8 September. Phase 2 is the batch ``place row / grid'' tool, the biggest time saver in the plan. The optional phase 3 (an in-app symbol editor) was not built. The mobile app received the millimetre fields, the measuring tool and batch placement on 15--16 September.
+
+\section{A reference signal nobody cabled}
+
+A modest change of 10 September models something the documentation could not say before: a card in an openGear-style frame often has a reference input with no cable on it, because it takes sync from the frame. Documenting that as ``nothing connected'' made a cut on the frame's external reference invisible to impact analysis.
+
+The solution reuses the graph instead of special-casing it. A new control flag marks reference-input connector types, a new signal role marks the piece of equipment that distributes reference inside a frame, and \texttt{Modelo.sincronizar\_referencia\_virtual\_frame()} creates or deletes an internal, virtual cable so that a card without its own cable inherits the frame's reference; if the card is given a real cable, the real cable wins automatically. Because the virtual link is an ordinary cable row flagged as internal, \texttt{graph\_impact.py} and the propagation engine needed no structural change. One deliberate omission: the distributor is \emph{not} flagged as an unconditional reference source, since that would have made a cut on its external input have no effect, the opposite of the goal; its dependency is expressed with an AND rule. The second part of the work (UI) also removed remaining database-value hardcoding and made the editor available for any equipment. On the same day the propagation engine started honoring the routing configuration saved through ``edit matrix.''
+
+\section{Audit dates become a first-class signal}
+
+The mobile app already let a technician mark an item as audited. On 15 September that function was brought to the desktop for equipment, cables and connections, together with a home-screen panel of equipment never audited. On 22 September both platforms gained a toggle that colors the connection diagram and the patch-bay view by audit age, and on 20 September the diagram export gained a transparent background and PNG output.
+
+That opened a six-part plan (\texttt{plan\_auditoria\_fecha\_edicion\_v1.md}), deliberately split into 18 sub-tasks that each fit one tool turn, with desktop and mobile always separate. Measured against the code: \textbf{A} (home pending panel), \textbf{B} (\texttt{devolver\_editados\_sin\_auditar}, equipment edited after its last audit, with a column on the desktop list and a chip on mobile), \textbf{D} (\texttt{devolver\_cobertura\_auditoria}, coverage by room with a screen on each platform) and \textbf{E} (a configurable SLA and \texttt{devolver\_vencidos\_sla\_auditoria}, again with a config screen on each platform) are merged. In \textbf{C}, audit age as a risk axis, the core weight (\texttt{peso\_antiguedad\_auditoria}) is wired into the analog-risk engine; I could not confirm the GTK and Kivy breakdown displays in the code. \textbf{F1}, a footer with the audit state on exported diagrams, shows no trace in the export module and appears not to be started.
+
+\section{The linter: implicit intelligence over existing data}
+
+The plan \texttt{plan\_inteligencia\_implicita\_v1.md} starts from an observation about the developer's own head: design rules such as ``reference must not be daisy-chained,'' ``a loop output is not a distribution amplifier'' and ``equipment should sit behind a patch panel'' were being applied by memory. The plan turns them into automatic checks over the existing graph, using the risk value already cached by \texttt{risk\_engine.py} to rank findings, so a critical piece of equipment that violates a rule appears first.
+
+It merged between 27 and 28 September: phase 0 (confirming the schema and the roles that exist), phase 3 (equipment outside a patch panel), phase 4 (loop outputs in use, with a follow-up fix), phase 1 (\texttt{calcular\_criticidad\_todos}, a blast-radius ranking that reuses the failure simulation), phase 2 (cascaded reference) and a final ``extra'' rule flagging equipment that does not go through a distributor. The checks live in the new \texttt{core/linter\_topologia.py} (216 lines), and each has a card in a new ``Topology'' column on the home dashboard, whose layout also became vertical the same day.
+
+\section{The pocket edition: Kivy on Pydroid 3}
+
+The Android edition, aimed at a phone running \textbf{Pydroid 3} without a traditional APK build, changed character in September. In the previous edition it was a separate migration of six phases with a seventh, optional one pending. It is now a second interface over the shared \texttt{core/}: 26 files and 19{,}741 lines that import \texttt{core.modelo} and \texttt{core.i18n} directly.
+
+\begin{specbox}{CableDoc Kivy --- state at 28 September}
+\begin{itemize}[leftmargin=1.0em,itemsep=1pt,topsep=2pt]
+\item \textbf{Shared layer:} the same \texttt{core/modelo.py} and engines as the desktop, no copy.
+\item \textbf{Parity screens added since the last edition:} the interactive connection diagram (formerly the pending phase 7), failure diagnosis inside the diagram, scenarios, signal overlay and visual preview, analog and signal risk, floor plans, bulk coordinate editors, global search, audit coverage and SLA configuration.
+\item \textbf{ABM consistency:} card list plus tabbed dialogs for the entities with quick actions (cables, connectors, racks, frames, slots, rooms); simple catalogs keep the plain dialog.
+\item \textbf{SVG on Pydroid:} a pygame-based rasterizer (\texttt{svg\_raster\_pygame.py}) so vector images render without a native SVG library.
+\item \textbf{Not ported:} the incident log (plan drafted, not started) and the Cypher console (out of scope for good).
+\end{itemize}
+\end{specbox}
+
+The claim of the previous edition, that \texttt{modelo.py} was reused ``without a single change,'' needs a footnote now. The reuse became literal, one file in \texttt{core/}, but reaching that point needed at least one compatibility fix on 13 September so the shared model behaved on the phone, and a startup regression on 24 September, after a commit that broke launching under Pydroid 3, took three commits to resolve: better Android detection, a guard for a missing \texttt{asegurar\_columnas\_auditoria} method, and detailed startup logging. A shared model is only free of cost when a method added for the desktop is either present or guarded on the phone.
+
+Usability got its own plan. \texttt{plan\_ux\_botonera\_mobile\_v1} diagnosed a five-slot bottom bar and a 24-item ``More'' menu, and its phases A to E (17--18 September) added pending-item badges, regrouped the menu, made popups close on a tap outside, and gave the 25-button diagram toolbar a contextual menu. Two mobile fixes on 23 September are typical of touch UI: the filter panel of the equipment list intercepted touches meant for the text box and the list, and appeared behind the list, each needing its own commit. The minimap moved above the button bar on 20 September.
+
+The deepest difference between the two interfaces is unchanged from before: \texttt{Gtk.Dialog.run()} blocks and lets linear code drive a dialog, while every Kivy \texttt{Popup} returns immediately and delivers the answer through a callback. That transformation now runs through 26 files, not 20.
 
 \section{Sync without a server: Google Drive via \texttt{rclone}}
 
 A structural limitation of choosing SQLite as the sole database --- excellent for deployment simplicity, no server process to run --- is that the file lives on one local disk. The chosen fix is deliberately low-maintenance: \texttt{rclone}, treating a cloud storage provider like just another remote filesystem, syncing the \texttt{database/} folder against Google Drive. On the mobile side, sync runs through \textbf{RoundSync}, an Android app that wraps \texttt{rclone} with a GUI and task scheduler, pointed at the same remote. The practical result is one circuit --- desktop $\leftrightarrow$ Google Drive $\leftrightarrow$ phone --- with \texttt{rclone} as the common denominator on both ends, and the same single-active-writer discipline applying on both sides: sync before you start working on whichever device you're about to use, and sync again when you finish.
+
+\section{Plans ledger: what is done, partial, and open}
+\label{sec:plans}
+
+Reconstructed from the git history (202 commits, 2 to 28 September) and from checking the code for each planned entry point.
+
+\begin{specbox}{Delivered and merged}
+\begin{itemize}[leftmargin=1.0em,itemsep=1pt,topsep=2pt]
+\item \texttt{plan\_refactor\_pantallas\_avanzadas} (six stages, previous section \S\ref{sec:refactor}) and \texttt{plan\_refactor\_cabledoc} (ten stages).
+\item \texttt{plan\_desarrollo\_ubicacion\_fisica\_planos}, phases 0 to 9, plus its mobile port.
+\item \texttt{plan\_paneles\_vectoriales\_v3}, phases 0 to 2.
+\item \texttt{plan\_referencia\_virtual\_frame}, parts 1 and 2.
+\item \texttt{plan\_integracion\_cabledoc\_v3}: phases 0 to 5 (core split, mobile catch-up, ABM consistency, parity screens for diagnostics, risk, signal, scenarios and plans).
+\item \texttt{plan\_ux\_botonera\_mobile\_v1}: phases A to E (bottom bar, badges, menu regrouping, contextual FAB and diagram menu).
+\item \texttt{plan\_inteligencia\_implicita\_v1}, phases 0 to 4 and the extra rule.
+\item Earlier plans already covered by the edition: signal entity, lineage and live state, extension cable, ghost quick-add, scenarios, visual preview, diagnostic assistant, incident log, analog signal risk, removal simulation, failure-risk index, patch-bay function columns and the hardcode-elimination phases that fed them.
+\end{itemize}
+\end{specbox}
+
+\begin{specbox}{Partial or open}
+\begin{itemize}[leftmargin=1.0em,itemsep=1pt,topsep=2pt]
+\item \texttt{plan\_auditoria\_fecha\_edicion\_v1}: A, B, D and E merged; C partly confirmed; F1 not started.
+\item \texttt{plan\_bitacora\_incidentes\_kivy\_v1} (K1 to K7): not started. There is no incident-log reference anywhere in \texttt{ui\_kivy/}, which also leaves the mobile half of audit-risk item C without a home.
+\item \texttt{plan\_refactor\_modelo} (mixin split): not started; \texttt{modelo.py} has grown to 9{,}414 lines.
+\item \texttt{plan\_paneles\_vectoriales\_v3}, phase 3 (in-app symbol editor): optional and not built.
+\item \texttt{plan\_reasignacion\_matriz\_escenario}: no reference in the code; still a proposal.
+\item \texttt{plan\_sugerencia\_fusion\_cables\_por\_metraje}: no suggestion screen found; only the metre-mark columns exist.
+\item \texttt{plan\_impacto\_perdida\_energia\_rack}: absorbed by the removal-simulation work, which does implement \texttt{simular\_perdida\_rack}; the dedicated power-loss screen and rack ranking were not built.
+\item Mobile scope decisions: the Cypher console is permanently out of scope, and the plan editor is a read-only candidate at most.
+\end{itemize}
+\end{specbox}
+
 
 \section{A shift on call, reconstructed}
 
@@ -382,7 +476,7 @@ It's three in the morning and control calls: a satellite channel just lost signa
 
 \section{Quick reference: the analysis-engine module map}
 
-\begin{specbox}{Core analysis modules}
+\begin{specbox}{Core analysis modules (all in \texttt{core/})}
 \begin{itemize}[leftmargin=1.0em,itemsep=2pt,topsep=2pt]
 \item \texttt{graph\_impact.py} --- builds the full directed graph, answers impact of cuts, equipment failures and combined scenarios.
 \item \texttt{risk\_engine.py} --- per-equipment Failure Risk Index, combining probability with impact measured over the graph above.
@@ -393,7 +487,7 @@ It's three in the morning and control calls: a satellite channel just lost signa
 \item \texttt{senal\_estado.py} --- read-only overlay marking which loaded signal names are currently down.
 \item \texttt{diagnostico\_falla.py} --- real bisection over the chain between symptom and source.
 \item \texttt{escenario\_engine.py} --- orchestrates simulation and real application of combined changes, GTK-free.
-\item \texttt{cypher\_console.py} --- direct access to the graph engine's own query language.
+\item \texttt{linter\_topologia.py} --- design-rule checks (equipment outside a patch panel or distributor, loops in use, cascaded reference), ranked by the risk cached by the risk engine.
 \end{itemize}
 \end{specbox}
 
@@ -418,6 +512,8 @@ I write this note holding the same bar I'd apply to any system meant to support 
 
 Between the first and second editions of this review, that same discipline turned inward: the project spent real, tracked effort refactoring its own largest file down to a 145-line facade, deleting nearly a thousand lines of legacy code it no longer needed rather than dragging it forward, and catching its own extraction bugs with the same rigor it applies to a production signal-impact miscalculation. That is, more than any single feature covered in these pages, the reason it's worth continuing to build on this foundation.
 
+The September revision shows the same habit on a larger scale. In four weeks the project finished the second big facade refactor, split itself into a shared core and two interfaces, deleted a dependency it had adopted with confidence and later discovered it never queried, gave physical location and audit age their own models, and turned the developer's private design rules into a linter. It also left honest loose ends: a monolithic model file, a mobile incident log not yet ported, and plan checkboxes that lag behind the merges. None of them is hidden. Each is written down in a plan, which is exactly where a reviewer wants to find it.
+
 If anything sets CableDoc apart from the large majority of plant-documentation tools I've seen in twenty years of career --- many of them glorified spreadsheets, or commercial software that treats cabling as free text --- it's that it treats physical topology as what it is: a graph. And once that decision is taken seriously, everything else --- impact, risk, diagnosis, contingency planning, workstation sync, a full mobile edition, and now a refactor discipline applied to the tool's own internals --- stops being a separate feature and becomes just another query, or another presentation layer, over the same model.
 
 \vspace{0.5em}
@@ -430,7 +526,7 @@ An engineer with a background in broadcast-plant maintenance (racks, patch bays,
 
 \vspace{0.35em}
 {\footnotesize\color{BDgray}
-\textit{Methodology note: this second edition was written directly from the project's full source tree as delivered, including the complete \texttt{changelog.txt}, the SQL schema (\texttt{schema\_db.sql}), the README, the \texttt{plans/} planning folder, and thirteen user-facing tutorials covering every feature shipped since the first edition. Table, view, and module counts were measured directly against the supplied schema and file list, not estimated; module line counts and the operational figures cited (equipment impacted, patch bays with atypical naming, before/after load times) come from the corresponding changelog entries themselves and were not independently re-verified against a live production database. This edition supersedes and replaces the first (August 2026, Spanish) in full.}
+\textit{Methodology note: this second edition, revised on 29 September 2026, was written from a fresh clone of the public repository at \texttt{main} (202 commits, the last being the merge of pull request \#82 on 28 September, application version 1.20260929140000). The README was deliberately not consulted; the sources were the git history, \texttt{changelog.txt}, the progress files, the plan documents in the repository and in the project's planning folder, and the code itself. Line, file, table and view counts were measured with \texttt{wc} and \texttt{grep} on the clone; the delivery status of each plan was checked by looking for its entry points in the code, and items where that was not conclusive are marked as such. Operational figures from production (equipment counts, patch bays with atypical naming) come from the earlier changelog entries and were not re-verified against a live database. This edition supersedes the first (August 2026, Spanish) in full.}
 }
 
 \end{document}
