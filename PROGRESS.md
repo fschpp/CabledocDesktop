@@ -1,6 +1,6 @@
 # PROGRESS.md — CableDoc
 
-_Última actualización: 2026-09-28 — Fase 4.3 de `plan_inteligencia_implicita_v1.md` (regla "Loop en uso" ajustada: incluye destino FANTASMA), sobre `main` en `2d2fd0b`_
+_Última actualización: 2026-09-28 — Fase 2.3b de `plan_inteligencia_implicita_v1.md` (dashboard en vertical + columna Topología), sobre `main` en `7ab25be`_
 
 > **Nota de esta actualización:** este documento venía siendo un log
 > cronológico puro (Current Focus + Todo List + Blockers + Completed, sesión
@@ -206,6 +206,28 @@ referencia rápida para no repetirlos:
 ---
 
 ## Current Focus
+
+**Sesión 2026-09-28 (tarde) — Fase 2.1 de `plan_inteligencia_implicita_v1.md`, sobre `main` en `7ab25be` (Fase 1 y Fase 4 ya mergeadas). Detección de referencia en cascada. Pendiente de smoke test y commit de Fede.**
+
+### Current Focus
+Fase 2, tarea 2.1: `Modelo.devolver_referencia_en_cascada()` — salidas de referencia cableadas desde tipos de equipo que no son distribuidores de sync. Sólo detección; sin UI.
+
+### Todo List
+- [x] 2.1 — consulta + columna `tipo_equipo.es_distribuidor_sync` + setter (diff presentado; validado con py_compile, pyflakes y smoke test de datos con fixture).
+- [ ] Fede: smoke test y commit de 2.1.
+- [ ] Fede: confirmar la columna nueva (cierra la decisión pendiente de 0.3) y marcar `SYNC PULSE GENERATOR` y `DISTRIBUIDOR TRILEVEL` como distribuidores de sync.
+- [x] 2.2 — `referencia_en_cascada_priorizada()` en `linter_topologia.py`: orden por blast radius del equipo dueño (Fase 1.1 reusada), luego riesgo y cables (diff presentado).
+- [x] 2.3 — tarjeta "⚠️ Referencia en cascada" + filtro en `EquiposListado` (diff presentado; validado la capa de datos, falta el smoke test GTK/Xvfb de Fede).
+- [x] 2.1b — la detección incluye también salidas `OUT` comunes que llegan a una entrada de referencia (pedido de Fede).
+- [x] 2.3b — dashboard: tarjetas apiladas en vertical dentro de cada columna y nueva columna "Trabajo pendiente — Topología" (Fuera de patchera, Loop en uso, Referencia en cascada); "Criticidad alta" queda en Equipos (diff presentado; falta el smoke test GTK de Fede).
+- [ ] 2.1c (opcional) — checkbox en la ficha del tipo de equipo para marcar `es_distribuidor_sync` desde la UI.
+
+### Latest Blockers/Discoveries
+- Sin `db.db` real en el entorno de Claude: 2.1 se validó sólo con fixture. Con los datos de 0.3 se espera un único hallazgo hoy (`REFERENCE OUT` de `CCU 1`); falta confirmarlo.
+- Decisión de esquema: marca en `tipo_equipo` (no rol ni config por id): `rol_senal` no discrimina (`DISTRIBUIDOR` agrupa ~28 tipos).
+- 2.1b: la referencia por `OUT` común sólo se detecta si la entrada que la recibe está marcada `es_entrada_referencia=1`; con datos de hoy (33 entradas de referencia, 22 cableadas) puede haber más hallazgos que el único `REFERENCE OUT` de `CCU 1`.
+
+## Current Focus (sesión anterior)
 
 **Sesión 2026-09-28 — Fase 4.3 de `plan_inteligencia_implicita_v1.md`, sobre `main` en `17b30af` (PR #77: 4.1 y 4.2 ya mergeadas). Tarjeta "⚠️ Loop como distribución" en el panel de pendientes de equipos + bugfix 4.1d (str/int en `establecer_loop_de_conector`). Pendiente de smoke test GTK/Xvfb y commit de Fede.**
 

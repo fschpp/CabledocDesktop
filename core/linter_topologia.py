@@ -10,11 +10,10 @@ existe.
 
 La entrega de la Fase 3 implementó sólo la primera regla: "equipos fuera de
 patchera" (equipamiento cableado directo, sin pasar por un panel de
-parcheo — Modelo.devolver_equipos_fuera_de_patchera(), Fase 3.1). Las
-Fases 2 (referencia en cascada) y 4 (loop en uso) quedan
-para entregas siguientes, en este mismo módulo. La Fase 4.2 agrega la
-regla "loop en uso" (loops_en_uso_priorizados,
-al final del módulo).
+parcheo — Modelo.devolver_equipos_fuera_de_patchera(), Fase 3.1). La Fase
+4.2 agrega la regla "loop en uso" (loops_en_uso_priorizados) y la Fase 2.2
+la regla "referencia en cascada" (referencia_en_cascada_priorizada), ambas
+al final del módulo.
 
 Decisión de diseño (Fase 3.2 — priorización): el plan original preveía una
 función nueva de Fase 1 ("calcular_criticidad_todos", blast radius vía
@@ -119,6 +118,64 @@ def ids_equipos_loop_en_uso_priorizados(db_path=None) -> list:
     prioridad de loops_en_uso_priorizados() (primero el de más riesgo)."""
     vistos = []
     for r in loops_en_uso_priorizados(db_path):
+        id_eq = str(r["id_equipo"])
+        if id_eq not in vistos:
+            vistos.append(id_eq)
+    return vistos
+
+
+def referencia_en_cascada_priorizada(db_path=None) -> list:
+    """Fase 2.1 (detección) + 2.2 (priorización) del linter: cruza
+    Modelo.devolver_referencia_en_cascada() con el blast radius del EQUIPO
+    dueño de la salida de referencia, para ordenar por gravedad real y no
+    sólo por existencia de la cascada: si el equipo que re-emite la
+    referencia falla, arrastra todo lo que cuelga de él, así que importa
+    cuánto pierde el parque cuando ese equipo cae.
+
+    El blast radius sale de risk_engine.calcular_criticidad_todos() (Fase
+    1.1), reusada tal cual — no se reimplementa ni se vuelve a simular
+    nada (ver docstring del módulo). Desempate: riesgo IRF cacheado del
+    mismo equipo (probabilidad × impacto, la misma fuente que las otras
+    reglas del linter) y luego cantidad de cables; el orden natural por
+    equipo/conector de Modelo desempata al final (sort estable).
+
+    `db_path` se acepta por simetría con el resto de los engines, aunque
+    hoy no se use.
+
+    Devuelve los mismos dicts que Modelo.devolver_referencia_en_cascada()
+    más las claves "impacto" (float | None: blast radius 0-100 del equipo
+    dueño), "riesgo" (float | None) y "nivel" (str | None). Los equipos sin
+    cálculo de riesgo corrido todavía (nunca se ejecutó "🔺 Recalcular
+    riesgo") van al final con esas claves en None, no se excluyen.
+    """
+    hallazgos = Modelo.devolver_referencia_en_cascada()
+    if not hallazgos:
+        return []
+
+    # Import diferido: risk_engine importa Modelo, y mantiene este módulo
+    # liviano para quien sólo usa las reglas que no necesitan el IRF.
+    from core.risk_engine import calcular_criticidad_todos
+    impacto_por_equipo = dict(calcular_criticidad_todos(db_path))  # {id(str): blast_radius}
+    riesgo_por_equipo = Modelo.devolver_riesgo_todos_los_equipos()  # {id(str): (riesgo, nivel)}
+    for r in hallazgos:
+        id_eq = str(r["id_equipo"])
+        r["impacto"] = impacto_por_equipo.get(id_eq)
+        r["riesgo"], r["nivel"] = riesgo_por_equipo.get(id_eq, (None, None))
+
+    hallazgos.sort(key=lambda r: (r["impacto"] is None, -(r["impacto"] or 0),
+                                  r["riesgo"] is None, -(r["riesgo"] or 0),
+                                  -r["n_cables"]))
+    return hallazgos
+
+
+def ids_equipos_referencia_en_cascada_priorizados(db_path=None) -> list:
+    """Atajo para la UI (ver ui_gtk/equipos_ui.py,
+    filtro_pendiente='referencia_en_cascada', Fase 2.3): ids (str) de los
+    EQUIPOS dueños de al menos una salida de referencia en cascada, sin
+    repetir, en el orden de prioridad de referencia_en_cascada_priorizada()
+    (primero el de mayor blast radius)."""
+    vistos = []
+    for r in referencia_en_cascada_priorizada(db_path):
         id_eq = str(r["id_equipo"])
         if id_eq not in vistos:
             vistos.append(id_eq)
