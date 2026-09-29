@@ -158,14 +158,23 @@ class PanelArbol(Gtk.Box):
         # ── Configurar Drag and Drop ─────────────────────────────────────
         # Permitir arrastrar equipos sin ubicación a salas
         import sys
-        # Abrir archivo de log
-        self._drag_drop_log = open("/tmp/cabledoc_drag_drop.log", "w", encoding="utf-8")
+        # Abrir archivo de log (multiplataforma: usa el directorio temporal
+        # del sistema; si no se puede abrir, se sigue sin log a archivo)
+        import os, tempfile
+        self._drag_drop_log_path = os.path.join(
+            tempfile.gettempdir(), "cabledoc_drag_drop.log")
+        try:
+            self._drag_drop_log = open(
+                self._drag_drop_log_path, "w", encoding="utf-8")
+        except OSError:
+            self._drag_drop_log = None
         def safe_log(msg):
-            try:
-                self._drag_drop_log.write(f"{msg}\n")
-                self._drag_drop_log.flush()
-            except Exception:
-                pass
+            if self._drag_drop_log is not None:
+                try:
+                    self._drag_drop_log.write(f"{msg}\n")
+                    self._drag_drop_log.flush()
+                except Exception:
+                    pass
             try:
                 print(f"{msg}", flush=True)
             except (BrokenPipeError, OSError):
@@ -176,7 +185,7 @@ class PanelArbol(Gtk.Box):
         self._log = safe_log
         
         self._log("\n" + "="*60)
-        self._log("DRAG DROP LOG - Ver este archivo: /tmp/cabledoc_drag_drop.log")
+        self._log(f"DRAG DROP LOG - Ver este archivo: {self._drag_drop_log_path}")
         self._log("="*60)
         
         # Configurar drag source usando el STORE original (no el filtro)
