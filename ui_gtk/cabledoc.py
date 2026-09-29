@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260929120000"
+APP_VERSION = "1.20260929140000"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -517,9 +517,19 @@ class VentanaPrincipal(Gtk.Window):
         # categorías. Separador vertical entre columnas; puede requerir
         # scroll (mismo ScrolledWindow de siempre, sw_center, con policy
         # AUTOMATIC en ambos ejes).
+        # El título "Trabajo pendiente" se muestra UNA sola vez, arriba de
+        # todas las columnas; cada columna lleva sólo el nombre de su
+        # categoría (antes cada una repetía "Trabajo pendiente — X").
         sep_p = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         sep_p.set_margin_top(20); sep_p.set_margin_bottom(8)
         center.pack_start(sep_p, False, False, 0)
+
+        lbl_trabajo_pendiente = Gtk.Label()
+        lbl_trabajo_pendiente.set_markup(
+            "<span size='large' weight='bold'>" + _("Trabajo pendiente") + "</span>")
+        lbl_trabajo_pendiente.set_halign(Gtk.Align.CENTER)
+        lbl_trabajo_pendiente.set_margin_bottom(8)
+        center.pack_start(lbl_trabajo_pendiente, False, False, 0)
 
         def _columna_pendientes(titulo_col):
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -540,13 +550,13 @@ class VentanaPrincipal(Gtk.Window):
             halign=Gtk.Align.CENTER,
         )
 
-        col_cab, self._panel_pendientes = _columna_pendientes(_("Trabajo pendiente — Cables"))
+        col_cab, self._panel_pendientes = _columna_pendientes(_("Cables"))
         columnas_pendientes.pack_start(col_cab, False, False, 0)
         self._actualizar_panel_pendientes()
 
         columnas_pendientes.pack_start(
             Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
-        col_eq, self._panel_pendientes_eq = _columna_pendientes(_("Trabajo pendiente — Equipos"))
+        col_eq, self._panel_pendientes_eq = _columna_pendientes(_("Equipos"))
         columnas_pendientes.pack_start(col_eq, False, False, 0)
 
         # Topología (plan_inteligencia_implicita_v1.md): reglas del linter
@@ -556,27 +566,27 @@ class VentanaPrincipal(Gtk.Window):
         # existir antes de esa primera actualización.
         columnas_pendientes.pack_start(
             Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
-        col_top, self._panel_pendientes_top = _columna_pendientes(_("Trabajo pendiente — Topología"))
+        col_top, self._panel_pendientes_top = _columna_pendientes(_("Topología"))
         columnas_pendientes.pack_start(col_top, False, False, 0)
         self._actualizar_panel_pendientes_eq()
 
         columnas_pendientes.pack_start(
             Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
-        col_fr, self._panel_pendientes_fr = _columna_pendientes(_("Trabajo pendiente — Frames"))
+        col_fr, self._panel_pendientes_fr = _columna_pendientes(_("Frames"))
         columnas_pendientes.pack_start(col_fr, False, False, 0)
         self._actualizar_panel_pendientes_fr()
 
         # Riesgo de señal (plan_riesgo_senal_audio.md)
         columnas_pendientes.pack_start(
             Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
-        col_rs, self._panel_pendientes_rs = _columna_pendientes(_("Trabajo pendiente — Riesgo de señal"))
+        col_rs, self._panel_pendientes_rs = _columna_pendientes(_("Riesgo de señal"))
         columnas_pendientes.pack_start(col_rs, False, False, 0)
         self._actualizar_panel_pendientes_rs()
 
         # Auditoría (plan_auditoria_fecha_edicion_v1.md, Grupo A)
         columnas_pendientes.pack_start(
             Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
-        col_aud, self._panel_pendientes_aud = _columna_pendientes(_("Trabajo pendiente — Auditoría"))
+        col_aud, self._panel_pendientes_aud = _columna_pendientes(_("Auditoría"))
         columnas_pendientes.pack_start(col_aud, False, False, 0)
         self._actualizar_panel_pendientes_aud()
 
@@ -752,6 +762,8 @@ class VentanaPrincipal(Gtk.Window):
         items = [
             (_("⚠️ Fuera de patchera"),     p["fuera_de_patchera"], "#5a3d00",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="fuera_de_patchera")),
+            (_("⚠️ Fuera de distribuidor"), p["fuera_de_distribuidor"], "#5a3d00",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="fuera_de_distribuidor")),
             (_("⚠️ Loop en uso"), p["loop_en_uso"], "#5a2d00",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="loop_en_uso")),
             (_("⚠️ Referencia en cascada"), p["referencia_en_cascada"], "#5a1a2d",

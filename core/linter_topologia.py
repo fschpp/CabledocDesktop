@@ -77,6 +77,40 @@ def ids_equipos_fuera_de_patchera_priorizados(db_path=None) -> list:
             for r in equipos_fuera_de_patchera_priorizados(db_path)]
 
 
+def equipos_fuera_de_distribuidor_priorizados(db_path=None) -> list:
+    """Regla "Fuera de distribuidor": cruza
+    Modelo.devolver_equipos_fuera_de_distribuidor() con el riesgo cacheado
+    (misma fuente y mismo criterio que equipos_fuera_de_patchera_priorizados)
+    para que un equipo crítico cuya salida no entra directo a un
+    distribuidor aparezca primero. Los equipos sin riesgo calculado todavía
+    van al final, no se excluyen. `db_path` se acepta por simetría.
+
+    Devuelve [{"id_equipo": str, "nombre": str, "riesgo": float | None,
+    "nivel": str | None}, ...].
+    """
+    equipos = Modelo.devolver_equipos_fuera_de_distribuidor()
+    if not equipos:
+        return []
+    riesgo_por_equipo = Modelo.devolver_riesgo_todos_los_equipos()  # {id: (riesgo, nivel)}
+    resultado = []
+    for id_eq, nombre in equipos:
+        riesgo, nivel = riesgo_por_equipo.get(str(id_eq), (None, None))
+        resultado.append({
+            "id_equipo": str(id_eq), "nombre": nombre,
+            "riesgo": riesgo, "nivel": nivel,
+        })
+    resultado.sort(key=lambda r: (r["riesgo"] is None, -(r["riesgo"] or 0)))
+    return resultado
+
+
+def ids_equipos_fuera_de_distribuidor_priorizados(db_path=None) -> list:
+    """Atajo para la UI (ver ui_gtk/equipos_ui.py,
+    filtro_pendiente='fuera_de_distribuidor'): sólo los ids, en el orden de
+    prioridad de equipos_fuera_de_distribuidor_priorizados()."""
+    return [r["id_equipo"]
+            for r in equipos_fuera_de_distribuidor_priorizados(db_path)]
+
+
 def loops_en_uso_priorizados(db_path=None) -> list:
     """Fase 4.2 (detección) del linter: cruza Modelo.devolver_loops_en_uso()
     con el riesgo cacheado del EQUIPO dueño de la salida loop (mismo

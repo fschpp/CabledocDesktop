@@ -4845,6 +4845,10 @@ class Modelo:
         # riesgo (ver core/linter_topologia.py), así el número de esta
         # tarjeta nunca puede discrepar con lo que se ve al tocar "ver →".
         fuera_de_patchera = len(Modelo.devolver_equipos_fuera_de_patchera())
+        # Regla "Fuera de distribuidor": equipos cuyas salidas cableadas no
+        # entran directo a un distribuidor (Modelo.devolver_equipos_fuera_
+        # de_distribuidor). Una fila por equipo, igual que el "ver →".
+        fuera_de_distribuidor = len(Modelo.devolver_equipos_fuera_de_distribuidor())
         # Fase 4.3: equipos con al menos una salida loop en uso, o sea con
         # un cable real conectado (Modelo.devolver_loops_en_uso, 4.2). Se
         # cuentan EQUIPOS distintos (no loops) porque es lo que lista el
@@ -4877,6 +4881,7 @@ class Modelo:
             "sin_manual":         sin_manual,
             "sin_configuraciones": sin_configuraciones,
             "fuera_de_patchera": fuera_de_patchera,
+            "fuera_de_distribuidor": fuera_de_distribuidor,
             "loop_en_uso": loop_en_uso,
             "referencia_en_cascada": referencia_en_cascada,
             "criticidad_alta":   criticidad_alta,
@@ -6507,6 +6512,104 @@ class Modelo:
             ") "
             "ORDER BY e.nombre"
         )
+
+    @staticmethod
+    def devolver_equipos_fuera_de_distribuidor():
+        """Linter de topología, regla "Fuera de distribuidor": equipos
+        reales con al menos una SALIDA cableada (conector cuyo
+        tipo_conector.direccion = 'OUT', de cualquier señal) hacia otro
+        equipo real, pero NINGUNA de esas salidas llega a un equipo con
+        rol_senal = 'DISTRIBUIDOR' de forma directa o pasando SÓLO por
+        patcheras (equipos rol_senal = 'PATCHERA').
+
+        Camino válido: equipo → distribuidor, o equipo → patchera →
+        distribuidor, o con varias patcheras encadenadas (ej. jack de
+        origen → cable de parcheo frente a frente → jack de destino →
+        distribuidor). Las patcheras se tratan como transparentes: se
+        recorren por cualquiera de sus conectores, sin distinguir puertos
+        ni el estado del bypass (no se modela BACK/FRONT acá). Cualquier
+        otro equipo en el medio (enrutador, procesador, otro equipo) corta
+        el camino: ahí la salida ya no entra "directo" al distribuidor.
+
+        Distribuidor = todo tipo_equipo con rol_senal = 'DISTRIBUIDOR' (el
+        rol por defecto de tipo_equipo, ver ROLES de _DialogoTipoEquipo:
+        agrupa varios tipos, incluidos PCs y otros). No se usa la marca
+        es_distribuidor_sync (esa es de la regla "referencia en cascada").
+        DISTRIBUIDOR_FRAME no cuenta como destino válido: es otro rol.
+
+        Quién puede ser hallazgo: equipos cuyo propio rol NO es
+        DISTRIBUIDOR (un distribuidor es el destino de la regla, no se
+        evalúa contra sí mismo), ni PATCHERA ni FANTASMA (mismo criterio que
+        devolver_equipos_fuera_de_patchera). Equipos sin salidas cableadas
+        (consumidores, o sin documentar todavía) no aparecen: no hay salida
+        que evaluar.
+
+        Cuenta sólo cables reales: se ignoran los cables internos/virtuales
+        (cable.es_cable_conexion_interna=1), los extremos sueltos (conexion
+        sin conector), el equipo 0 y el propio equipo. Un destino FANTASMA
+        (placeholder de un extremo desconectado) NO cuenta como salida
+        cableada: es un extremo suelto, no un destino real.
+
+        Devuelve [(id_equipo, nombre), ...] ordenado por nombre."""
+        Modelo.asegurar_columnas_control_idioma()  # tipo_conector.direccion / rol_senal
+        # Una fila por cable y por sentido (cada cable aporta 2 filas):
+        # equipo/rol/dirección del conector de un extremo, y equipo/rol del
+        # otro. Se resuelve el recorrido por patcheras en Python (un SQL
+        # recursivo sería ilegible y esta consulta ya trae todo el grafo).
+        filas = Modelo._query(
+            "SELECT e.id_equipo, COALESCE(te.rol_senal, ''), "
+            "COALESCE(tc.direccion, ''), "
+            "e2.id_equipo, COALESCE(te2.rol_senal, '') "
+            "FROM conexion cx "
+            "JOIN conector c ON c.id_conector = cx.id_conector "
+            "LEFT JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector "
+            "JOIN equipo e ON e.id_equipo = c.id_equipo "
+            "LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
+            "JOIN cable cb ON cb.id_cable = cx.id_cable "
+            "JOIN conexion cx2 ON cx2.id_cable = cx.id_cable "
+            "  AND cx2.id_conexion != cx.id_conexion "
+            "JOIN conector c2 ON c2.id_conector = cx2.id_conector "
+            "JOIN equipo e2 ON e2.id_equipo = c2.id_equipo "
+            "LEFT JOIN tipo_equipo te2 ON te2.id_tipo_equipo = e2.id_tipo_equipo "
+            "WHERE COALESCE(cb.es_cable_conexion_interna, 0) = 0 "
+            "AND e.id_equipo != 0 AND e2.id_equipo != 0 "
+            "AND e2.id_equipo != e.id_equipo"
+        )
+        rol = {}                 # id_equipo -> rol_senal
+        vecinos_patchera = {}    # id_patchera -> {ids de equipos vecinos por cable}
+        salidas = {}             # id_equipo candidato -> {ids de destino (no FANTASMA)}
+        for id_e, rol_e, dir_e, id_e2, rol_e2 in filas:
+            rol[id_e] = rol_e
+            rol[id_e2] = rol_e2
+            if rol_e == "PATCHERA":
+                vecinos_patchera.setdefault(id_e, set()).add(id_e2)
+            if (dir_e == "OUT"
+                    and rol_e not in ("DISTRIBUIDOR", "PATCHERA", "FANTASMA")
+                    and rol_e2 != "FANTASMA"):
+                salidas.setdefault(id_e, set()).add(id_e2)
+
+        def llega_a_distribuidor(origen, destinos):
+            pendientes = list(destinos)
+            vistos = {origen}
+            while pendientes:
+                n = pendientes.pop()
+                if n in vistos:
+                    continue
+                vistos.add(n)
+                if rol.get(n) == "DISTRIBUIDOR":
+                    return True
+                if rol.get(n) == "PATCHERA":
+                    pendientes.extend(vecinos_patchera.get(n, ()))
+            return False
+
+        ids = [i for i, dest in salidas.items()
+               if not llega_a_distribuidor(i, dest)]
+        if not ids:
+            return []
+        qmarks = ",".join("?" * len(ids))
+        return Modelo._query(
+            f"SELECT id_equipo, nombre FROM equipo "
+            f"WHERE id_equipo IN ({qmarks}) ORDER BY nombre", tuple(ids))
 
     @staticmethod
     def devolver_loops_en_uso():
