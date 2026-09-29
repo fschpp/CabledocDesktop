@@ -131,6 +131,9 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Equipos — Sin picon": {
         "en": "Equipment — No picon",
         "pt": "Equipamentos — Sem picon"},
+    "Equipos — Referencia en cascada": {
+        "en": "Equipment — Cascaded reference",
+        "pt": "Equipamentos — Referência em cascata"},
     "Equipos — Criticidad alta": {
         "en": "Equipment — High criticality",
         "pt": "Equipamentos — Criticidade alta"},
@@ -204,6 +207,9 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "Trabajo pendiente — Equipos": {
         "en": "Pending work — Equipment",
         "pt": "Trabalho pendente — Equipamentos"},
+    "Trabajo pendiente — Topología": {
+        "en": "Pending work — Topology",
+        "pt": "Trabalho pendente — Topologia"},
     "Trabajo pendiente — Frames": {
         "en": "Pending work — Frames",
         "pt": "Trabalho pendente — Frames"},
@@ -232,6 +238,7 @@ _TRADUCCIONES: dict[str, dict[str, str]] = {
     "🔌 Sin conectores":     {"en": "🔌 No connectors","pt": "🔌 Sem conectores"},
     "📷 Sin picon":          {"en": "📷 No picon",      "pt": "📷 Sem picon"},
     "🎯 Criticidad alta":    {"en": "🎯 High criticality", "pt": "🎯 Criticidade alta"},
+    "⚠️ Referencia en cascada": {"en": "⚠️ Cascaded reference", "pt": "⚠️ Referência em cascata"},
     "🖼 Sin imagen":         {"en": "🖼 No image",     "pt": "🖼 Sem imagem"},
     "📍 Sin imagen c/ conect.": {
         "en": "📍 No image w/ conn.",

@@ -51,7 +51,7 @@ from datetime import datetime
 # Versión de la app, formato a.aaammddhhmmss (a = versión mayor).
 # Actualizar esta variable con fecha/hora de entrega cada vez que se
 # implementa una nueva funcionalidad pedida por el usuario.
-APP_VERSION = "1.20260928193000"
+APP_VERSION = "1.20260929120000"
 
 from core.modelo import Modelo, IMG_DIR, DB_PATH, PICON_DIR
 
@@ -511,10 +511,12 @@ class VentanaPrincipal(Gtk.Window):
         center.pack_start(grid, False, False, 0)
 
         # ── Trabajo pendiente: una columna por categoría (Cables, Equipos,
-        # Frames, Riesgo de señal, Auditoría) lado a lado, en vez de
-        # apiladas una debajo de la otra — separador vertical entre
-        # columnas; la fila entera puede requerir scroll horizontal (mismo
-        # ScrolledWindow de siempre, sw_center, ya con policy AUTOMATIC).
+        # Topología, Frames, Riesgo de señal, Auditoría) lado a lado — y
+        # dentro de cada columna las tarjetas apiladas en vertical (una
+        # por fila), así crecer en tarjetas no ensancha la fila de
+        # categorías. Separador vertical entre columnas; puede requerir
+        # scroll (mismo ScrolledWindow de siempre, sw_center, con policy
+        # AUTOMATIC en ambos ejes).
         sep_p = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         sep_p.set_margin_top(20); sep_p.set_margin_bottom(8)
         center.pack_start(sep_p, False, False, 0)
@@ -546,6 +548,16 @@ class VentanaPrincipal(Gtk.Window):
             Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
         col_eq, self._panel_pendientes_eq = _columna_pendientes(_("Trabajo pendiente — Equipos"))
         columnas_pendientes.pack_start(col_eq, False, False, 0)
+
+        # Topología (plan_inteligencia_implicita_v1.md): reglas del linter
+        # de topología, aparte de "Equipos" (datos incompletos). Se
+        # refresca junto con Equipos (comparten un único cálculo de
+        # Modelo.devolver_pendientes_equipos), así que el panel tiene que
+        # existir antes de esa primera actualización.
+        columnas_pendientes.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        col_top, self._panel_pendientes_top = _columna_pendientes(_("Trabajo pendiente — Topología"))
+        columnas_pendientes.pack_start(col_top, False, False, 0)
         self._actualizar_panel_pendientes_eq()
 
         columnas_pendientes.pack_start(
@@ -614,6 +626,9 @@ class VentanaPrincipal(Gtk.Window):
         # plan_inteligencia_implicita_v1.md — Fase 4.1: conector.
         # id_conector_loop_de (de qué entrada es loop una salida).
         Modelo.asegurar_columna_loop_conector()
+        # plan_inteligencia_implicita_v1.md — Fase 2.1: tipo_equipo.
+        # es_distribuidor_sync (lista blanca de "referencia en cascada").
+        Modelo.asegurar_columna_distribuidor_sync_tipo_equipo()
         # plan_riesgo_senal_audio.md: columnas de los 3 ejes de riesgo de
         # calidad de señal (atenuación / ancho de banda / mismatch de
         # formato), separado del impacto lógico de asegurar_tablas_riesgo.
@@ -648,7 +663,7 @@ class VentanaPrincipal(Gtk.Window):
             (_("1️⃣ 1 extremo"),    p["un_extremo"],   "#7a3800", self._abrir_cables),
             (_("❓ Sin conexión"), p["sin_conexion"],  "#7a1a1a", self._abrir_cables),
         ]
-        for col, (titulo, valor, color, cb) in enumerate(items):
+        for fila, (titulo, valor, color, cb) in enumerate(items):
             frame = Gtk.Frame()
             frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
             vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -668,7 +683,7 @@ class VentanaPrincipal(Gtk.Window):
             vb.pack_start(lbl_t, False, False, 0)
             vb.pack_start(btn_ir, False, False, 0)
             frame.add(vb)
-            g.attach(frame, col, 0, 1, 1)
+            g.attach(frame, 0, fila, 1, 1)
 
         g.show_all()
 
@@ -694,14 +709,10 @@ class VentanaPrincipal(Gtk.Window):
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_img_conectores")),
             (_("🔍 Sin auditar"),           p["sin_auditar"],       "#1a4a6a",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="sin_auditar")),
-            (_("⚠️ Fuera de patchera"),     p["fuera_de_patchera"], "#5a3d00",
-             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="fuera_de_patchera")),
-            (_("⚠️ Loop en uso"), p["loop_en_uso"], "#5a2d00",
-             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="loop_en_uso")),
             (_("🎯 Criticidad alta"),        p["criticidad_alta"],   "#6a1a5a",
              lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="criticidad_alta")),
         ]
-        for col, (titulo, valor, color, cb) in enumerate(items):
+        for fila, (titulo, valor, color, cb) in enumerate(items):
             frame = Gtk.Frame()
             frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
             vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -718,7 +729,52 @@ class VentanaPrincipal(Gtk.Window):
             vb.pack_start(lbl_t, False, False, 0)
             vb.pack_start(btn_ir, False, False, 0)
             frame.add(vb)
-            g.attach(frame, col, 0, 1, 1)
+            g.attach(frame, 0, fila, 1, 1)
+        g.show_all()
+        self._actualizar_panel_pendientes_top(p)
+
+
+    def _actualizar_panel_pendientes_top(self, p=None):
+        """Pobla la columna "Topología" del dashboard con las reglas del
+        linter de topología (plan_inteligencia_implicita_v1.md): equipos
+        fuera de patchera (Fase 3), loop en uso (Fase 4) y referencia en
+        cascada (Fase 2). `p` es el dict de Modelo.devolver_pendientes_
+        equipos(); si no se pasa se calcula acá (así el refresco conjunto
+        con Equipos no lo calcula dos veces)."""
+        g = self._panel_pendientes_top
+        for ch in g.get_children():
+            g.remove(ch)
+        if p is None:
+            try:
+                p = Modelo.devolver_pendientes_equipos()
+            except Exception:
+                return
+        items = [
+            (_("⚠️ Fuera de patchera"),     p["fuera_de_patchera"], "#5a3d00",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="fuera_de_patchera")),
+            (_("⚠️ Loop en uso"), p["loop_en_uso"], "#5a2d00",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="loop_en_uso")),
+            (_("⚠️ Referencia en cascada"), p["referencia_en_cascada"], "#5a1a2d",
+             lambda: self._abrir_ventana(EquiposListado, filtro_pendiente="referencia_en_cascada")),
+        ]
+        for fila, (titulo, valor, color, cb) in enumerate(items):
+            frame = Gtk.Frame()
+            frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
+            vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            vb.set_margin_start(12); vb.set_margin_end(12)
+            vb.set_margin_top(8);   vb.set_margin_bottom(8)
+            lbl_n = Gtk.Label()
+            lbl_n.set_markup(f"<span size='xx-large' weight='bold' foreground='{color}'>{valor}</span>")
+            lbl_t = Gtk.Label(label=titulo)
+            lbl_t.get_style_context().add_class("dim-label")
+            btn_ir = Gtk.Button(label=_("ver →"))
+            btn_ir.set_relief(Gtk.ReliefStyle.NONE)
+            btn_ir.connect("clicked", lambda b, c=cb: c())
+            vb.pack_start(lbl_n, False, False, 0)
+            vb.pack_start(lbl_t, False, False, 0)
+            vb.pack_start(btn_ir, False, False, 0)
+            frame.add(vb)
+            g.attach(frame, 0, fila, 1, 1)
         g.show_all()
 
     def _actualizar_panel_pendientes_fr(self):
@@ -738,7 +794,7 @@ class VentanaPrincipal(Gtk.Window):
             (_("📍 Sin slot en imagen"), p["sin_rect"],   "#4a4a00",
              lambda: self._abrir_ventana(FramesListado, filtro_pendiente="sin_rect")),
         ]
-        for col, (titulo, valor, color, cb) in enumerate(items):
+        for fila, (titulo, valor, color, cb) in enumerate(items):
             frame = Gtk.Frame()
             frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
             vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -755,7 +811,7 @@ class VentanaPrincipal(Gtk.Window):
             vb.pack_start(lbl_t, False, False, 0)
             vb.pack_start(btn_ir, False, False, 0)
             frame.add(vb)
-            g.attach(frame, col, 0, 1, 1)
+            g.attach(frame, 0, fila, 1, 1)
         g.show_all()
 
     def _actualizar_panel_pendientes_rs(self):
@@ -780,7 +836,7 @@ class VentanaPrincipal(Gtk.Window):
             (_("🚧 Cuello de botella"), n_ancho_banda, "#7a3800", "ANCHO_BANDA"),
             (_("⚡ Mismatch de formato"), n_formato,     "#4a2d8a", "FORMATO"),
         ]
-        for col, (titulo, valor, color, eje) in enumerate(items):
+        for fila, (titulo, valor, color, eje) in enumerate(items):
             frame = Gtk.Frame()
             frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
             vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -797,7 +853,7 @@ class VentanaPrincipal(Gtk.Window):
             vb.pack_start(lbl_t, False, False, 0)
             vb.pack_start(btn_ir, False, False, 0)
             frame.add(vb)
-            g.attach(frame, col, 0, 1, 1)
+            g.attach(frame, 0, fila, 1, 1)
         g.show_all()
 
     def _actualizar_panel_pendientes_aud(self):
@@ -831,7 +887,7 @@ class VentanaPrincipal(Gtk.Window):
              lambda: self._abrir_ventana(FramesListado)),
             (_("🧩 Slots"),      p.get("slot", 0),     "#1a4a6a", None),
         ]
-        for col, (titulo, valor, color, cb) in enumerate(items):
+        for fila, (titulo, valor, color, cb) in enumerate(items):
             frame = Gtk.Frame()
             frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
             vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -849,12 +905,12 @@ class VentanaPrincipal(Gtk.Window):
                 btn_ir.connect("clicked", lambda b, c=cb: c())
                 vb.pack_start(btn_ir, False, False, 0)
             frame.add(vb)
-            g.attach(frame, col, 0, 1, 1)
+            g.attach(frame, 0, fila, 1, 1)
         self._agregar_tarjeta_sla_auditoria(g, len(items))
         g.show_all()
 
-    def _agregar_tarjeta_sla_auditoria(self, g, n_cols):
-        """Segunda fila del panel de auditoría (E3 de plan_auditoria_fecha_
+    def _agregar_tarjeta_sla_auditoria(self, g, n_filas):
+        """Última tarjeta de la columna de auditoría (E3 de plan_auditoria_fecha_
         edicion_v1.md): equipos con la auditoría vencida según el SLA
         configurado (Modelo.devolver_vencidos_sla_auditoria) — a diferencia
         de las tarjetas de arriba ("nunca auditados"), incluye también los
@@ -871,8 +927,6 @@ class VentanaPrincipal(Gtk.Window):
             return
         frame = Gtk.Frame()
         frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
-        frame.set_halign(Gtk.Align.CENTER)
-        frame.set_margin_top(6)
         vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         vb.set_margin_start(12); vb.set_margin_end(12)
         vb.set_margin_top(8);   vb.set_margin_bottom(8)
@@ -898,7 +952,7 @@ class VentanaPrincipal(Gtk.Window):
         btn_cfg.connect("clicked", self._abrir_config_sla_auditoria)
         vb.pack_start(btn_cfg, False, False, 0)
         frame.add(vb)
-        g.attach(frame, 0, 1, n_cols, 1)
+        g.attach(frame, 0, n_filas, 1, 1)
 
     def _abrir_config_sla_auditoria(self, *a):
         """Diálogo para cambiar los días del SLA de auditoría (E3); si se

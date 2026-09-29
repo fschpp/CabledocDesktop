@@ -195,14 +195,45 @@ tal cual está, sin tocarlo.
 Depende de **0.1** y **0.3**. Es el ítem que ya tenía un hueco anotado
 ("regla_logica REF1→REFOUT automation" en `plan_referencia_virtual_frame.md`).
 
-- [ ] **2.1** — Query/función que devuelva toda conexión de rol
+- [x] **2.1** — Query/función que devuelva toda conexión de rol
       referencia/sync cuyo `tipo_equipo` de origen no esté en la lista
       blanca de distribuidores (0.3).
-- [ ] **2.2** — Para cada hallazgo, cruzar con el blast radius de Fase
+      **Resultado (2026-09-28):** `Modelo.devolver_referencia_en_cascada()`.
+      Parte de las salidas con `tipo_conector.es_referencia_generada=1`
+      (no de un rol, ver 0.1) que tienen cable real y cuyo tipo de equipo
+      no está en la lista blanca. Lista blanca = columna nueva
+      `tipo_equipo.es_distribuidor_sync` (marca a mano, sin semilla por
+      nombre; `Modelo.establecer_es_distribuidor_sync_tipo_equipo`) +
+      rol `DISTRIBUIDOR_FRAME` implícito; orígenes `PATCHERA`/`FANTASMA`
+      excluidos. **Pendiente de Fede:** confirmar la columna nueva (cierra
+      la decisión de 0.3) y marcar los tipos `SYNC PULSE GENERATOR` y
+      `DISTRIBUIDOR TRILEVEL` (hoy sin `REFOUT` cableados, así que con los
+      datos actuales el resultado no cambia: sigue siendo `REFERENCE OUT`
+      de `CCU 1`). Sin UI para marcar tipos (queda para una 2.1c si se
+      quiere).
+      **2.1b (2026-09-29, pedido de Fede):** además de `REFOUT`, se
+      incluyen las salidas `OUT` comunes cuyo cable llega a una entrada de
+      referencia (`conector.es_entrada_referencia=1`): IN/OUT sirven para
+      toda señal, incluida la de sync. Depende de que las entradas de
+      referencia estén marcadas; un `OUT` hacia una entrada sin marcar no
+      se ve.
+- [x] **2.2** — Para cada hallazgo, cruzar con el blast radius de Fase
       1.1 (reusar la función, no reimplementar) para poder ordenar por
       gravedad real, no solo por existencia de la cascada.
-- [ ] **2.3** — UI: tarjeta "⚠️ Referencia en cascada" en el panel de
+      **Resultado (2026-09-29):** `linter_topologia.referencia_en_cascada_
+      priorizada()`. Ordena por blast radius del equipo dueño de la salida
+      (`risk_engine.calcular_criticidad_todos`, reusada), luego riesgo IRF
+      y cantidad de cables; los equipos sin riesgo calculado van al final.
+- [x] **2.3** — UI: tarjeta "⚠️ Referencia en cascada" en el panel de
       pendientes, mismo patrón que las anteriores.
+      **Resultado (2026-09-29):** tarjeta "⚠️ Referencia en cascada"
+      (`p["referencia_en_cascada"]` = equipos distintos, no salidas) y
+      `EquiposListado(filtro_pendiente="referencia_en_cascada")`, ya
+      priorizado por blast radius (2.2). Pendiente: smoke test GTK de Fede.
+      **2.3b (2026-09-29, pedido de Fede):** las tarjetas del linter
+      (fuera de patchera, loop en uso, referencia en cascada) pasan a una
+      columna propia "Trabajo pendiente — Topología"; en todas las columnas
+      las tarjetas se apilan en vertical.
 
 ---
 

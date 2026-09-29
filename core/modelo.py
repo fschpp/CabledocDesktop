@@ -4851,6 +4851,12 @@ class Modelo:
         # "ver →" (una fila por equipo): así el número nunca discrepa.
         loop_en_uso = len({
             r["id_equipo"] for r in Modelo.devolver_loops_en_uso()})
+        # Fase 2.3: equipos dueños de al menos una salida de referencia en
+        # cascada (Modelo.devolver_referencia_en_cascada, 2.1/2.1b). Se
+        # cuentan EQUIPOS distintos (no salidas) porque es lo que lista el
+        # "ver →" (una fila por equipo): así el número nunca discrepa.
+        referencia_en_cascada = len({
+            r["id_equipo"] for r in Modelo.devolver_referencia_en_cascada()})
         # Fase 1.3 de plan_inteligencia_implicita_v1.md ("ranking de
         # criticidad IRF × blast radius"): equipos en cuadrante alto/alto
         # (probabilidad de falla Y blast radius por encima del umbral) —
@@ -4872,6 +4878,7 @@ class Modelo:
             "sin_configuraciones": sin_configuraciones,
             "fuera_de_patchera": fuera_de_patchera,
             "loop_en_uso": loop_en_uso,
+            "referencia_en_cascada": referencia_en_cascada,
             "criticidad_alta":   criticidad_alta,
         }
 
@@ -6579,6 +6586,103 @@ class Modelo:
         return resultado
 
     @staticmethod
+    def devolver_referencia_en_cascada():
+        """Fase 2.1 de plan_inteligencia_implicita_v1.md ("linter de
+        topología"): salidas de referencia (conector cuyo tipo_conector
+        tiene es_referencia_generada=1, ex REFOUT, o salida OUT común que
+        alimenta una entrada de referencia, ver 2.1b más abajo) CABLEADAS
+        desde un tipo de equipo que no es distribuidor de sincronismo. La referencia debe
+        salir de un generador/distribuidor de sync; un equipo que la
+        re-emite (ej. el REFERENCE OUT de una CCU, el REF LOOP de un
+        SWITCHER o un WFM) arma una cascada: si ese equipo falla o se
+        apaga, arrastra la referencia de todo lo que cuelga de él.
+
+        Lista blanca (0.3 del plan), sin nombres hardcodeados: NO son
+        hallazgo las salidas de
+          - tipos marcados tipo_equipo.es_distribuidor_sync=1 (ver
+            asegurar_columna_distribuidor_sync_tipo_equipo; se marcan a
+            mano con establecer_es_distribuidor_sync_tipo_equipo),
+          - equipos de rol_senal='DISTRIBUIDOR_FRAME' (el distribuidor de
+            referencia de un frame, legítimo por definición),
+          - equipos de rol PATCHERA (pasan la señal, no la originan) ni
+            FANTASMA (placeholder de un extremo desconectado),
+          - el equipo 0 ("sin equipo").
+        Un tipo de equipo sin tipo asignado no está en la lista blanca.
+
+        Cuenta sólo cables reales: se ignoran los cables internos/virtuales
+        (cable.es_cable_conexion_interna=1, ej. la referencia virtual del
+        frame), los extremos sueltos (conexion sin conector), el equipo 0 y
+        el propio equipo de la salida. Un destino FANTASMA sí cuenta (mismo
+        criterio que devolver_loops_en_uso). Una salida de referencia sin
+        cable no aparece.
+
+        Qué es una "salida de referencia" (2.1b): (a) un conector cuyo
+        tipo_conector tiene es_referencia_generada=1 (ex REFOUT), vaya a
+        donde vaya; o (b) una salida normal (tipo_conector.direccion='OUT')
+        cuyo cable llega a una entrada de referencia (conector.
+        es_entrada_referencia=1). La referencia también viaja por OUT
+        comunes (IN/OUT sirven para toda señal, incluida la de sync), y lo
+        único que la distingue ahí es que la recibe una entrada de
+        referencia. Si esa entrada no está marcada, la salida no se ve.
+
+        Devuelve una lista de dicts ordenada por equipo y nombre de
+        conector (orden natural):
+            {"id_conector", "nombre", "id_equipo", "equipo",
+             "id_tipo_equipo", "tipo_equipo", "rol_senal", "n_cables",
+             "destinos": [{"id_equipo", "nombre", "rol_senal"}, ...]}
+        """
+        Modelo.asegurar_columnas_control_idioma()  # es_referencia_generada / rol_senal
+        Modelo.asegurar_columna_distribuidor_sync_tipo_equipo()
+        filas = Modelo._query(
+            "SELECT c.id_conector, c.nombre, e.id_equipo, e.nombre, "
+            "te.id_tipo_equipo, te.nombre, te.rol_senal, cx.id_cable, "
+            "e2.id_equipo, e2.nombre, te2.rol_senal "
+            "FROM conector c "
+            "JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector "
+            "JOIN equipo e ON e.id_equipo = c.id_equipo "
+            "LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo "
+            "JOIN conexion cx ON cx.id_conector = c.id_conector "
+            "JOIN cable cb ON cb.id_cable = cx.id_cable "
+            "JOIN conexion cx2 ON cx2.id_cable = cx.id_cable "
+            "  AND cx2.id_conexion != cx.id_conexion "
+            "JOIN conector c2 ON c2.id_conector = cx2.id_conector "
+            "JOIN equipo e2 ON e2.id_equipo = c2.id_equipo "
+            "LEFT JOIN tipo_equipo te2 ON te2.id_tipo_equipo = e2.id_tipo_equipo "
+            "WHERE (tc.es_referencia_generada = 1 "
+            "       OR (COALESCE(tc.direccion, '') = 'OUT' "
+            "           AND COALESCE(c2.es_entrada_referencia, 0) = 1)) "
+            "AND e.id_equipo != 0 "
+            "AND COALESCE(te.rol_senal, '') NOT IN "
+            "    ('DISTRIBUIDOR_FRAME', 'PATCHERA', 'FANTASMA') "
+            "AND COALESCE(te.es_distribuidor_sync, 0) = 0 "
+            "AND COALESCE(cb.es_cable_conexion_interna, 0) = 0 "
+            "AND e2.id_equipo != 0 AND e2.id_equipo != c.id_equipo"
+        )
+        por_salida = {}
+        for (id_c, nom_c, id_e, nom_e, id_t, nom_t, rol_t,
+             id_cable, id_dest, nom_dest, rol_dest) in filas:
+            d = por_salida.setdefault(id_c, {
+                "id_conector": id_c, "nombre": nom_c or "",
+                "id_equipo": id_e, "equipo": nom_e or "",
+                "id_tipo_equipo": id_t, "tipo_equipo": nom_t or "",
+                "rol_senal": rol_t or "",
+                "_cables": set(), "_destinos": {},
+            })
+            d["_cables"].add(id_cable)
+            d["_destinos"][id_dest] = (nom_dest or "", rol_dest or "")
+        resultado = []
+        for d in por_salida.values():
+            d["n_cables"] = len(d.pop("_cables"))
+            d["destinos"] = [
+                {"id_equipo": i, "nombre": n, "rol_senal": r}
+                for i, (n, r) in sorted(d.pop("_destinos").items(),
+                                        key=lambda kv: Modelo._clave_natural(kv[1][0]))]
+            resultado.append(d)
+        resultado.sort(key=lambda d: (d["equipo"].lower(),
+                                      Modelo._clave_natural(d["nombre"])))
+        return resultado
+
+    @staticmethod
     def devolver_patcheras_con_estado(id_equipo_seleccionado):
         """
         Para todos los conectores de MODULO PATCHERA devuelve:
@@ -7197,6 +7301,38 @@ class Modelo:
                 "CREATE INDEX IF NOT EXISTS ix_conector_loop_de "
                 "ON conector(id_conector_loop_de) "
                 "WHERE id_conector_loop_de IS NOT NULL")
+            conn.commit()
+
+    @staticmethod
+    def asegurar_columna_distribuidor_sync_tipo_equipo():
+        """Fase 2.1 de plan_inteligencia_implicita_v1.md: agrega
+        tipo_equipo.es_distribuidor_sync (0/1), la marca de "este TIPO de
+        equipo distribuye sincronismo legítimamente" — la lista blanca de
+        la regla "referencia en cascada" (0.3 del plan).
+
+        Por qué una marca y no un rol: rol_senal no alcanza para armar la
+        lista (DISTRIBUIDOR agrupa ~28 tipos que no distribuyen sync, y
+        FUENTE incluye equipos que sólo re-emiten referencia). Por qué no
+        por nombre: no se hardcodean nombres de tipos de la base (ver
+        ways-of-working). La marca vive en el tipo, no en el equipo: todos
+        los equipos de un tipo distribuidor de sync heredan la excepción.
+
+        Sin semilla automática a propósito (mismo criterio que
+        conector.id_conector_loop_de y es_entrada_referencia): decidir
+        qué tipos son distribuidores de sync es un dato de la instalación;
+        se completa a mano con
+        Modelo.establecer_es_distribuidor_sync_tipo_equipo(). El rol
+        DISTRIBUIDOR_FRAME no necesita marca: ya es, por definición, el
+        distribuidor de referencia de un frame (ver
+        Modelo.devolver_referencia_en_cascada). Idempotente, seguro de
+        llamar en cada arranque."""
+        with Modelo._conn_ctx() as conn:
+            cols = [c[1] for c in conn.execute(
+                "PRAGMA table_info(tipo_equipo)").fetchall()]
+            if "es_distribuidor_sync" not in cols:
+                conn.execute(
+                    "ALTER TABLE tipo_equipo ADD COLUMN "
+                    "es_distribuidor_sync INTEGER NOT NULL DEFAULT 0")
             conn.commit()
 
     @staticmethod
@@ -7872,6 +8008,27 @@ class Modelo:
             "UPDATE tipo_conector SET es_referencia_generada=? WHERE id_tipo_conector=?",
             (1 if valor else 0, id_tipo_conector),
         )
+
+    # -- es_distribuidor_sync por tipo_equipo (Fase 2.1, plan_inteligencia_implicita_v1) --
+    @staticmethod
+    def establecer_es_distribuidor_sync_tipo_equipo(id_tipo_equipo, valor):
+        """Marca/desmarca un tipo de equipo como distribuidor de sincronismo
+        legítimo (lista blanca de la regla "referencia en cascada", ver
+        asegurar_columna_distribuidor_sync_tipo_equipo)."""
+        Modelo.asegurar_columna_distribuidor_sync_tipo_equipo()
+        Modelo._exec(
+            "UPDATE tipo_equipo SET es_distribuidor_sync=? WHERE id_tipo_equipo=?",
+            (1 if valor else 0, int(id_tipo_equipo)),
+        )
+
+    @staticmethod
+    def devolver_ids_tipos_distribuidor_sync():
+        """Ids de los tipos de equipo marcados como distribuidor de sync
+        (la lista blanca de la Fase 2). Vacía si no se marcó ninguno."""
+        Modelo.asegurar_columna_distribuidor_sync_tipo_equipo()
+        return [f[0] for f in Modelo._query(
+            "SELECT id_tipo_equipo FROM tipo_equipo "
+            "WHERE es_distribuidor_sync = 1 ORDER BY id_tipo_equipo")]
 
     # -- es_entrada_referencia por conector puntual (no por tipo_conector) --
     # plan_referencia_virtual_frame.md, corrección 2026-09-10: la primera

@@ -76,7 +76,7 @@ from pantallas_avanzadas import (
 # ─── Equipos ──────────────────────────────────────────────────────────────────
 
 class EquiposListado(VentanaListado):
-    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla' | 'fuera_de_patchera' | 'loop_en_uso' | 'criticidad_alta'
+    # filtro_pendiente: None | 'sin_conectores' | 'sin_imagen' | 'sin_picon' | 'sin_img_conectores' | 'sin_auditar' | 'vencidos_sla' | 'fuera_de_patchera' | 'loop_en_uso' | 'referencia_en_cascada' | 'criticidad_alta'
     def __init__(self, parent=None, modo_seleccion=False, filtro_pendiente=None,
                  excluir_modulos_de_frame=False):
         self._ocultar_patcheras = True   # debe existir antes de super().__init__
@@ -107,6 +107,8 @@ class EquiposListado(VentanaListado):
             titulo = _("Equipos — Fuera de patchera")
         elif filtro_pendiente == "loop_en_uso":
             titulo = _("Equipos — Loop en uso")
+        elif filtro_pendiente == "referencia_en_cascada":
+            titulo = _("Equipos — Referencia en cascada")
         elif filtro_pendiente == "criticidad_alta":
             titulo = _("Equipos — Criticidad alta")
         super().__init__(
@@ -264,6 +266,15 @@ class EquiposListado(VentanaListado):
             # contador del dashboard, ya priorizado por riesgo.
             from core.linter_topologia import ids_equipos_loop_en_uso_priorizados
             self._ids_resaltar = set(ids_equipos_loop_en_uso_priorizados())
+            color = "#c8a800"
+        elif self._filtro_pendiente == "referencia_en_cascada":
+            # Fase 2.3 de plan_inteligencia_implicita_v1.md: equipos que
+            # re-emiten referencia sin ser distribuidores de sync
+            # (Modelo.devolver_referencia_en_cascada, 2.1/2.1b) — mismo
+            # criterio que el contador del dashboard, ya priorizado por
+            # blast radius (2.2).
+            from core.linter_topologia import ids_equipos_referencia_en_cascada_priorizados
+            self._ids_resaltar = set(ids_equipos_referencia_en_cascada_priorizados())
             color = "#c8a800"
         elif self._filtro_pendiente == "criticidad_alta":
             # Fase 1.3 de plan_inteligencia_implicita_v1.md ("ranking de
