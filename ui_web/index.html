@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CableDoc Web — Fase 0</title>
+<style>
+  :root{color-scheme:light dark;--b:#8884}
+  body{font:14px system-ui,sans-serif;max-width:900px;margin:1.5rem auto;padding:0 1rem}
+  h1{font-size:1.3rem;margin:0 0 .2rem}.sub{opacity:.7;margin-bottom:1rem}
+  fieldset{border:1px solid var(--b);border-radius:8px;margin:0 0 .8rem;padding:.6rem .8rem}
+  legend{font-weight:600;padding:0 .4rem}
+  button{padding:.4rem .8rem;margin:.2rem .3rem .2rem 0;cursor:pointer}
+  button:disabled{opacity:.4;cursor:default}
+  table{border-collapse:collapse;width:100%;margin-top:.5rem}
+  td,th{border-bottom:1px solid var(--b);padding:.25rem .5rem;text-align:left}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  pre{background:#8881;border-radius:6px;padding:.6rem;max-height:260px;overflow:auto;margin:0;white-space:pre-wrap}
+  .ok{color:#2a9d3a}.bad{color:#d33}
+</style></head><body>
+<h1>CableDoc Web — Fase 0</h1>
+<div class="sub">Pyodide + <code>core/</code> en el navegador (plan_pyodide_v1.md)</div>
+
+<fieldset><legend>1. Estado</legend>
+  <div id="estado">Cargando Pyodide…</div>
+</fieldset>
+
+<fieldset><legend>2. Base de datos</legend>
+  <input type="file" id="file" accept=".db,.sqlite,.sqlite3" disabled>
+  <button id="export" disabled>Exportar db.db</button>
+  <button id="reset" disabled>Borrar base guardada</button>
+</fieldset>
+
+<fieldset><legend>3. Pruebas</legend>
+  <button id="bench" disabled>▶ Benchmark de motores (IRF, impacto, linters)</button>
+  <button id="write" disabled>✍ Prueba de escritura SQLite</button>
+  <button id="pillow" disabled>🖼 Probar Pillow</button>
+  <table id="res" hidden><thead><tr><th>Operación</th><th>Tiempo (s)</th><th>Hash</th><th>vs nativo</th></tr></thead><tbody></tbody></table>
+</fieldset>
+
+<fieldset><legend>Registro</legend><pre id="log"></pre></fieldset>
+
+<script>
+let cold = null;
+const w = new Worker("worker.js", { type: "module" });
+const $ = (id) => document.getElementById(id);
+const log = (m) => { $("log").textContent += m + "\n"; $("log").scrollTop = 1e9; };
+w.onerror = (e) => log("❌ Error en worker.js: " + (e.message || "no se pudo cargar (mirá F12 → Red)"));
+const t0 = Date.now();
+[15, 45, 90].forEach((s) => setTimeout(() => { if (cold === null) log(`… sigue cargando (${s} s). Si pasa de 60 s: F12 → Consola / Red y pasame lo que salga en rojo.`); }, s * 1000));
+const btns = ["file", "export", "reset", "bench", "write", "pillow"];
+const enable = (on) => btns.forEach((b) => ($(b).disabled = !on));
+
+w.onmessage = (e) => {
+  const d = e.data;
+  if (d.type === "log") log(d.msg);
+  else if (d.type === "ready") { cold = d.coldMs; enable(true); log(`✔ Listo (carga en frío: ${(d.coldMs/1000).toFixed(2)} s)`); }
+  else if (d.type === "idle") enable(cold !== null);
+  else if (d.type === "state") {
+    const heap = performance.memory ? ` · JS heap ${Math.round(performance.memory.usedJSHeapSize/1048576)} MB` : "";
+    $("estado").innerHTML =
+      `<b>db.db en IndexedDB:</b> ${d.dbBytes ? Math.round(d.dbBytes/1024) + " KB" : "— (cargá uno)"}<br>` +
+      `<b>Marcas de escritura guardadas:</b> ${d.marcas}<br>` +
+      `<b>Memoria wasm:</b> ${d.wasmHeapMB} MB${heap}` + (cold ? `<br><b>Carga en frío:</b> ${(cold/1000).toFixed(2)} s` : "");
+  }
+  else if (d.type === "bench") {
+    const tb = $("res").querySelector("tbody"); tb.innerHTML = "";
+    for (const [k, v] of Object.entries(d.result)) {
+      const est = v.ok === undefined ? "" : v.ok ? '<span class="ok">✔ igual</span>' : '<span class="bad">✖ distinto</span>';
+      tb.insertAdjacentHTML("beforeend", `<tr><td>${k}</td><td class="n">${v.s}</td><td>${v.hash || ""}</td><td>${est}</td></tr>`);
+    }
+    $("res").hidden = false;
+  }
+  else if (d.type === "download") {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([d.data])); a.download = d.name; a.click();
+  }
+};
+const send = (cmd, extra = {}, tr = []) => { enable(false); w.postMessage({ cmd, ...extra }, tr); };
+$("file").onchange = async (e) => { const f = e.target.files[0]; if (f) { const buf = await f.arrayBuffer(); send("load_db", { buf }, [buf]); } };
+$("bench").onclick = () => send("bench");
+$("write").onclick = () => send("write_test");
+$("pillow").onclick = () => send("pillow");
+$("export").onclick = () => send("export");
+$("reset").onclick = () => { if (confirm("¿Borrar la base guardada en este navegador?")) send("reset"); };
+enable(false);
+</script></body></html>
