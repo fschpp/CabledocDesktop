@@ -2491,3 +2491,29 @@ Dos pedidos de Papi para la interfaz GTK, sobre `main` `5b090be` (PR #57): (1) e
 - "Ocultar fantasmas" aplica también cuando `EquiposListado` se abre como selector (`modo_seleccion=True`), igual que patcheras: para elegir un fantasma hay que destildarlo.
 - Preexistente, no tocado: con `filtro_pendiente` activo y 0 resultados, `_filtrar` cae a mostrar todos los equipos (`if self._filtro_pendiente and self._ids_resaltar`).
 - El repo se clonó en `/home/claude/CabledocDesktop`; no hay push, Papi aplica el diff en su checkout.
+
+## Current Focus
+
+_Última actualización: 2026-09-30 — Fase 0 de `plan_pyodide_v1.md` (port a Pyodide/navegador) cerrada con **GO**. Bloque para pegar arriba de las secciones "Current Focus" existentes; la actual pasa a "(sesión anterior)"._
+
+### Current Focus
+Fase 0 completada. Siguiente: Fase A del plan (visor de solo lectura en el navegador), empezando por A.1 (`ui_web/bridge.py`, capa JSON de lectura). Requiere OK de costo de tokens antes de arrancar (estimación Fase A: 0,8-1,2M tokens, 3-4 semanas).
+
+### Todo List
+- [x] Done — 0.1 Medir datos reales (db.db 950 KB, imagen/ 13 MB, picon/ 1,3 MB, manuales/ 509 MB)
+- [x] Done — 0.2 Página mínima `ui_web/` + worker Pyodide verificada en Firefox (carga en frío 2,04 s)
+- [x] Done — 0.3 `core/` montado en `/app/core` sin cambios en `modelo.py`
+- [x] Done — 0.4 db.db real abierto con `Modelo` en el navegador
+- [x] Done — 0.5 `gi` falla limpio; Pillow carga desde CDN (no desde la copia local)
+- [x] Done — 0.6 Hashes idénticos a nativo (simulaciones, IRF, criticidad, linters, conexiones)
+- [x] Done — 0.7 Rendimiento medido (IRF completo 3,2 s vs 1,76 s nativo; memoria 36 MB)
+- [x] Done — 0.8 Persistencia IDBFS verificada tras F5
+- [ ] Todo — A.1 `ui_web/bridge.py` (API JSON de lectura, un método por pantalla)
+- [ ] Todo — A.2 a A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Pyodide 314.0.7 exige **worker de tipo módulo** (`new Worker("worker.js", {type:"module"})` + `import("…/pyodide.mjs")`); `importScripts` falla con "Classic web workers are not supported". Hay que copiar también `pyodide.mjs` a `ui_web/pyodide/`.
+- `Forbidden` al abrir `cdn.jsdelivr.net/pyodide/v314.0.7/full/` es solo el listado de directorio; el archivo `pillow-12.2.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl` sí carga por URL.
+- El IRF completo (~3 s en wasm) debe correr en el Worker con indicador de progreso.
+- Los hashes de `bench_web.py` (`ESPERADO`) valen solo para el db.db del 2026-09-28.
+- Fuera del paquete web: `data/manuales/` (509 MB), `ui_kivy/`, consola Cypher.
