@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/img/icono_aplicacion.png" alt="CableDoc logo" width="160">
+</p>
+
 # CableDoc
 
 **Broadcast cable and infrastructure management software.**
@@ -75,6 +79,51 @@ Development is AI assisted, driven by real cases found during on-site cabling su
 - **Multi-language UI** (`i18n.py`): Spanish as the primary language, with
   English and Portuguese translations, and an AST-based string-wrapping
   pipeline (`auto_wrap.py`) to keep new code translatable.
+
+## Screenshots
+
+### Desktop (Windows 10, GTK3 via MSYS2)
+
+Interactive connections diagram with the signal legend and the mini-map,
+over the main window with the infrastructure tree and the pending-work
+dashboard.
+
+<p align="center">
+  <img src="docs/img/windows.png" alt="CableDoc desktop on Windows 10: connections diagram" width="800">
+</p>
+
+### Mobile (Android, Kivy on Pydroid 3)
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/img/Screenshot_20260929_211415_Pydroid%203.jpg" alt="Home screen" width="220"><br>
+      <sub>Home: totals, quick access and pending work</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/img/Screenshot_20260929_211426_Pydroid%203.jpg" alt="Equipment list" width="220"><br>
+      <sub>Equipment list with search and filters</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/img/Screenshot_20260929_211442_Pydroid%203.jpg" alt="Edit equipment" width="220"><br>
+      <sub>Equipment editing and quick actions</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/img/Screenshot_20260929_211453_Pydroid%203.jpg" alt="Connections diagram" width="220"><br>
+      <sub>Connections diagram</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/img/Screenshot_20260929_211531_Pydroid%203.jpg" alt="Patch bays view" width="220"><br>
+      <sub>Patch bays of an equipment</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/img/Screenshot_20260929_211549_Pydroid%203.jpg" alt="Connector image" width="220"><br>
+      <sub>Connector image and connection table</sub>
+    </td>
+  </tr>
+</table>
 
 ## Current status
 
@@ -300,7 +349,7 @@ from several focused `*Mixin` classes rather than one monolithic class.
 | About dialog | `acerca_de.py` (renders `README.md` and `changelog.txt` inside the app) |
 | One-off migration script | `convertir_archivos.py` (pixel → percentage coordinate migration) |
 
-### `pantallas_avanzadas.py`:
+### `pantallas_avanzadas.py`: from ~11,000-line monolith to a pure facade
 
 `pantallas_avanzadas.py` defines no classes or functions of its own — it
 only re-exports names (`ArbolConexionesEquipo`, `VistaRack`,
