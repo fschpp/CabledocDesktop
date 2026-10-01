@@ -1,0 +1,99 @@
+// Shell de la app (A.2): barra superior, navegación por hash (#/equipos/12), idioma, tema y errores.
+// `iniciar(rpc)` recibe el cliente del worker, así se puede probar con un rpc falso.
+import { h, $ } from "./dom.js";
+import { t, idioma, IDIOMAS, idiomaInicial, cacheado, aplicar, alCambiar } from "./i18n.js";
+import { TEMAS, ETIQUETAS, temaGuardado, aplicarTema } from "./tema.js";
+import { reportar, panelError, instalarGlobales, texto } from "./errores.js";
+import { NAV, resolverVista } from "./vistas.js";
+
+export function parseRuta(hash = location.hash) {
+  const [id, ...args] = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
+  return { id: id || "inicio", args };
+}
+
+export async function iniciar(rpc) {
+  const estado = { dbBytes: null, iniciado: false };
+  let token = 0;
+
+  instalarGlobales();
+  aplicarTema(temaGuardado(), { persistir: false });
+  const l0 = idiomaInicial();
+  aplicar(l0, (l0 !== "es" && cacheado(l0)) || {}, { persistir: false });
+  const splash = $("splash-txt"); if (splash) splash.textContent = t("Iniciando el motor (Pyodide)…");
+
+  rpc.on("state", (d) => {
+    const antes = estado.dbBytes; estado.dbBytes = d.dbBytes;
+    if (!estado.iniciado) return;
+    const info = $("db-info"); if (info) info.textContent = textoBase();
+    if (antes !== d.dbBytes) mostrarVista();       // base cargada o cambiada: repintar la pantalla actual
+  });
+  rpc.on("error", (err) => reportar(err, "Error del motor Python"));
+
+  const textoBase = () => (estado.dbBytes ? t("Base cargada ({kb} KB)", { kb: Math.round(estado.dbBytes / 1024) }) : "");
+
+  function marcarActivo() {
+    const { id } = parseRuta();
+    document.querySelectorAll("#lateral a[data-id]").forEach((a) =>
+      id === a.dataset.id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  }
+
+  async function cambiarIdioma(l) {
+    try {
+      if (l === "es") return aplicar("es", {});
+      aplicar(l, (await rpc.diccionario(l)).textos);
+    } catch (err) { reportar(err, "Error del motor Python"); }
+  }
+
+  function montarShell() {
+    const selIdioma = h("select", { id: "sel-idioma", onchange: (e) => cambiarIdioma(e.target.value) },
+      Object.entries(IDIOMAS).map(([c, n]) => h("option", { value: c, selected: c === idioma() }, n)));
+    const selTema = h("select", { id: "sel-tema", onchange: (e) => aplicarTema(e.target.value) },
+      TEMAS.map((c) => h("option", { value: c, selected: c === temaGuardado() }, t(ETIQUETAS[c]))));
+    const menu = h("button", { id: "btn-menu", type: "button", "aria-label": t("Menú"), "aria-expanded": "false", "aria-controls": "lateral",
+      onclick: () => { const ab = document.body.classList.toggle("menu-abierto"); menu.setAttribute("aria-expanded", String(ab)); } }, "☰");
+    const app = h("div", { id: "app" },
+      h("a", { class: "saltar", href: "#contenido" }, t("Saltar al contenido")),
+      h("header", { id: "barra" }, menu, h("h1", {}, "CableDoc"),
+        h("label", {}, t("Idioma"), selIdioma), h("label", {}, t("Tema"), selTema)),
+      h("nav", { id: "lateral", "aria-label": t("Menú") },
+        NAV.map((n) => h("a", { href: "#/" + n.id, "data-id": n.id }, h("span", { "aria-hidden": "true" }, n.icono), t(n.clave))),
+        h("div", { class: "sep" }),
+        h("div", { class: "aparte", id: "db-info" }, textoBase()),
+        h("a", { href: "index.html", class: "aparte" }, "🛠 " + t("Diagnóstico técnico"))),
+      h("main", { id: "contenido", tabindex: "-1" }));
+    const previo = $("app") || $("splash"); previo ? previo.replaceWith(app) : document.body.prepend(app);
+    marcarActivo();
+  }
+
+  async function mostrarVista() {
+    const miToken = ++token, { id, args } = parseRuta(), main = $("contenido");
+    if (!main) return;
+    main.replaceChildren(h("p", { class: "sub" }, t("Cargando…")));
+    try {
+      const nodo = await resolverVista(estado.dbBytes ? id : "cargar_db", { rpc, args });
+      if (miToken === token) main.replaceChildren(nodo);
+    } catch (err) {
+      if (miToken !== token) return;
+      reportar(err, "Error al mostrar la pantalla", { toast: false });
+      main.replaceChildren(panelError(err, mostrarVista));
+    }
+  }
+
+  alCambiar(() => { if (estado.iniciado) { montarShell(); mostrarVista(); } });
+  window.addEventListener("hashchange", () => {
+    document.body.classList.remove("menu-abierto");
+    marcarActivo(); mostrarVista();
+    const m = $("contenido"); if (m) m.focus({ preventScroll: true });
+  });
+
+  try { await rpc.listo; }
+  catch (err) {
+    if (splash) splash.replaceChildren(h("div", {}, t("No se pudo cargar el motor. Revisá la red o corré ui_web/fetch_pyodide.py."), h("pre", {}, texto(err))));
+    return;
+  }
+  if (idioma() !== "es") {                          // reemplaza el diccionario cacheado por el vigente
+    try { aplicar(idioma(), (await rpc.diccionario(idioma())).textos); } catch (err) { reportar(err, "Error del motor Python"); }
+  }
+  estado.iniciado = true;
+  montarShell(); mostrarVista();
+}
