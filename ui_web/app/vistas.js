@@ -4,12 +4,13 @@
 import { h } from "./dom.js";
 import { t, idioma } from "./i18n.js";
 import { vistaEquipos } from "./equipos_arbol.js";
+import { fichaEquipo, fichaConector, listaCables } from "./fichas.js";
 
 // Navegación: `etapa` es la tarea del plan que la implementa (null = ya disponible).
 export const NAV = [
   { id: "inicio",      clave: "Inicio",      icono: "🏠", etapa: null },
   { id: "equipos",     clave: "Equipos",     icono: "🖥️", etapa: null },
-  { id: "cables",      clave: "Cables",      icono: "🔌", etapa: "A.4" },
+  { id: "cables",      clave: "Cables",      icono: "🔌", etapa: null },
   { id: "conexiones",  clave: "Conexiones",  icono: "🔗", etapa: "A.5" },
   { id: "ubicaciones", clave: "Ubicaciones", icono: "🗄️", etapa: "A.6" },
   { id: "analisis",    clave: "Análisis",    icono: "📈", etapa: "A.7" },
@@ -17,6 +18,9 @@ export const NAV = [
   { id: "busqueda",    clave: "Búsqueda",    icono: "🔍", etapa: "A.9" },
   { id: "datos",       clave: "Datos",       icono: "💾", etapa: "A.10" },
 ];
+
+// Rutas sin ítem propio en el menú resaltan el de su familia.
+export const ALIAS_NAV = { conectores: "equipos" };
 
 const TARJETAS = [["equipo", "Equipos"], ["conector", "Conectores"], ["cable", "Cables"], ["conexion", "Conexiones"],
   ["sala", "Salas"], ["rack", "Racks"], ["frame", "Frames"]];
@@ -52,7 +56,8 @@ const pendiente = (item) => () => h("section", { class: "pendiente" },
   h("h2", {}, t(item.clave)),
   h("p", { class: "sub" }, t("Disponible en la etapa {etapa} del plan.", { etapa: item.etapa })));
 
-export const VISTAS = { inicio, equipos: vistaEquipos, ...Object.fromEntries(NAV.filter((n) => n.etapa).map((n) => [n.id, pendiente(n)])) };
+// #/equipos → árbol; #/equipos/<id> → ficha. #/cables → lista; #/cables/<id> → ficha. #/conectores/<id> → ficha (sin entrada propia en el menú).
+export const VISTAS = { inicio, equipos: (ctx) => (ctx.args?.length ? fichaEquipo(ctx) : vistaEquipos(ctx)), cables: listaCables, conectores: fichaConector, ...Object.fromEntries(NAV.filter((n) => n.etapa).map((n) => [n.id, pendiente(n)])) };
 
 export function resolverVista(id, ctx) {
   const f = id === "cargar_db" ? cargarDb : VISTAS[id];

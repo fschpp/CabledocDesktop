@@ -1,4 +1,4 @@
-// Pantalla "Equipos" (A.3): árbol Sala → Rack → Frame → Equipo → Conectores con filtro y lista virtualizada.
+// Pantalla "Equipos" (A.3; desde A.4 las filas de equipo y conector enlazan a su ficha): árbol Sala → Rack → Frame → Equipo → Conectores con filtro y lista virtualizada.
 // Los datos se piden UNA vez al bridge (arbol_equipos) y se guardan en memoria; el filtro y el expandir/contraer
 // trabajan sobre esa copia (ver arbol.js). Solo se crean en el DOM las filas que entran en la ventana de scroll.
 import { h } from "./dom.js";
@@ -72,7 +72,9 @@ export async function vistaEquipos({ rpc, gen = 0 }) {
         f.expandible
           ? h("button", { type: "button", class: "arbol-flecha", "aria-label": t(f.abierto ? "Contraer" : "Expandir"), onclick: () => alternar(f) }, f.abierto ? "▾" : "▸")
           : h("span", { class: "arbol-flecha vacio", "aria-hidden": "true" }),
-        h("span", { class: "arbol-etiqueta", title: n.l }, n.l),
+        n.t === "equipo" || n.t === "conector"
+          ? h("a", { class: "arbol-etiqueta", title: n.l, href: `#/${n.t === "equipo" ? "equipos" : "conectores"}/${n.i}` }, n.l)
+          : h("span", { class: "arbol-etiqueta", title: n.l }, n.l),
         badge ? h("span", { class: "arbol-badge" }, badge) : null);
     }));
   }

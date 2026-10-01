@@ -78,6 +78,35 @@ h2{margin:.1rem 0 1rem;font-size:1.25rem}
 .tipo-sala .arbol-badge{color:#7d74d6;border-color:#7d74d6}.tipo-rack .arbol-badge{color:#4a90d9;border-color:#4a90d9}
 .tipo-frame .arbol-badge{color:#d9922e;border-color:#d9922e}.tipo-equipo .arbol-badge{color:var(--ok);border-color:var(--ok)}
 
+/* Fichas (A.4) */
+.ficha{max-width:70rem}
+.volver{margin:0 0 .4rem}
+.ficha a{color:var(--acento)}
+.bloque{margin:1.2rem 0}
+.bloque h3{margin:0 0 .5rem;font-size:1.05rem}
+.datos{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:.6rem 0}
+.datos dt{color:var(--texto2)}.datos dd{margin:0;overflow-wrap:anywhere}
+.texto{white-space:pre-wrap;background:var(--panel);border:1px solid var(--borde);border-radius:6px;padding:.6rem;margin:0}
+.tabla-scroll{overflow-x:auto;max-width:100%}
+.tabla{border-collapse:collapse;width:100%;background:var(--panel);border:1px solid var(--borde)}
+.tabla th,.tabla td{text-align:left;padding:.35rem .6rem;border-bottom:1px solid var(--borde);vertical-align:top}
+.tabla th{background:var(--panel2);position:sticky;top:0}
+.tabla td.n{text-align:right;font-variant-numeric:tabular-nums}
+.tabla tr.resaltada{background:var(--panel2);outline:2px solid var(--acento);outline-offset:-2px}
+.conexion+.conexion{margin-top:.2rem}
+.etiqueta{font-size:.75rem;border:1px solid var(--borde);border-radius:999px;padding:0 .45rem;margin-left:.4rem;color:var(--texto2)}
+.etiqueta.mal,.mal{color:var(--mal);border-color:var(--mal)}
+.boton{display:inline-block;background:var(--panel2);border:1px solid var(--borde);border-radius:6px;padding:.4rem .8rem;cursor:pointer;margin-right:.4rem}
+.boton:hover,.boton:focus-within{border-color:var(--acento)}
+.img-conectores{margin:0 0 1rem}
+.img-lienzo{display:inline-block;max-width:100%}
+.img-caja{position:relative;display:inline-block;max-width:100%;line-height:0;border:1px solid var(--borde);background:var(--panel)}
+.img-caja img{display:block;max-width:100%;height:auto}
+.img-falta{line-height:1.45;border:1px dashed var(--borde);border-radius:8px;padding:1rem;background:var(--panel)}
+.marcador{position:absolute;transform:translate(-50%,-50%);min-width:1.4rem;height:1.4rem;padding:0 .25rem;display:flex;align-items:center;justify-content:center;
+  border-radius:999px;background:var(--acento);color:var(--acento-t)!important;font:600 .75rem/1 system-ui,sans-serif;text-decoration:none;border:2px solid var(--panel);box-shadow:var(--sombra)}
+.marcador:hover,.marcador:focus-visible,.marcador.actual{background:var(--mal);z-index:2}
+
 /* Pantallas angostas: el lateral pasa a cajón */
 @media (max-width:800px){
   #app{grid-template-columns:1fr}

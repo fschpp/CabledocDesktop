@@ -7,7 +7,7 @@ export function h(tag, attrs, ...hijos) {
     else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v === true ? "" : String(v));
   }
-  for (const c of hijos.flat()) {
+  for (const c of hijos.flat(Infinity)) {
     if (c == null || c === false) continue;
     el.append(c.nodeType ? c : document.createTextNode(String(c)));
   }
