@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.4)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.5)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -48,3 +48,11 @@ Rutas: `#/equipos/<id>` (equipo), `#/conectores/<id>` (conector, resalta "Equipo
 - **Conectores sobre la imagen** (`app/imagen_conectores.js`): `coordenada_x/y_en_imagen` están guardadas como % (0-100) del ancho/alto (ver `Modelo`), así que el marcador va en `left:x%; top:y%` sin medir la imagen. Los marcadores numerados enlazan al conector; pasar el mouse resalta su fila en la tabla. Los que caen fuera de 0-100 no se dibujan y se listan aparte (el desktop también tiene datos así). Un bloque por archivo de imagen: primero el del equipo, luego los propios de los conectores.
 - `A.10` (export/import) debería reutilizar `guardarArchivos`/`vaciarImagenes` para respaldar las imágenes junto con el `.db`.
 - Pruebas: `node tests/test_shell.mjs` → escenarios `imagenes` (rutas, OPFS simulado con la lógica real de `almacenOpfs`, caché/revocación, errores parciales) y `fichas` (bridge real sobre Pyodide: enlaces, marcadores, resaltado, idioma, ids inexistentes).
+
+## Conexiones (Fase A.5)
+
+Rutas: `#/conexiones` (elegir equipo, con filtro), `#/conexiones/<id_equipo>` (árbol de conexiones) y `#/cadena/<id_cable>` (cadena completa de extensiones; resalta "Conexiones" en el menú). `app/conexiones.js` usa dos funciones nuevas del bridge, ambas de solo lectura: `conexiones_equipo(id_equipo)` y `cadena_extension(id_cable)`. Las fichas enlazan a ambas pantallas (equipo → árbol, cable → cadena; también el ⛓ de cada cable del árbol).
+
+- **Árbol** (réplica de `ArbolConexionesEquipo`): equipo → 🔗 cable → equipo del otro extremo → …, con **carga perezosa** (un nivel por llamada, `conexiones_equipo`, que lee `CONEXIONES_AMBOS_EXTREMOS` igual que `Modelo.devolver_equipos_conectados_a_equipo`). Cada equipo se desarrolla una sola vez en todo el árbol; si reaparece queda como hoja marcada "ya desarrollado" (así se cortan los ciclos, igual que el desktop). Un destino con id 0/sin equipo es una hoja atenuada. "Expandir todo" abre solo lo ya cargado (no dispara cargas nuevas). Diferencia con GTK: los cables salen abiertos al cargar el equipo (menos clics); en GTK hay que abrir cada cable. Se agrupa por cable (id), en GTK por código.
+- **Cadena** (réplica de `CadenaExtensionDialog`): equipo → cable → extensión → cable → … → equipo, con el cable de partida marcado (👈), el armado de cada extensión (✓ / ⚠ MAL ARMADO / no verificado) y los avisos de extremo suelto y referencia circular. `cadena_extension` reimplementa `Modelo.resolver_cadena_extension` sin `asegurar_tablas_extension_cable()` (que escribe): `test_bridge.py` verifica que da los mismos eslabones. En una base sin tabla `extension_cable` la cadena es solo el cable.
+- Pruebas: `test_bridge.py` (paridad con `Modelo`: filas del árbol y eslabones de la cadena, ciclo, extremo suelto, tabla ausente) y escenario `conexiones` de `node tests/test_shell.mjs` (35 chequeos con el bridge real: carga perezosa, ciclo, hoja, contraer/expandir, errores, enlaces, inglés).

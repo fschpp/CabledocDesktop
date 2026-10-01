@@ -152,6 +152,55 @@ def _rec(n):
 for n in ar["nodos"]: _rec(n)
 check(sorted(ids) == [1, 2, 3, 4, 5], "arbol: cada equipo aparece exactamente una vez")
 
+# ── conexiones_equipo y cadena_extension (A.5) ──
+m.Modelo.asegurar_tablas_extension_cable()
+c = sqlite3.connect(m.DB_PATH)
+c.executescript("""
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector) VALUES (5,'IN 2',2,1);
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (0,2,'EMPALME BNC 1');
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector) VALUES (6,'X',0,1);
+INSERT INTO cable(id_cable,codigo) VALUES (4,'EXT-A'),(5,'EXT-B'),(6,'SUELTO'),(7,'CICLO'),(8,'C-008'),(9,'VACIO');
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES
+  (5,4,4,0),(6,4,NULL,0),(7,5,NULL,0),(8,5,5,0),
+  (9,6,1,0),(10,6,NULL,0),(11,7,NULL,0),(12,7,NULL,0),(13,8,1,0),(14,8,6,0);
+INSERT INTO extension_cable(id_extension,id_conexion_a,id_conexion_b,posicion_libre,es_armado_correcto)
+  VALUES (1,6,7,'Rack 1 U3',0),(2,11,12,NULL,NULL);
+""")
+c.commit(); c.close()
+
+ce = ll("conexiones_equipo", id_equipo=1)
+check(ce["equipo"] == "CAM 1" and [k["codigo"] for k in ce["cables"]] == ["C-001", "C-008"], "conexiones_equipo: cables del equipo (sin extremos sueltos)")
+d1 = ce["cables"][0]["conexiones"]
+check(len(d1) == 1 and d1[0]["id_equipo_destino"] == 2 and d1[0]["equipo_destino"] == "MATRIZ A INV101"
+      and d1[0]["id_conector_destino"] == 2 and d1[0]["id_conector_local"] == 1, "conexiones_equipo: destino con ids")
+check(ce["cables"][1]["conexiones"][0]["id_equipo_destino"] is None, "conexiones_equipo: destino con id 0 -> None (hoja)")
+cv = ll("conexiones_equipo", id_equipo=5)
+check(cv["cables"] == [] and cv["n_conexiones"] == 0, "conexiones_equipo: equipo sin conexiones")
+e = json.loads(bridge.call("conexiones_equipo", json.dumps({"id_equipo": 999})))
+check(e["ok"] is False and "999" in e["error"], "conexiones_equipo: id inexistente -> error JSON")
+# mismas filas que el desktop (Modelo.devolver_equipos_conectados_a_equipo)
+nativo = m.Modelo.devolver_equipos_conectados_a_equipo(1)
+check(ce["n_conexiones"] == len(nativo) == 2, "conexiones_equipo: misma cantidad de filas que Modelo")
+
+def _sin_ids(l):
+    return [{k: v for k, v in x.items() if k not in ("id_equipo", "id_conector")} for x in l]
+
+for cable in (4, 5, 6, 7, 1, 9):
+    web, nat = ll("cadena_extension", id_cable=cable), m.Modelo.resolver_cadena_extension(cable)
+    check(_sin_ids(web) == nat, f"cadena_extension({cable}) idéntica a Modelo.resolver_cadena_extension")
+ch = ll("cadena_extension", id_cable=4)
+check([x["tipo"] for x in ch] == ["equipo", "cable", "extension", "cable", "equipo"], "cadena: equipo-cable-extensión-cable-equipo")
+check(ch[1]["foco"] is True and ch[3]["foco"] is False and ch[2]["armado"] == 0 and ch[2]["posicion"] == "Rack 1 U3", "cadena: foco, armado y posición")
+check(ch[0]["id_equipo"] == 3 and ch[4]["id_conector"] == 5, "cadena: ids de los extremos reales (para enlazar)")
+ch5 = ll("cadena_extension", id_cable=5)
+check([x["tipo"] for x in ch5] == ["equipo", "cable", "extension", "cable", "equipo"] and ch5[3]["foco"] and not ch5[1]["foco"] and ch5[0]["id_equipo"] == 3 and ch5[4]["id_equipo"] == 2,
+      "cadena: desde el otro cable (mismo recorrido, foco en el cable de partida)")
+check([x["tipo"] for x in ll("cadena_extension", id_cable=6)] == ["equipo", "cable", "suelto"], "cadena: punta suelta")
+check("ciclo" in [x["tipo"] for x in ll("cadena_extension", id_cable=7)], "cadena: referencia circular detectada")
+check(ll("cadena_extension", id_cable=9) == [], "cadena: cable sin conexiones -> []")
+cc = sqlite3.connect(m.DB_PATH); cc.executescript("DROP TABLE extension_cable;"); cc.commit(); cc.close()
+check([x["tipo"] for x in ll("cadena_extension", id_cable=4)] == ["equipo", "cable", "suelto"], "cadena: sin tabla extension_cable -> solo el cable, sin error")
+
 # Errores: siempre JSON, nunca excepción hacia JS
 e = json.loads(bridge.call("equipo_ficha", json.dumps({"id_equipo": 999})))
 check(e["ok"] is False and "999" in e["error"], "id inexistente -> error JSON")
