@@ -97,7 +97,7 @@ $("reset").onclick = () => { if (confirm("¿Borrar la base guardada en este nave
 // ── Bridge (A.1): RPC al worker ──
 let rid = 0; const pend = new Map();
 const rpc = (fn, args = {}) => new Promise((res) => { const id = ++rid; pend.set(id, res); w.postMessage({ cmd: "call", id, fn, args }); });
-const FNS = ["resumen", "catalogos", "equipos_lista", "cables_lista", "conexiones_lista", "salas_lista", "racks_lista", "frames_lista", "slots_lista",
+const FNS = ["resumen", "catalogos", "equipos_lista", "arbol_equipos", "cables_lista", "conexiones_lista", "salas_lista", "racks_lista", "frames_lista", "slots_lista",
   "equipo_ficha", "conector_ficha", "cable_ficha", "sala_ficha", "rack_ficha", "frame_ficha"];
 $("fn").innerHTML = FNS.map((f) => `<option>${f}</option>`).join("");
 // Al elegir una función, prellena los argumentos obligatorios y muestra cuáles acepta.
@@ -128,6 +128,8 @@ $("smoke").onclick = async () => {
   if (res) $("out").textContent = "resumen: " + JSON.stringify(res) + "\n(plan 0.6 con el db.db del 2026-09-28: 418 equipos, 2071 conectores, 515 cables, 945 conexiones)";
   await run("catalogos");
   const eqs = await run("equipos_lista");
+  const arb = await run("arbol_equipos");
+  if (arb) $("out").textContent += `\narbol_equipos: ${arb.n_equipos} equipos (plan 0.6: 418 con el db.db del 2026-09-28)`;
   const cab = await run("cables_lista");
   await run("conexiones_lista");
   const salas = await run("salas_lista"), racks = await run("racks_lista"), frames = await run("frames_lista");

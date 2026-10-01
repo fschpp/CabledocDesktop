@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista"];
 
 if (!escenario) {
   let mal = 0;
@@ -26,7 +26,7 @@ let window, document, localStorage;
 function instalarDom() {
   const dom = new JSDOM(readFileSync(path.join(WEB, "app.html"), "utf8"), { url: "http://localhost/app.html", pretendToBeVisual: true });
   window = dom.window; document = window.document; localStorage = window.localStorage;
-  Object.assign(globalThis, { window, document, location: window.location, localStorage });
+  Object.assign(globalThis, { window, document, location: window.location, localStorage, requestAnimationFrame: window.requestAnimationFrame.bind(window) });
   Object.defineProperty(globalThis, "navigator", { value: window.navigator, configurable: true });
   localStorage.setItem("cabledoc.lang", "es");   // jsdom dice "en-US"; sin esto el shell autodetecta inglés
 }
@@ -97,17 +97,23 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/equipos");
-  ok($("#lateral a[data-id=equipos]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.3 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/cables");
+  ok($("#lateral a[data-id=cables]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
+  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.4 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
+  ok($("#contenido .arbol"), "Equipos muestra el árbol");
+  const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
+  ok(filasA3().length === 3 && filasA3()[0] === "Sin ubicación (2)" && filasA3()[1].startsWith("CAM 1 "), "árbol real: grupo + 2 equipos " + filasA3());
+  ok($("#contenido .arbol-estado").textContent === "2 equipos", "contador de equipos");
   await ir("#/zzz");
   ok($("#contenido h2").textContent === "Pantalla desconocida", "ruta desconocida");
   await ir("#/equipos/12/extra");
   ok($("#contenido h2").textContent === "Equipos", "ruta con argumentos extra");
+  await ir("#/cables");
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.3 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido .pendiente").textContent.includes("Available in stage A.4 of the plan."), "pantalla pendiente en inglés (con {etapa})");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -194,6 +200,110 @@ if (escenario === "rpc") {                // app/rpc.js contra un Worker simulad
   // fatal antes de ready: listo rechaza
   const r2 = crearRpc(); w.onmessage({ data: { type: "fatal", msg: "x" } });
   try { await r2.listo; ok(false, "debió rechazar"); } catch (e) { ok(e.message === "x", "fatal rechaza listo"); }
+}
+
+// ── A.3: árbol de equipos ──
+const nodoEq = (i, l, h) => ({ t: "equipo", i, l, b: "CAMARA", ...(h ? { h } : {}) });
+function arbolGrande(salas = 20, racks = 10, equipos = 25) {      // 20×10×25 = 5.000 equipos + conectores
+  let id = 0;
+  const nodos = [];
+  for (let s = 0; s < salas; s++) {
+    const hs = [];
+    for (let r = 0; r < racks; r++) {
+      const hr = [];
+      for (let e = 0; e < equipos; e++) { id++; hr.push(nodoEq(id, `EQ${id} Sony HDC-${e}`, [{ t: "conector", i: id, l: "OUT 1", b: "BNC" }])); }
+      hs.push({ t: "rack", i: r, l: `Rack ${s}-${r}`, b: "", h: hr });
+    }
+    nodos.push({ t: "sala", i: s, l: `Sala ${s}`, b: "", h: hs });
+  }
+  nodos.push({ t: "sin_ubicacion", i: null, l: null, b: "", n: 1, h: [nodoEq(++id, "HUERFANO Canon CÁMARA")] });
+  return { nodos, n_equipos: id };
+}
+
+if (escenario === "arbol_modelo") {        // arbol.js puro, sin DOM
+  const { prepararArbol, abiertosIniciales, aplanar, normalizar, tokens } = await import(pathToFileURL(path.join(WEB, "app/arbol.js")).href);
+  ok(normalizar("CÁMARA Ñandú") === "camara nandu", "normalizar quita acentos y mayúsculas");
+  ok(tokens("a").length === 0 && tokens(" sony  3500 ").join() === "sony,3500", "tokens: mínimo 2 caracteres, separa palabras");
+  const { nodos } = arbolGrande();
+  prepararArbol(nodos, (n) => `Sin ubicación (${n.n})`);
+  const ultimo = nodos.at(-1);
+  ok(ultimo.l === "Sin ubicación (1)" && ultimo.busqueda === "sin ubicacion (1)" && ultimo.k === "20", "prepararArbol: etiqueta de grupo, búsqueda normalizada y ruta");
+  ok(nodos[0].h[0].h[0].h[0].h.length === 0 && nodos[0].h[0].h[0].k === "0.0.0", "las hojas quedan con h=[] y k único");
+  const st = { abiertos: abiertosIniciales(nodos), cerrados: new Set() };
+  let r = aplanar(nodos, "", st);
+  ok(r.filas.length === 20 + 200 + 1 + 1, "sin filtro: 20 salas abiertas + 200 racks + grupo sin ubicación + su equipo; vino " + r.filas.length);
+  ok(r.filas[0].nivel === 0 && r.filas[1].nivel === 1 && r.filas[0].abierto && !r.filas[1].abierto && r.filas[1].expandible, "niveles y estado de las filas");
+  // filtro
+  let t0 = performance.now();
+  r = aplanar(nodos, "eq777", st);
+  const ms = performance.now() - t0;
+  ok(r.coincidencias === 1 && r.filas.length === 3 && r.filas.at(-1).n.l.startsWith("EQ777 "), "filtro: el equipo con sus ancestros (el conector no coincide) " + r.filas.map((f) => f.n.l).join(" | "));
+  ok(r.filas[0].abierto && r.filas[1].abierto && !r.filas[2].expandible, "con filtro los ancestros se abren solos y el equipo (sin hijos visibles) queda sin flecha");
+  ok(ms < 200, `filtro sobre ~7.000 nodos en ${ms.toFixed(1)} ms (<200)`);
+  r = aplanar(nodos, "huerfano camara", st);       // acentos + varias palabras en otro orden
+  ok(r.coincidencias === 1 && r.filas.length === 2, "filtro sin acentos y con varias palabras");
+  r = aplanar(nodos, "zzzz", st); ok(r.filas.length === 0 && r.coincidencias === 0, "sin coincidencias → vacío");
+  r = aplanar(nodos, "x", st); ok(r.filas.length === 222 && r.coincidencias === 0, "con 1 carácter no se filtra");
+  // cerrar a mano un ancestro con filtro activo
+  const sala = nodos[Math.floor(777 / 250)];
+  r = aplanar(nodos, "eq777", { abiertos: st.abiertos, cerrados: new Set([sala.k]) });
+  ok(r.filas.length === 1 && r.filas[0].n === sala && !r.filas[0].abierto && r.filas[0].expandible, "con filtro, un ancestro cerrado a mano oculta sus hijos");
+  // coincidencia en un nodo intermedio: se ven solo los hijos que coinciden, no todos
+  r = aplanar(nodos, "rack 19-9", st);
+  ok(r.coincidencias === 1 && r.filas.map((f) => f.n.l).join("|") === "Sala 19|Rack 19-9", "coincide el rack: se ve el rack pero no sus equipos (no coinciden)");
+}
+
+if (escenario === "arbol_vista") {         // pantalla con rpc falso y jsdom
+  instalarDom();
+  const { vistaEquipos, ALTO_FILA, olvidarArbol } = await import(pathToFileURL(path.join(WEB, "app/equipos_arbol.js")).href);
+  const { aplicar } = await import(pathToFileURL(path.join(WEB, "app/i18n.js")).href);
+  aplicar("es", {}, { persistir: false });
+  let pedidos = 0;
+  const rpc = { llamar: async (fn) => { ok(fn === "arbol_equipos", "pide arbol_equipos"); pedidos++; return arbolGrande(); } };
+  const pantalla = await vistaEquipos({ rpc, args: [], gen: 1 });
+  document.body.append(pantalla);
+  const filas = () => [...pantalla.querySelectorAll(".arbol-fila")];
+  const txt = (f) => f.querySelector(".arbol-etiqueta").textContent;
+  ok(/^5\D?001 equipos$/.test(pantalla.querySelector(".arbol-estado").textContent), "contador total");
+  // virtualización: 222 filas lógicas, pero ~10.000 nodos en total → el DOM solo tiene la ventana
+  const arbol = pantalla.querySelector(".arbol"), esp = pantalla.querySelector(".arbol-espacio");
+  ok(esp.style.height === 222 * ALTO_FILA + "px", "alto del espaciador = filas × alto fijo, vino " + esp.style.height);
+  ok(filas().length > 0 && filas().length < 60, "solo se dibuja la ventana: " + filas().length + " filas de 222");
+  ok(txt(filas()[0]) === "Sala 0" && filas()[0].getAttribute("aria-expanded") === "true" && filas()[0].getAttribute("aria-level") === "1", "primera fila: Sala 0 abierta, nivel 1");
+  // scroll: dibuja otra ventana
+  arbol.scrollTop = 100 * ALTO_FILA; arbol.dispatchEvent(new window.Event("scroll")); await tick(60);
+  ok(txt(filas()[0]) !== "Sala 0" && filas().length < 60, "tras el scroll cambia la ventana: " + txt(filas()[0]));
+  arbol.scrollTop = 0; arbol.dispatchEvent(new window.Event("scroll")); await tick(60);
+  // expandir un rack con su flecha
+  const rack = filas().find((f) => txt(f) === "Rack 0-0");
+  rack.querySelector("button").click(); await tick();
+  ok(esp.style.height === (222 + 25) * ALTO_FILA + "px", "abrir un rack suma sus 25 equipos");
+  ok(filas().find((f) => txt(f) === "Rack 0-0").getAttribute("aria-expanded") === "true", "aria-expanded sigue al estado");
+  // filtro con debounce
+  const entrada = pantalla.querySelector("#arbol-filtro");
+  entrada.value = "eq777"; entrada.dispatchEvent(new window.Event("input")); await tick(400);
+  ok(filas().map(txt).join("|") === "Sala 3|Rack 3-1|EQ777 Sony HDC-1", "filtro: sala > rack > equipo " + filas().map(txt).join("|"));
+  ok(pantalla.querySelector(".arbol-estado").textContent === "1 coincidencias", "contador de coincidencias");
+  ok(filas()[2].getAttribute("aria-expanded") === null, "con filtro el equipo no muestra flecha (sus conectores no coinciden)");
+  entrada.value = "zzzz"; entrada.dispatchEvent(new window.Event("input")); await tick(400);
+  ok(filas().length === 0 && pantalla.querySelector(".arbol-estado").textContent === "Sin resultados", "sin resultados");
+  entrada.value = ""; entrada.dispatchEvent(new window.Event("input")); await tick(400);
+  ok(filas().length > 0 && /equipos$/.test(pantalla.querySelector(".arbol-estado").textContent), "vaciar el filtro vuelve al árbol");
+  // contraer / expandir todo
+  pantalla.querySelector("#arbol-contraer").click(); await tick();
+  ok(filas().length === 21 && esp.style.height === 21 * ALTO_FILA + "px", "contraer todo: solo las raíces, " + filas().length);
+  pantalla.querySelector("#arbol-expandir").click(); await tick();
+  ok(esp.style.height === (20 + 200 + 5000 + 5000 + 1 + 1) * ALTO_FILA + "px", "expandir todo: salas, racks, equipos, conectores, grupo y huérfano");
+  // caché: misma gen no vuelve a pedir; gen nueva sí
+  await vistaEquipos({ rpc, args: [], gen: 1 }); ok(pedidos === 1, "misma versión de base: sin nueva llamada al bridge");
+  await vistaEquipos({ rpc, args: [], gen: 2 }); ok(pedidos === 2, "base nueva: vuelve a pedir");
+  // un fallo no queda en caché
+  olvidarArbol(); let fallar = true; const rpc2 = { llamar: async () => { if (fallar) throw new Error("boom"); return arbolGrande(1, 1, 1); } };
+  try { await vistaEquipos({ rpc: rpc2, gen: 9 }); ok(false, "debió fallar"); } catch (e) { ok(e.message === "boom", "el error del bridge sube a la pantalla"); }
+  fallar = false; const p2 = await vistaEquipos({ rpc: rpc2, gen: 9 }); ok(p2.querySelector(".arbol-estado").textContent === "2 equipos", "tras un fallo, reintentar vuelve a pedir");
+  // base vacía
+  olvidarArbol(); const p3 = await vistaEquipos({ rpc: { llamar: async () => ({ nodos: [], n_equipos: 0 }) }, gen: 3 });
+  ok(p3.querySelector(".arbol-estado").textContent === "No hay equipos cargados", "base sin equipos");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

@@ -52,6 +52,19 @@ _WEB = {
     # Pantallas pendientes
     "Disponible en la etapa {etapa} del plan.":
         {"en": "Available in stage {etapa} of the plan.", "pt": "Disponível na etapa {etapa} do plano."},
+    # Equipos (A.3)
+    "Buscar equipo, rack, frame…": {"en": "Search equipment, rack, frame…", "pt": "Buscar equipamento, rack, frame…"},
+    "Expandir todo":        {"en": "Expand all",        "pt": "Expandir tudo"},
+    "Contraer todo":        {"en": "Collapse all",      "pt": "Recolher tudo"},
+    "Expandir":             {"en": "Expand",            "pt": "Expandir"},
+    "Contraer":             {"en": "Collapse",          "pt": "Recolher"},
+    "{n} equipos":          {"en": "{n} equipment",     "pt": "{n} equipamentos"},
+    "{n} coincidencias":    {"en": "{n} matches",       "pt": "{n} correspondências"},
+    "Sin resultados":       {"en": "No results",        "pt": "Sem resultados"},
+    "No hay equipos cargados": {"en": "No equipment loaded", "pt": "Nenhum equipamento carregado"},
+    "Sin ubicación":        {"en": "No location",       "pt": "Sem localização"},
+    "Equipos sueltos":      {"en": "Loose equipment",   "pt": "Equipamentos soltos"},
+    "equipo":               {"en": "equipment",         "pt": "equipamento"},
     # Errores
     "Algo salió mal":       {"en": "Something went wrong", "pt": "Algo deu errado"},
     "Detalle técnico":      {"en": "Technical details", "pt": "Detalhes técnicos"},

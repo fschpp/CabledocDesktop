@@ -1,13 +1,14 @@
-// Pantallas del shell. Cada vista es (ctx) → Node | Promise<Node>, con ctx = { rpc, args }.
-// En A.2 solo "Inicio" y la carga de base son reales; el resto son marcadores que apuntan a su etapa del plan
-// (plan_pyodide_v1.md) y se reemplazan en VISTAS a medida que se implementan A.3 a A.11.
+// Pantallas del shell. Cada vista es (ctx) → Node | Promise<Node>, con ctx = { rpc, args, gen } (gen cambia cada vez que se carga/cambia la base).
+// "Inicio", "Equipos" (A.3) y la carga de base son reales; el resto son marcadores que apuntan a su etapa del plan
+// (plan_pyodide_v1.md) y se reemplazan en VISTAS a medida que se implementan A.4 a A.11.
 import { h } from "./dom.js";
 import { t, idioma } from "./i18n.js";
+import { vistaEquipos } from "./equipos_arbol.js";
 
 // Navegación: `etapa` es la tarea del plan que la implementa (null = ya disponible).
 export const NAV = [
   { id: "inicio",      clave: "Inicio",      icono: "🏠", etapa: null },
-  { id: "equipos",     clave: "Equipos",     icono: "🖥️", etapa: "A.3" },
+  { id: "equipos",     clave: "Equipos",     icono: "🖥️", etapa: null },
   { id: "cables",      clave: "Cables",      icono: "🔌", etapa: "A.4" },
   { id: "conexiones",  clave: "Conexiones",  icono: "🔗", etapa: "A.5" },
   { id: "ubicaciones", clave: "Ubicaciones", icono: "🗄️", etapa: "A.6" },
@@ -51,7 +52,7 @@ const pendiente = (item) => () => h("section", { class: "pendiente" },
   h("h2", {}, t(item.clave)),
   h("p", { class: "sub" }, t("Disponible en la etapa {etapa} del plan.", { etapa: item.etapa })));
 
-export const VISTAS = { inicio, ...Object.fromEntries(NAV.filter((n) => n.etapa).map((n) => [n.id, pendiente(n)])) };
+export const VISTAS = { inicio, equipos: vistaEquipos, ...Object.fromEntries(NAV.filter((n) => n.etapa).map((n) => [n.id, pendiente(n)])) };
 
 export function resolverVista(id, ctx) {
   const f = id === "cargar_db" ? cargarDb : VISTAS[id];

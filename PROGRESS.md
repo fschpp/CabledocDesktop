@@ -2497,6 +2497,27 @@ Dos pedidos de Papi para la interfaz GTK, sobre `main` `5b090be` (PR #57): (1) e
 _Última actualización: 2026-09-30 — Fase A.1 de `plan_pyodide_v1.md` (`ui_web/bridge.py`, capa JSON de lectura) escrita y validada en CPython y Pyodide; falta el smoke test con el `db.db` real. Antes: Fase 0 cerrada con **GO**. Bloque para pegar arriba de las secciones "Current Focus" existentes; la actual pasa a "(sesión anterior)"._
 
 ### Current Focus
+
+_Última actualización: 2026-10-01 — Fase A.3 de `plan_pyodide_v1.md` (árbol de equipos con filtro y lista virtualizada), sobre `main` en `a439930` (A.1 y A.2 ya mergeadas)._
+
+### Current Focus
+A.3 entregada como diff: `bridge.arbol_equipos()`, `ui_web/app/arbol.js` (modelo + filtro, sin DOM) y `ui_web/app/equipos_arbol.js` (pantalla `#/equipos`). Pendiente: smoke test en el navegador con el `db.db` real (418 equipos) y commit. Siguiente: A.4 (fichas de equipo, cable y conector).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 `bridge.py` (falta confirmar el smoke con el db.db real, ver bloque anterior)
+- [x] Done — A.2 shell de la app
+- [x] Done — A.3 árbol de equipos (diff presentado; tests Python y Node OK; falta smoke en navegador real)
+- [ ] Todo — A.4 a A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Smoke test a hacer: abrir `app.html` → cargar el db.db real → Equipos. Mirar (1) que el contador diga 418 equipos y que cada equipo salga una sola vez, (2) tiempo de la primera carga del árbol (una sola llamada a `arbol_equipos`; se lee en la columna ms de `index.html` → Bridge → "Smoke: todas las funciones", que ahora la incluye), (3) que filtrar "sony 3500" sea instantáneo y el scroll fluido, (4) que Expandir todo no se trabe.
+- Paridad con GTK: el desktop incluye en el árbol a cualquier equipo con `id_equipo != 0` (también "SIN EQUIPO"/"EMPALME BNC 1" si no tienen id 0); `arbol_equipos` hace lo mismo y NO usa el filtro `_SIN_SISTEMA` de `equipos_lista`. Si en la base real esos equipos aparecen y molestan, es un ajuste de una línea.
+- `ctx.gen` (nuevo en el shell) invalida cachés de pantallas: lo reusarán A.4+ si cachean datos.
+- `plan_pyodide_v1.md` no está en el repo (sólo en el chat): marcar A.1 y A.3 como hechas ahí.
+- `changelog.txt` no tiene entrada de A.2 (sólo A.1 y esta); es append-only, así que si se quiere se agrega una entrada nueva.
+
+## Current Focus (sesión anterior)
 A.1 entregada (`ui_web/bridge.py` + handler `call` en el worker + sección "4. Bridge" en `index.html`). Pendiente: smoke test en el navegador con el `db.db` real (botón "Smoke: todas las funciones"; `resumen` debe dar 418 equipos, 2071 conectores, 515 cables, 945 conexiones). Siguiente: A.2 (shell de la app: navegación, i18n, tema, errores).
 
 ### Todo List
