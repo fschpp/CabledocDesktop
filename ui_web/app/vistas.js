@@ -1,17 +1,18 @@
 // Pantallas del shell. Cada vista es (ctx) → Node | Promise<Node>, con ctx = { rpc, args, gen } (gen cambia cada vez que se carga/cambia la base).
-// "Inicio", "Equipos" (A.3) y la carga de base son reales; el resto son marcadores que apuntan a su etapa del plan
+// "Inicio", "Equipos" (A.3), fichas (A.4), "Conexiones" (A.5) y la carga de base son reales; el resto son marcadores que apuntan a su etapa del plan
 // (plan_pyodide_v1.md) y se reemplazan en VISTAS a medida que se implementan A.4 a A.11.
 import { h } from "./dom.js";
 import { t, idioma } from "./i18n.js";
 import { vistaEquipos } from "./equipos_arbol.js";
 import { fichaEquipo, fichaConector, listaCables } from "./fichas.js";
+import { vistaConexiones, vistaCadena } from "./conexiones.js";
 
 // Navegación: `etapa` es la tarea del plan que la implementa (null = ya disponible).
 export const NAV = [
   { id: "inicio",      clave: "Inicio",      icono: "🏠", etapa: null },
   { id: "equipos",     clave: "Equipos",     icono: "🖥️", etapa: null },
   { id: "cables",      clave: "Cables",      icono: "🔌", etapa: null },
-  { id: "conexiones",  clave: "Conexiones",  icono: "🔗", etapa: "A.5" },
+  { id: "conexiones",  clave: "Conexiones",  icono: "🔗", etapa: null },
   { id: "ubicaciones", clave: "Ubicaciones", icono: "🗄️", etapa: "A.6" },
   { id: "analisis",    clave: "Análisis",    icono: "📈", etapa: "A.7" },
   { id: "escenarios",  clave: "Escenarios",  icono: "🧪", etapa: "A.8" },
@@ -20,7 +21,7 @@ export const NAV = [
 ];
 
 // Rutas sin ítem propio en el menú resaltan el de su familia.
-export const ALIAS_NAV = { conectores: "equipos" };
+export const ALIAS_NAV = { conectores: "equipos", cadena: "conexiones" };
 
 const TARJETAS = [["equipo", "Equipos"], ["conector", "Conectores"], ["cable", "Cables"], ["conexion", "Conexiones"],
   ["sala", "Salas"], ["rack", "Racks"], ["frame", "Frames"]];
@@ -57,7 +58,8 @@ const pendiente = (item) => () => h("section", { class: "pendiente" },
   h("p", { class: "sub" }, t("Disponible en la etapa {etapa} del plan.", { etapa: item.etapa })));
 
 // #/equipos → árbol; #/equipos/<id> → ficha. #/cables → lista; #/cables/<id> → ficha. #/conectores/<id> → ficha (sin entrada propia en el menú).
-export const VISTAS = { inicio, equipos: (ctx) => (ctx.args?.length ? fichaEquipo(ctx) : vistaEquipos(ctx)), cables: listaCables, conectores: fichaConector, ...Object.fromEntries(NAV.filter((n) => n.etapa).map((n) => [n.id, pendiente(n)])) };
+// #/conexiones → elegir equipo; #/conexiones/<id> → árbol de conexiones; #/cadena/<id_cable> → cadena de extensiones (resalta Conexiones).
+export const VISTAS = { inicio, equipos: (ctx) => (ctx.args?.length ? fichaEquipo(ctx) : vistaEquipos(ctx)), cables: listaCables, conectores: fichaConector, conexiones: vistaConexiones, cadena: vistaCadena, ...Object.fromEntries(NAV.filter((n) => n.etapa).map((n) => [n.id, pendiente(n)])) };
 
 export function resolverVista(id, ctx) {
   const f = id === "cargar_db" ? cargarDb : VISTAS[id];

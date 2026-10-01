@@ -98,7 +98,7 @@ $("reset").onclick = () => { if (confirm("¿Borrar la base guardada en este nave
 let rid = 0; const pend = new Map();
 const rpc = (fn, args = {}) => new Promise((res) => { const id = ++rid; pend.set(id, res); w.postMessage({ cmd: "call", id, fn, args }); });
 const FNS = ["resumen", "catalogos", "equipos_lista", "arbol_equipos", "cables_lista", "conexiones_lista", "salas_lista", "racks_lista", "frames_lista", "slots_lista",
-  "equipo_ficha", "conector_ficha", "cable_ficha", "sala_ficha", "rack_ficha", "frame_ficha"];
+  "equipo_ficha", "conector_ficha", "cable_ficha", "sala_ficha", "rack_ficha", "frame_ficha", "conexiones_equipo", "cadena_extension"];
 $("fn").innerHTML = FNS.map((f) => `<option>${f}</option>`).join("");
 // Al elegir una función, prellena los argumentos obligatorios y muestra cuáles acepta.
 let FIRMAS = null;
@@ -138,6 +138,8 @@ $("smoke").onclick = async () => {
   if (conEq) { const f = await run("equipo_ficha", { id_equipo: conEq.id_equipo });
     if (f && f.conectores[0]) await run("conector_ficha", { id_conector: f.conectores[0].id_conector }); }
   if (cab && cab[0]) await run("cable_ficha", { id_cable: cab[0].id_cable });
+  if (conEq) await run("conexiones_equipo", { id_equipo: conEq.id_equipo });          // A.5
+  if (cab && cab[0]) await run("cadena_extension", { id_cable: cab[0].id_cable });    // A.5
   if (salas && salas[0]) await run("sala_ficha", { id_sala: salas[0].id_sala });
   if (racks && racks[0]) await run("rack_ficha", { id_rack: racks[0].id_rack });
   if (frames && frames[0]) await run("frame_ficha", { id_frame: frames[0].id_frame });

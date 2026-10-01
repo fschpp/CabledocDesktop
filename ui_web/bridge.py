@@ -420,6 +420,119 @@ def conexiones_lista(solo_externas=True, id_equipo=None, id_cable=None):
         ORDER BY lower(k.codigo), cx.id_conexion""", params)
 
 
+# ── Árbol de conexiones y cadena de extensiones (A.5) ────────────────────────
+
+def conexiones_equipo(id_equipo):
+    """Un nivel del árbol de conexiones (carga perezosa, como ArbolConexionesEquipo
+    del desktop): los cables de un equipo y, bajo cada cable, el equipo del otro
+    extremo. Sale de CONEXIONES_AMBOS_EXTREMOS (mismas filas que el desktop).
+
+    Columnas de la vista (por posición, porque `id_equipo` y `id_conector` salen
+    dos veces): 0 cable · 5 equipo consultado · 7 conector del consultado ·
+    1 equipo del otro extremo · 3 su conector · 9 id consultado · 10 id otro
+    extremo · 11 id_cable · 13 id_conector consultado · 14 id_conector otro
+    extremo. Un mismo equipo destino aparece una sola vez por cable.
+    `id_equipo_destino` es None si el otro extremo no tiene equipo (id 0/NULL):
+    esa hoja no se puede expandir.
+    """
+    with _M()._conn_ctx() as conn:
+        e = conn.execute("SELECT nombre FROM equipo WHERE id_equipo = ?", (id_equipo,)).fetchone()
+        if e is None:
+            raise ValueError(f"No existe el equipo {id_equipo}")
+        filas = conn.execute(
+            "SELECT * FROM CONEXIONES_AMBOS_EXTREMOS WHERE id_equipo = ?", (id_equipo,)).fetchall()
+    cables, por_id = [], {}
+    for r in filas:
+        id_cable = r[11]
+        k = por_id.get(id_cable)
+        if k is None:
+            k = por_id[id_cable] = {"id_cable": id_cable, "codigo": (r[0] or "").strip() or "?",
+                                    "conexiones": []}
+            cables.append(k)
+        dest = r[10] if r[10] not in (None, 0, "", "0") else None
+        if any(c["id_equipo_destino"] == dest and c["equipo_destino"] == r[1] for c in k["conexiones"]):
+            continue
+        k["conexiones"].append({
+            "id_conector_local": r[13], "conector_local": r[7],
+            "id_conector_destino": r[14], "conector_destino": r[3],
+            "id_equipo_destino": dest, "equipo_destino": r[1]})
+    return {"id_equipo": id_equipo, "equipo": e["nombre"], "n_conexiones": len(filas), "cables": cables}
+
+
+def cadena_extension(id_cable):
+    """Recorrido completo equipo → cable → extensión → cable → … → equipo a partir
+    de un cable cualquiera de la cadena (A.5). Misma lógica y mismos eslabones que
+    `Modelo.resolver_cadena_extension` (el test_bridge los compara), pero sin
+    `asegurar_tablas_extension_cable()`, que escribe: acá solo se lee, y si la
+    base es vieja y no tiene `extension_cable` no hay extensiones y la cadena es
+    solo el cable.
+
+    Eslabones (ordenados de un extremo real al otro):
+      {tipo: "equipo", equipo, conector, id_equipo, id_conector}
+      {tipo: "cable", id_cable, codigo, foco}      (foco = el cable de partida)
+      {tipo: "extension", id_extension, posicion, armado}   (armado: 1 / 0 / None)
+      {tipo: "suelto"}  punta sin conector ni extensión (cadena incompleta)
+      {tipo: "ciclo"}   protección ante referencia circular
+    Devuelve [] si el cable no tiene conexiones.
+    """
+    def terminal(id_conexion):
+        r = _one("SELECT equipo_nombre, conector_nombre, id_equipo, id_conector "
+                 "FROM CONEXIONES WHERE id_conexion = ?", (id_conexion,))
+        if r and r["equipo_nombre"]:
+            return {"tipo": "equipo", "equipo": r["equipo_nombre"], "conector": r["conector_nombre"],
+                    "id_equipo": r["id_equipo"], "id_conector": r["id_conector"]}
+        return None
+
+    def extension_de(id_conexion):
+        r = _rows_opt("SELECT id_extension, id_conexion_a, id_conexion_b, posicion_libre, es_armado_correcto "
+                      "FROM extension_cable WHERE id_conexion_a = ? OR id_conexion_b = ?",
+                      (id_conexion, id_conexion))
+        return r[0] if r else None
+
+    def codigo(id_cab):
+        r = _one("SELECT codigo FROM cable WHERE id_cable = ?", (id_cab,))
+        return r["codigo"] if r else ""
+
+    def seguir(cx_actual, visitados):
+        lado = []
+        while True:
+            fila = _one("SELECT id_conector FROM conexion WHERE id_conexion = ?", (cx_actual,))
+            if fila and fila["id_conector"]:
+                lado.append(terminal(cx_actual) or {"tipo": "suelto"})
+                break
+            ext = extension_de(cx_actual)
+            if not ext:
+                lado.append({"tipo": "suelto"})
+                break
+            otro = ext["id_conexion_b"] if str(ext["id_conexion_a"]) == str(cx_actual) else ext["id_conexion_a"]
+            lado.append({"tipo": "extension", "id_extension": ext["id_extension"],
+                         "posicion": ext["posicion_libre"], "armado": ext["es_armado_correcto"]})
+            sig = _one("SELECT id_cable FROM conexion WHERE id_conexion = ?", (otro,))
+            id_sig = sig["id_cable"] if sig else None
+            if not id_sig or id_sig in visitados:
+                lado.append({"tipo": "ciclo"})
+                break
+            visitados.add(id_sig)
+            lado.append({"tipo": "cable", "id_cable": id_sig, "codigo": codigo(id_sig), "foco": False})
+            cand = [r["id_conexion"] for r in _rows(
+                "SELECT id_conexion FROM conexion WHERE id_cable = ? ORDER BY id_conexion", (id_sig,))
+                if str(r["id_conexion"]) != str(otro)]
+            if not cand:
+                lado.append({"tipo": "suelto"})
+                break
+            cx_actual = cand[0]
+        return lado
+
+    ext = [r["id_conexion"] for r in _rows(
+        "SELECT id_conexion FROM conexion WHERE id_cable = ? ORDER BY id_conexion", (id_cable,))]
+    if not ext:
+        return []
+    izq = seguir(ext[0], {id_cable})
+    der = seguir(ext[1], {id_cable}) if len(ext) > 1 else []
+    foco = {"tipo": "cable", "id_cable": id_cable, "codigo": codigo(id_cable), "foco": True}
+    return list(reversed(izq)) + [foco] + der
+
+
 # ── Salas, racks, frames y slots ─────────────────────────────────────────────
 
 def salas_lista():
@@ -534,7 +647,7 @@ def firmas():
 FUNCIONES = {f.__name__: f for f in (
     resumen, catalogos,
     equipos_lista, arbol_equipos, equipo_ficha, conector_ficha,
-    cables_lista, cable_ficha, conexiones_lista,
+    cables_lista, cable_ficha, conexiones_lista, conexiones_equipo, cadena_extension,
     salas_lista, sala_ficha, racks_lista, rack_ficha,
     frames_lista, slots_lista, frame_ficha,
 )}

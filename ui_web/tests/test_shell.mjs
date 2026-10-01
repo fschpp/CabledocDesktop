@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones"];
 
 if (!escenario) {
   let mal = 0;
@@ -103,9 +103,9 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/conexiones");
-  ok($("#lateral a[data-id=conexiones]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.5 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/ubicaciones");
+  ok($("#lateral a[data-id=ubicaciones]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
+  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.6 del plan."), "pantalla pendiente con su etapa");
   await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
   ok($("#contenido .arbol"), "Equipos muestra el árbol");
   const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
@@ -115,11 +115,11 @@ if (escenario === "completo") {
   ok($("#contenido h2").textContent === "Pantalla desconocida", "ruta desconocida");
   await ir("#/equipos/abc");
   ok($("#contenido h2").textContent === "Pantalla desconocida", "id no numérico → pantalla desconocida");
-  await ir("#/conexiones");
+  await ir("#/ubicaciones");
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.5 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido .pendiente").textContent.includes("Available in stage A.6 of the plan."), "pantalla pendiente en inglés (con {etapa})");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -144,7 +144,7 @@ if (escenario === "completo") {
   $("#toasts .toast button").click(); ok(!$("#toasts .toast"), "toast se cierra");
   // 8) menú móvil
   $("#btn-menu").click(); ok(document.body.classList.contains("menu-abierto") && $("#btn-menu").getAttribute("aria-expanded") === "true", "abre el menú");
-  await ir("#/conexiones"); ok(!document.body.classList.contains("menu-abierto"), "navegar cierra el menú");
+  await ir("#/ubicaciones"); ok(!document.body.classList.contains("menu-abierto"), "navegar cierra el menú");
 }
 
 if (escenario === "motor_caido") {
@@ -435,6 +435,103 @@ if (escenario === "fichas") {              // fichas con el bridge REAL (Pyodide
   // idioma: etiquetas de la ficha traducidas
   await ir("#/equipos/1"); await cambiar("#sel-idioma", "en");
   ok(txt(".volver").includes("Back to Equipment") && txt(".ficha-equipo").includes("Location"), "ficha en inglés");
+}
+
+if (escenario === "conexiones") {          // A.5: árbol de conexiones y cadena de extensiones con el bridge REAL (Pyodide)
+  const E = await rpcPyodide();
+  instalarDom();
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  // Base del fixture: CAM 1 (conectores 1 y 3) y CAM 2 (conector 2), cable C-001 entre 1 y 2. Se agrega una red con ciclo y una cadena de extensiones.
+  E.py.runPython(`
+from core.modelo import Modelo
+Modelo.asegurar_tablas_extension_cable()
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (3,1,'MATRIZ'),(4,1,'SOLO'),(0,1,'EMPALME BNC 1');
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector) VALUES (4,'IN',3,1),(5,'OUT',3,1),(6,'EXT OUT',2,1),(7,'EXT IN',3,1),(8,'X',0,1);
+INSERT INTO cable(id_cable,codigo,id_tipo_cable) VALUES (2,'C-002',1),(3,'C-003',1),(4,'EXT-A',1),(5,'EXT-B',1),(6,'C-006',1),(7,'VACIO',1);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES
+  (3,2,3,0),(4,2,4,0),(5,3,5,0),(6,3,2,0),(7,4,6,0),(8,4,NULL,0),(9,5,NULL,0),(10,5,7,0),(11,6,1,0),(12,6,8,0);
+INSERT INTO extension_cable(id_extension,id_conexion_a,id_conexion_b,posicion_libre,es_armado_correcto) VALUES (1,8,9,'Rack 1',0);
+"""); c.commit(); c.close()`);
+  const txt = (s) => $(s)?.textContent;
+  const hrefs = (s) => [...document.querySelectorAll(s)].map((a) => a.getAttribute("href"));
+  const nodos = () => [...document.querySelectorAll("#contenido li.cx-nodo")];
+  const etiqueta = (li) => li.querySelector(":scope > .cx-fila .arbol-etiqueta")?.textContent;
+  const nodo = (clase, texto) => nodos().find((li) => li.classList.contains(clase) && etiqueta(li) === texto);
+  const abierto = (li) => li.getAttribute("aria-expanded") === "true";
+
+  // elegir equipo
+  await ir("#/conexiones");
+  ok($("#lateral a[data-id=conexiones]").getAttribute("aria-current") === "page" && txt("#contenido h2") === "Árbol de conexiones", "Conexiones: pantalla de elección de equipo");
+  const lista = () => [...document.querySelectorAll("#contenido .elegir-equipo a")];
+  ok(lista().length === 4 && hrefs("#contenido .elegir-equipo a").includes("#/conexiones/3"), "lista los equipos (menos los de sistema, id 0) con enlace al árbol");
+  const f = $("#contenido input[type=search]"); f.value = "matr"; f.dispatchEvent(new window.Event("input")); await tick(300);
+  ok(lista().length === 1 && lista()[0].textContent === "MATRIZ", "el filtro acota los equipos");
+  f.value = "zzz"; f.dispatchEvent(new window.Event("input")); await tick(300);
+  ok(lista().length === 0 && txt("#contenido .sub[aria-live]") === "Sin resultados", "filtro sin resultados");
+
+  // árbol: raíz CAM 1 → 3 cables (C-001, C-002, C-006), cada uno con su equipo destino
+  await ir("#/conexiones/1"); await tick(150);
+  ok(etiqueta(nodo("raiz", "CAM 1")) === "CAM 1" && abierto(nodo("raiz", "CAM 1")), "raíz abierta con el equipo consultado");
+  const cables = nodos().filter((li) => li.classList.contains("cable"));
+  ok(cables.map(etiqueta).join() === "C-001,C-002,C-006" && cables.every(abierto), "cables del equipo, abiertos");
+  ok(txt("#contenido .sub[aria-live]") === "«CAM 1» — 3 conexiones", "estado: " + txt("#contenido .sub[aria-live]"));
+  ok(nodo("equipo", "CAM 2") && nodo("equipo", "MATRIZ") && nodo("equipo", "EMPALME BNC 1"), "equipos destino bajo cada cable");
+  ok(nodo("sin-equipo", "EMPALME BNC 1") && !nodo("sin-equipo", "EMPALME BNC 1").querySelector("button"), "destino con id 0: hoja sin flecha");
+  ok(hrefs("#contenido a.cx-cadena").includes("#/cadena/1") && hrefs("#contenido .arbol-etiqueta").includes("#/equipos/2") && hrefs("#contenido .arbol-etiqueta").includes("#/cables/2"),
+    "enlaces: ficha del equipo, ficha del cable y cadena");
+  ok(!nodo("equipo", "MATRIZ").querySelector(":scope > .cx-hijos").children.length, "carga perezosa: MATRIZ todavía sin hijos");
+
+  // expandir MATRIZ: C-002 vuelve a CAM 1 (ya desarrollado → hoja marcada), C-003 va a CAM 2
+  nodo("equipo", "MATRIZ").querySelector(":scope > .cx-fila button").click(); await tick(150);
+  const mat = nodo("equipo", "MATRIZ"), hijos = [...mat.querySelectorAll(":scope > .cx-hijos > li")];
+  ok(hijos.map(etiqueta).join() === "C-002,C-003" && abierto(mat), "MATRIZ expandida: sus 2 cables");
+  const vuelta = hijos[0].querySelector(".cx-nodo");
+  ok(vuelta.classList.contains("repetido") && etiqueta(vuelta) === "CAM 1" && vuelta.textContent.includes("ya desarrollado") && !vuelta.querySelector("button"), "el equipo ya desarrollado queda como hoja marcada (corta el ciclo)");
+  ok(hijos[1].querySelector(".cx-nodo.equipo:not(.repetido)"), "CAM 2 todavía no estaba desarrollado: expandible");
+  ok(txt("#contenido .sub[aria-live]") === "«MATRIZ» — 2 conexiones", "estado tras expandir");
+
+  // contraer / expandir todo (solo lo ya cargado)
+  $("#cx-contraer").click(); await tick();
+  ok(nodos().filter((li) => li.hasAttribute("aria-expanded")).every((li) => !abierto(li)), "Contraer todo");
+  $("#cx-expandir").click(); await tick(100);
+  ok(abierto(nodo("raiz", "CAM 1")) && abierto(mat) && !abierto(nodo("equipo", "CAM 2")), "Expandir todo abre lo cargado y no dispara cargas nuevas");
+  mat.querySelector(":scope > .cx-fila button").click(); await tick();
+  ok(!abierto(mat) && mat.querySelector(":scope > .cx-fila button").textContent === "▸", "la flecha pliega y despliega");
+
+  // equipo sin conexiones, id inexistente, id mal formado
+  await ir("#/conexiones/4"); await tick(150);
+  ok(nodo("raiz", "SOLO").classList.contains("sin-conexiones") && !nodo("raiz", "SOLO").querySelector("button") && txt("#contenido .sub[aria-live]") === "El equipo no tiene conexiones registradas.", "equipo sin conexiones");
+  await ir("#/conexiones/999"); ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("999"), "equipo inexistente → panel de error");
+  await ir("#/conexiones/abc"); ok(txt("#contenido h2") === "Pantalla desconocida", "id mal formado → desconocida");
+
+  // cadena de extensiones: CAM 2 / EXT OUT — EXT-A (foco) — extensión #1 — EXT-B — MATRIZ / EXT IN
+  await ir("#/cadena/4");
+  ok($("#lateral a[data-id=conexiones]").getAttribute("aria-current") === "page", "la cadena resalta Conexiones");
+  const lis = [...document.querySelectorAll(".cd-lista > li")];
+  ok(lis.length === 5 && lis[0].classList.contains("cd-equipo") && lis[1].classList.contains("foco") && lis[2].classList.contains("cd-extension") && lis[4].classList.contains("cd-equipo"), "cadena: equipo, cable (foco), extensión, cable, equipo");
+  ok(lis[0].textContent === "CAM 2 — EXT OUT" && lis[1].textContent.includes("👈") && lis[4].textContent === "MATRIZ — EXT IN", "textos de los extremos y marca de foco");
+  ok(lis[2].textContent === "🔗 Extensión #1 (Rack 1) — ⚠ MAL ARMADO" && lis[2].querySelector(".mal"), "extensión: posición y armado incorrecto resaltado");
+  ok(hrefs(".cd-lista a").join() === "#/equipos/2,#/conectores/6,#/cables/4,#/cables/5,#/equipos/3,#/conectores/7", "enlaces de la cadena: " + hrefs(".cd-lista a"));
+  ok(hrefs(".volver a")[0] === "#/cables/4", "vuelta a la ficha del cable");
+  await ir("#/cadena/5"); ok([...document.querySelectorAll(".cd-lista > li")].findIndex((l) => l.classList.contains("foco")) === 3, "desde el otro cable el foco cambia de lugar");
+  await ir("#/cadena/7"); ok(txt(".cadena .sub") === "Este cable no tiene conexiones cargadas todavía." && !$(".cd-lista"), "cable sin conexiones");
+  await ir("#/cadena/1"); ok([...document.querySelectorAll(".cd-lista > li")].map((l) => l.className.split(" ")[0]).join() === "cd-equipo,cd-cable,cd-equipo", "cable sin extensiones: equipo – cable – equipo");
+  await ir("#/cadena/x"); ok(txt("#contenido h2") === "Pantalla desconocida", "cadena con id mal formado");
+
+  // enlaces desde las fichas
+  await ir("#/equipos/1"); ok(hrefs(".acciones a")[0] === "#/conexiones/1", "ficha de equipo: enlace al árbol de conexiones");
+  await ir("#/cables/4"); ok(hrefs(".acciones a")[0] === "#/cadena/4", "ficha de cable: enlace a la cadena completa");
+
+  // idioma
+  await ir("#/cadena/4"); await cambiar("#sel-idioma", "en");
+  ok(txt(".cadena h2").includes("Full chain") && txt(".cd-extension").includes("INCORRECTLY ASSEMBLED") && txt(".cd-lista").includes("cable"), "cadena en inglés");
+  await ir("#/conexiones/1"); await tick(150);
+  ok(txt("#cx-expandir") === "Expand all" && txt("#contenido .sub[aria-live]") === "«CAM 1» — 3 connections", "árbol en inglés");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

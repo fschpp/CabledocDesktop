@@ -117,3 +117,16 @@ h2{margin:.1rem 0 1rem;font-size:1.25rem}
   #contenido{padding:1rem}
 }
 @media (prefers-reduced-motion:reduce){#lateral{transition:none}}
+
+/* Conexiones (A.5): árbol perezoso y cadena de extensiones */
+.acciones{margin:.2rem 0 .8rem}
+.elegir-equipo{list-style:none;margin:.5rem 0;padding:0}.elegir-equipo li{padding:.25rem 0;border-bottom:1px solid var(--borde)}
+.cx-arbol,.cx-hijos{list-style:none;margin:0;padding:0}.cx-hijos{padding-left:1.4rem;border-left:1px dotted var(--borde);margin-left:.7rem}
+.cx-arbol{background:var(--panel);border:1px solid var(--borde);border-radius:8px;padding:.5rem;overflow:auto}
+.cx-nodo:not(.abierto)>.cx-hijos{display:none}
+.cx-fila{display:flex;align-items:center;gap:.4rem;min-height:1.9rem;white-space:nowrap}.cx-fila:hover{background:var(--panel2)}
+.cx-nodo.raiz>.cx-fila .arbol-etiqueta{font-weight:700}.cx-nodo.cable>.cx-fila{color:var(--texto2)}
+.cx-nodo.hoja.sin-conexiones>.cx-fila,.cx-nodo.sin-equipo>.cx-fila{opacity:.55;font-style:italic}
+.cx-cadena{margin-left:.3rem;text-decoration:none}
+.cd-lista{list-style:none;margin:.5rem 0;padding:0}.cd-lista li{padding:.3rem .5rem;border-left:3px solid var(--borde);margin:0 0 .15rem}
+.cd-lista li.cd-equipo{border-left-color:var(--ok)}.cd-lista li.foco{background:var(--panel2);border-left-color:#4a90d9}.cd-lista li.cd-aviso{border-left-color:var(--mal)}
