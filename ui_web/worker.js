@@ -1,4 +1,4 @@
-// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 (plan_pyodide_v1.md).
+// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 + bridge de lectura A.1 (plan_pyodide_v1.md).
 const VERSION = "314.0.7";
 // Orden: copia local (ui_web/pyodide/) → jsDelivr npm → jsDelivr oficial.
 const BASES = ["pyodide/", `https://cdn.jsdelivr.net/npm/pyodide@${VERSION}/`, `https://cdn.jsdelivr.net/pyodide/v${VERSION}/full/`];
@@ -39,6 +39,7 @@ async function init() {
   const zip = await (await fetch("core.zip")).arrayBuffer();
   py.unpackArchive(zip, "zip", { extractDir: "/app" });
   py.FS.writeFile("/app/bench_web.py", await (await fetch("bench_web.py")).text());
+  py.FS.writeFile("/app/bridge.py", await (await fetch("bridge.py")).text());
   py.runPython("import sys; sys.path.insert(0, '/app')");
   log(`core.zip (${Math.round(zip.byteLength / 1024)} KB) montado en ${((performance.now() - t1) / 1000).toFixed(2)} s`);
   py.FS.mkdirTree(DBDIR);
@@ -55,6 +56,15 @@ const handlers = {
     const t = performance.now(); await sync(false);
     log(`db.db cargado (${Math.round(buf.byteLength / 1024)} KB) y persistido en ${(performance.now() - t).toFixed(0)} ms`);
     await estado();
+  },
+  // Fase A.1: llama a bridge.call(fn, args_json) y devuelve el JSON tal cual a la UI.
+  // bridge importa core.modelo (que crea una base vacía si falta), por eso solo con db.db cargado.
+  async call({ id, fn, args }) {
+    if (!existe(DB)) return postMessage({ type: "call", id, result: JSON.stringify({ ok: false, error: "Primero cargá un db.db" }) });
+    py.globals.set("_fn", fn);
+    py.globals.set("_args", JSON.stringify(args || {}));
+    const result = py.runPython("import bridge\nbridge.call(_fn, _args)");
+    postMessage({ type: "call", id, result });
   },
   async bench() {
     if (!existe(DB)) return log("⚠ Primero cargá un db.db");

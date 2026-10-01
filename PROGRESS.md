@@ -2494,10 +2494,10 @@ Dos pedidos de Papi para la interfaz GTK, sobre `main` `5b090be` (PR #57): (1) e
 
 ## Current Focus
 
-_Última actualización: 2026-09-30 — Fase 0 de `plan_pyodide_v1.md` (port a Pyodide/navegador) cerrada con **GO**. Bloque para pegar arriba de las secciones "Current Focus" existentes; la actual pasa a "(sesión anterior)"._
+_Última actualización: 2026-09-30 — Fase A.1 de `plan_pyodide_v1.md` (`ui_web/bridge.py`, capa JSON de lectura) escrita y validada en CPython y Pyodide; falta el smoke test con el `db.db` real. Antes: Fase 0 cerrada con **GO**. Bloque para pegar arriba de las secciones "Current Focus" existentes; la actual pasa a "(sesión anterior)"._
 
 ### Current Focus
-Fase 0 completada. Siguiente: Fase A del plan (visor de solo lectura en el navegador), empezando por A.1 (`ui_web/bridge.py`, capa JSON de lectura). Requiere OK de costo de tokens antes de arrancar (estimación Fase A: 0,8-1,2M tokens, 3-4 semanas).
+A.1 entregada (`ui_web/bridge.py` + handler `call` en el worker + sección "4. Bridge" en `index.html`). Pendiente: smoke test en el navegador con el `db.db` real (botón "Smoke: todas las funciones"; `resumen` debe dar 418 equipos, 2071 conectores, 515 cables, 945 conexiones). Siguiente: A.2 (shell de la app: navegación, i18n, tema, errores).
 
 ### Todo List
 - [x] Done — 0.1 Medir datos reales (db.db 950 KB, imagen/ 13 MB, picon/ 1,3 MB, manuales/ 509 MB)
@@ -2508,7 +2508,7 @@ Fase 0 completada. Siguiente: Fase A del plan (visor de solo lectura en el naveg
 - [x] Done — 0.6 Hashes idénticos a nativo (simulaciones, IRF, criticidad, linters, conexiones)
 - [x] Done — 0.7 Rendimiento medido (IRF completo 3,2 s vs 1,76 s nativo; memoria 36 MB)
 - [x] Done — 0.8 Persistencia IDBFS verificada tras F5
-- [ ] Todo — A.1 `ui_web/bridge.py` (API JSON de lectura, un método por pantalla)
+- [x] Done — A.1 `ui_web/bridge.py` (15 funciones de lectura + despachador `call`; test nativo y en Pyodide OK) — falta smoke test con el db.db real
 - [ ] Todo — A.2 a A.11 (ver `plan_pyodide_v1.md`)
 
 ### Latest Blockers/Discoveries
@@ -2517,3 +2517,6 @@ Fase 0 completada. Siguiente: Fase A del plan (visor de solo lectura en el naveg
 - El IRF completo (~3 s en wasm) debe correr en el Worker con indicador de progreso.
 - Los hashes de `bench_web.py` (`ESPERADO`) valen solo para el db.db del 2026-09-28.
 - Fuera del paquete web: `data/manuales/` (509 MB), `ui_kivy/`, consola Cypher.
+- `import core.modelo` crea un `db.db` vacío si no existe (asegurar_base_datos): el worker solo llama al bridge con la base ya cargada (`call` lo verifica).
+- Los ids del bridge son `int` (tal cual SQLite); los motores de `core/` usan `str`. Convertir en la frontera al agregar A.7.
+- El bridge usa SQL directo vía `Modelo._conn_ctx`, no los `listar_*` de `Modelo` (devuelven listas posicionales para GTK). Si cambia el esquema hay que tocar bridge.py además de modelo.py.
