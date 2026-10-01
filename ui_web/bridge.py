@@ -22,6 +22,7 @@ Notas de diseño:
   - Las tablas opcionales (señales, problemas, caché de riesgo) se leen con
     `_rows_opt`: si la base es vieja y no las tiene, devuelven lista vacía.
 """
+import inspect
 import json
 import sqlite3
 import time
@@ -409,6 +410,17 @@ def frame_ficha(id_frame):
     return f
 
 
+def firmas():
+    """Argumentos de cada función: {nombre: [{nombre, requerido, defecto}]}.
+    La página lo usa para prellenar los argumentos al elegir una función."""
+    out = {}
+    for n, f in FUNCIONES.items():
+        out[n] = [{"nombre": p.name, "requerido": p.default is inspect.Parameter.empty,
+                   "defecto": None if p.default is inspect.Parameter.empty else p.default}
+                  for p in inspect.signature(f).parameters.values()]
+    return out
+
+
 # ── Despachador ──────────────────────────────────────────────────────────────
 
 FUNCIONES = {f.__name__: f for f in (
@@ -420,6 +432,10 @@ FUNCIONES = {f.__name__: f for f in (
 )}
 
 
+
+FUNCIONES["firmas"] = firmas
+
+
 def call(fn, args_json="{}"):
     """Punto de entrada único desde JS. Nunca levanta: devuelve siempre un JSON."""
     t = time.perf_counter()
@@ -427,6 +443,18 @@ def call(fn, args_json="{}"):
         if fn not in FUNCIONES:
             raise KeyError(f"Función desconocida: {fn}")
         args = json.loads(args_json) if args_json else {}
+        if not isinstance(args, dict):
+            raise ValueError("Los argumentos deben ser un objeto JSON, ej. {\"id_equipo\": 1}")
+        params = inspect.signature(FUNCIONES[fn]).parameters
+        sobran = sorted(set(args) - set(params))
+        faltan = sorted(n for n, p in params.items()
+                        if p.default is inspect.Parameter.empty and n not in args)
+        if sobran or faltan:
+            validos = ", ".join(n + ("" if p.default is inspect.Parameter.empty else " (opcional)")
+                                for n, p in params.items()) or "ninguno"
+            raise ValueError(f"{fn}: " + (f"no acepta {sobran}; " if sobran else "")
+                             + (f"falta {faltan}; " if faltan else "")
+                             + f"argumentos válidos: {validos}")
         data = FUNCIONES[fn](**args)
         return json.dumps({"ok": True, "data": data,
                            "ms": round((time.perf_counter() - t) * 1000, 1)},

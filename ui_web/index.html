@@ -100,6 +100,15 @@ const rpc = (fn, args = {}) => new Promise((res) => { const id = ++rid; pend.set
 const FNS = ["resumen", "catalogos", "equipos_lista", "cables_lista", "conexiones_lista", "salas_lista", "racks_lista", "frames_lista", "slots_lista",
   "equipo_ficha", "conector_ficha", "cable_ficha", "sala_ficha", "rack_ficha", "frame_ficha"];
 $("fn").innerHTML = FNS.map((f) => `<option>${f}</option>`).join("");
+// Al elegir una función, prellena los argumentos obligatorios y muestra cuáles acepta.
+let FIRMAS = null;
+$("fn").onchange = async () => {
+  if (!FIRMAS) { const r = await rpc("firmas"); if (r.ok) FIRMAS = r.data; }
+  const ps = FIRMAS && FIRMAS[$("fn").value]; if (!ps) return;
+  const tpl = {}; ps.filter((p) => p.requerido).forEach((p) => (tpl[p.nombre] = 1));
+  $("args").value = Object.keys(tpl).length ? JSON.stringify(tpl) : "";
+  $("callinfo").textContent = "Argumentos: " + (ps.map((p) => p.nombre + (p.requerido ? "" : ` (opcional, por defecto ${JSON.stringify(p.defecto)})`)).join(", ") || "ninguno");
+};
 const tam = (d) => Array.isArray(d) ? `${d.length} filas` : d && typeof d === "object" ? `${Object.keys(d).length} claves` : String(d);
 $("callb").onclick = async () => {
   let args = {};
