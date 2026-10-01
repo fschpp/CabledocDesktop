@@ -1,0 +1,72 @@
+/* CableDoc Web — shell (Fase A.2). Tokens de color en :root; el tema oscuro se activa por
+   preferencia del sistema (modo automático) o forzado con data-theme="dark"/"light" en <html>. */
+:root{
+  --bg:#f5f6f8;--panel:#fff;--panel2:#eef0f4;--texto:#1b2230;--texto2:#5b6577;--borde:#d7dbe3;
+  --acento:#1f6feb;--acento-t:#fff;--ok:#1a7f37;--mal:#c62828;--aviso:#9a6700;--sombra:0 2px 10px #0002;
+  --lateral:15rem;color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f141b;--panel:#171d27;--panel2:#202938;--texto:#e6eaf1;--texto2:#9aa6b8;--borde:#2c3647;
+    --acento:#4c8dff;--acento-t:#06101f;--ok:#3fb950;--mal:#ff6b6b;--aviso:#e3b341;--sombra:0 2px 10px #0008;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f141b;--panel:#171d27;--panel2:#202938;--texto:#e6eaf1;--texto2:#9aa6b8;--borde:#2c3647;
+  --acento:#4c8dff;--acento-t:#06101f;--ok:#3fb950;--mal:#ff6b6b;--aviso:#e3b341;--sombra:0 2px 10px #0008;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--texto);font:14px/1.45 system-ui,sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--borde);border-radius:6px;padding:.4rem .8rem;cursor:pointer}
+button:hover{border-color:var(--acento)}
+button.primario{background:var(--acento);color:var(--acento-t);border-color:var(--acento)}
+select{background:var(--panel2);border:1px solid var(--borde);border-radius:6px;padding:.3rem .4rem}
+:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+.saltar{position:absolute;left:-999px;top:0;background:var(--acento);color:var(--acento-t);padding:.5rem 1rem;z-index:100}
+.saltar:focus{left:0}
+
+/* Estructura: barra superior + lateral + contenido */
+#app{display:grid;grid-template-columns:var(--lateral) 1fr;grid-template-rows:auto 1fr;height:100%}
+#barra{grid-column:1/3;display:flex;align-items:center;gap:.8rem;padding:.5rem 1rem;background:var(--panel);border-bottom:1px solid var(--borde)}
+#barra h1{font-size:1.05rem;margin:0;flex:1}
+#barra label{display:flex;align-items:center;gap:.35rem;color:var(--texto2);font-size:.85rem}
+#btn-menu{display:none}
+#lateral{background:var(--panel);border-right:1px solid var(--borde);padding:.6rem;overflow:auto;display:flex;flex-direction:column;gap:.15rem}
+#lateral a{display:flex;gap:.6rem;align-items:center;padding:.5rem .7rem;border-radius:6px;color:var(--texto);text-decoration:none}
+#lateral a:hover{background:var(--panel2)}
+#lateral a[aria-current="page"]{background:var(--acento);color:var(--acento-t)}
+#lateral .sep{flex:1}
+#lateral .aparte{color:var(--texto2);font-size:.85rem}
+#contenido{overflow:auto;padding:1.2rem 1.5rem}
+#contenido:focus{outline:none}
+h2{margin:.1rem 0 1rem;font-size:1.25rem}
+
+/* Componentes */
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:.8rem}
+.tarjeta{background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:.8rem 1rem}
+.tarjeta .n{font-size:1.7rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tarjeta .et{color:var(--texto2)}
+.vacio,.pendiente{max-width:34rem;margin:3rem auto;text-align:center;background:var(--panel);border:1px dashed var(--borde);border-radius:12px;padding:2rem 1.5rem}
+.vacio h2{margin-bottom:.5rem}
+.sub{color:var(--texto2)}
+.error-panel{max-width:44rem;background:var(--panel);border:1px solid var(--mal);border-radius:10px;padding:1rem 1.2rem}
+.error-panel h2{color:var(--mal);margin-bottom:.4rem}
+.error-panel pre{background:var(--panel2);padding:.6rem;border-radius:6px;overflow:auto;max-height:14rem;white-space:pre-wrap}
+#splash{display:grid;place-items:center;height:100%;color:var(--texto2)}
+#toasts{position:fixed;right:1rem;bottom:1rem;display:flex;flex-direction:column;gap:.5rem;z-index:50;max-width:min(26rem,calc(100vw - 2rem))}
+.toast{background:var(--panel);border:1px solid var(--mal);border-left-width:5px;border-radius:8px;box-shadow:var(--sombra);padding:.6rem .8rem;display:flex;gap:.6rem;align-items:flex-start}
+.toast span{flex:1;overflow-wrap:anywhere}
+.toast button{padding:.1rem .5rem}
+
+/* Pantallas angostas: el lateral pasa a cajón */
+@media (max-width:800px){
+  #app{grid-template-columns:1fr}
+  #barra{grid-column:1}
+  #btn-menu{display:inline-block}
+  #lateral{position:fixed;inset:3rem auto 0 0;width:min(18rem,85vw);transform:translateX(-105%);transition:transform .15s;z-index:20;box-shadow:var(--sombra)}
+  body.menu-abierto #lateral{transform:none}
+  #contenido{padding:1rem}
+}
+@media (prefers-reduced-motion:reduce){#lateral{transition:none}}

@@ -1,4 +1,4 @@
-// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 + bridge de lectura A.1 (plan_pyodide_v1.md).
+// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 + bridge de lectura A.1 + i18n A.2 (plan_pyodide_v1.md).
 const VERSION = "314.0.7";
 // Orden: copia local (ui_web/pyodide/) → jsDelivr npm → jsDelivr oficial.
 const BASES = ["pyodide/", `https://cdn.jsdelivr.net/npm/pyodide@${VERSION}/`, `https://cdn.jsdelivr.net/pyodide/v${VERSION}/full/`];
@@ -40,6 +40,7 @@ async function init() {
   py.unpackArchive(zip, "zip", { extractDir: "/app" });
   py.FS.writeFile("/app/bench_web.py", await (await fetch("bench_web.py")).text());
   py.FS.writeFile("/app/bridge.py", await (await fetch("bridge.py")).text());
+  py.FS.writeFile("/app/i18n_web.py", await (await fetch("i18n_web.py")).text());
   py.runPython("import sys; sys.path.insert(0, '/app')");
   log(`core.zip (${Math.round(zip.byteLength / 1024)} KB) montado en ${((performance.now() - t1) / 1000).toFixed(2)} s`);
   py.FS.mkdirTree(DBDIR);
@@ -65,6 +66,12 @@ const handlers = {
     py.globals.set("_args", JSON.stringify(args || {}));
     const result = py.runPython("import bridge\nbridge.call(_fn, _args)");
     postMessage({ type: "call", id, result });
+  },
+  // Fase A.2: diccionario de traducciones (core.i18n + cadenas web). No necesita db.db.
+  async i18n({ id, lang }) {
+    py.globals.set("_lang", lang);
+    const result = py.runPython("import i18n_web\ni18n_web.diccionario_json(_lang)");
+    postMessage({ type: "i18n", id, result });
   },
   async bench() {
     if (!existe(DB)) return log("⚠ Primero cargá un db.db");
@@ -120,7 +127,11 @@ f"Pillow OK: PNG de {len(b.getvalue())} bytes, {Image.open(io.BytesIO(b.getvalue
 
 onmessage = async (e) => {
   try { await handlers[e.data.cmd](e.data); }
-  catch (err) { log("❌ " + (err && err.message || err)); }
+  catch (err) {
+    log("❌ " + (err && err.message || err));
+    // A.2: si la orden traía id (RPC), la UI espera respuesta: avisarle el fallo para que no quede colgada.
+    if (e.data.id !== undefined) postMessage({ type: "fail", id: e.data.id, error: String(err && err.message || err) });
+  }
   postMessage({ type: "idle" });
 };
-init().catch((err) => log("❌ init: " + (err && err.message || err)));
+init().catch((err) => { log("❌ init: " + (err && err.message || err)); postMessage({ type: "fatal", msg: String(err && err.message || err) }); });
