@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CableDoc Web — Fase 0</title>
+<title>CableDoc Web — Fase 0 / A.1</title>
 <style>
   :root{color-scheme:light dark;--b:#8884}
   body{font:14px system-ui,sans-serif;max-width:900px;margin:1.5rem auto;padding:0 1rem}
@@ -16,7 +16,7 @@
   pre{background:#8881;border-radius:6px;padding:.6rem;max-height:260px;overflow:auto;margin:0;white-space:pre-wrap}
   .ok{color:#2a9d3a}.bad{color:#d33}
 </style></head><body>
-<h1>CableDoc Web — Fase 0</h1>
+<h1>CableDoc Web — Fase 0 / A.1</h1>
 <div class="sub">Pyodide + <code>core/</code> en el navegador (plan_pyodide_v1.md)</div>
 
 <fieldset><legend>1. Estado</legend>
@@ -36,6 +36,16 @@
   <table id="res" hidden><thead><tr><th>Operación</th><th>Tiempo (s)</th><th>Hash</th><th>vs nativo</th></tr></thead><tbody></tbody></table>
 </fieldset>
 
+<fieldset><legend>4. Bridge de lectura (Fase A.1)</legend>
+  <select id="fn" disabled></select>
+  <input id="args" size="26" placeholder='args JSON, ej. {"id_equipo": 1}' disabled>
+  <button id="callb" disabled>▶ Llamar</button>
+  <button id="smoke" disabled>▶ Smoke: todas las funciones</button>
+  <table id="smk" hidden><thead><tr><th>Función</th><th>Args</th><th>Estado</th><th>ms</th><th>Filas / claves</th></tr></thead><tbody></tbody></table>
+  <div id="callinfo" class="sub"></div>
+  <pre id="out"></pre>
+</fieldset>
+
 <fieldset><legend>Registro</legend><pre id="log"></pre></fieldset>
 
 <script>
@@ -46,8 +56,9 @@ const log = (m) => { $("log").textContent += m + "\n"; $("log").scrollTop = 1e9;
 w.onerror = (e) => log("❌ Error en worker.js: " + (e.message || "no se pudo cargar (mirá F12 → Red)"));
 const t0 = Date.now();
 [15, 45, 90].forEach((s) => setTimeout(() => { if (cold === null) log(`… sigue cargando (${s} s). Si pasa de 60 s: F12 → Consola / Red y pasame lo que salga en rojo.`); }, s * 1000));
-const btns = ["file", "export", "reset", "bench", "write", "pillow"];
-const enable = (on) => btns.forEach((b) => ($(b).disabled = !on));
+const btns = ["file", "export", "reset", "bench", "write", "pillow", "fn", "args", "callb", "smoke"];
+let busy = false;
+const enable = (on) => { if (busy && on) return; btns.forEach((b) => ($(b).disabled = !on)); };
 
 w.onmessage = (e) => {
   const d = e.data;
@@ -69,6 +80,7 @@ w.onmessage = (e) => {
     }
     $("res").hidden = false;
   }
+  else if (d.type === "call") { const r = pend.get(d.id); pend.delete(d.id); if (r) r(JSON.parse(d.result)); }
   else if (d.type === "download") {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([d.data])); a.download = d.name; a.click();
@@ -81,5 +93,44 @@ $("write").onclick = () => send("write_test");
 $("pillow").onclick = () => send("pillow");
 $("export").onclick = () => send("export");
 $("reset").onclick = () => { if (confirm("¿Borrar la base guardada en este navegador?")) send("reset"); };
+
+// ── Bridge (A.1): RPC al worker ──
+let rid = 0; const pend = new Map();
+const rpc = (fn, args = {}) => new Promise((res) => { const id = ++rid; pend.set(id, res); w.postMessage({ cmd: "call", id, fn, args }); });
+const FNS = ["resumen", "catalogos", "equipos_lista", "cables_lista", "conexiones_lista", "salas_lista", "racks_lista", "frames_lista", "slots_lista",
+  "equipo_ficha", "conector_ficha", "cable_ficha", "sala_ficha", "rack_ficha", "frame_ficha"];
+$("fn").innerHTML = FNS.map((f) => `<option>${f}</option>`).join("");
+const tam = (d) => Array.isArray(d) ? `${d.length} filas` : d && typeof d === "object" ? `${Object.keys(d).length} claves` : String(d);
+$("callb").onclick = async () => {
+  let args = {};
+  try { args = $("args").value.trim() ? JSON.parse($("args").value) : {}; } catch { return ($("callinfo").textContent = "❌ Args no es JSON válido"); }
+  const r = await rpc($("fn").value, args);
+  $("callinfo").innerHTML = r.ok ? `<span class="ok">✔</span> ${r.ms} ms · ${tam(r.data)}` : `<span class="bad">✖ ${r.error}</span>`;
+  const txt = JSON.stringify(r.ok ? r.data : r, null, 1);
+  $("out").textContent = txt.length > 20000 ? txt.slice(0, 20000) + `\n… (${txt.length} caracteres, recortado)` : txt;
+};
+$("smoke").onclick = async () => {
+  busy = true; enable(false);
+  const tb = $("smk").querySelector("tbody"); tb.innerHTML = ""; $("smk").hidden = false; $("out").textContent = "";
+  const fila = (fn, args, r) => tb.insertAdjacentHTML("beforeend",
+    `<tr><td>${fn}</td><td>${Object.keys(args).length ? JSON.stringify(args) : ""}</td><td>${r.ok ? '<span class="ok">✔</span>' : '<span class="bad">✖ ' + r.error + "</span>"}</td><td class="n">${r.ms ?? ""}</td><td>${r.ok ? tam(r.data) : ""}</td></tr>`);
+  const run = async (fn, args = {}) => { const r = await rpc(fn, args); fila(fn, args, r); return r.ok ? r.data : null; };
+  const res = await run("resumen");
+  if (res) $("out").textContent = "resumen: " + JSON.stringify(res) + "\n(plan 0.6 con el db.db del 2026-09-28: 418 equipos, 2071 conectores, 515 cables, 945 conexiones)";
+  await run("catalogos");
+  const eqs = await run("equipos_lista");
+  const cab = await run("cables_lista");
+  await run("conexiones_lista");
+  const salas = await run("salas_lista"), racks = await run("racks_lista"), frames = await run("frames_lista");
+  await run("slots_lista");
+  const conEq = eqs && (eqs.find((e) => e.n_conectores > 0) || eqs[0]);
+  if (conEq) { const f = await run("equipo_ficha", { id_equipo: conEq.id_equipo });
+    if (f && f.conectores[0]) await run("conector_ficha", { id_conector: f.conectores[0].id_conector }); }
+  if (cab && cab[0]) await run("cable_ficha", { id_cable: cab[0].id_cable });
+  if (salas && salas[0]) await run("sala_ficha", { id_sala: salas[0].id_sala });
+  if (racks && racks[0]) await run("rack_ficha", { id_rack: racks[0].id_rack });
+  if (frames && frames[0]) await run("frame_ficha", { id_frame: frames[0].id_frame });
+  busy = false; enable(true);
+};
 enable(false);
 </script></body></html>
