@@ -60,6 +60,24 @@ h2{margin:.1rem 0 1rem;font-size:1.25rem}
 .toast span{flex:1;overflow-wrap:anywhere}
 .toast button{padding:.1rem .5rem}
 
+/* Árbol de equipos (A.3): lista virtualizada, filas de alto fijo (ALTO_FILA en equipos_arbol.js) */
+.arbol-pantalla{display:flex;flex-direction:column;height:100%;min-height:0}
+.arbol-barra{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.arbol-filtro{flex:1;min-width:12rem;background:var(--panel);border:1px solid var(--borde);border-radius:6px;padding:.4rem .6rem}
+.arbol-estado{margin:.1rem 0 .5rem}
+.arbol{flex:1;min-height:12rem;overflow:auto;background:var(--panel);border:1px solid var(--borde);border-radius:8px;position:relative}
+.arbol-espacio{position:relative;width:100%;min-width:max-content}
+.arbol-ventana{position:absolute;left:0;right:0;top:0}
+.arbol-fila{display:flex;align-items:center;gap:.4rem;white-space:nowrap;border-bottom:1px solid transparent}
+.arbol-fila:hover{background:var(--panel2)}
+.arbol-flecha{width:1.4rem;padding:0;border:0;background:none;color:var(--texto2);line-height:1}
+.arbol-flecha.vacio{display:inline-block}
+.arbol-etiqueta{overflow:hidden;text-overflow:ellipsis;max-width:60ch}
+.arbol-fila.tipo-sala .arbol-etiqueta,.arbol-fila.tipo-sin_ubicacion .arbol-etiqueta{font-weight:600}
+.arbol-badge{font-size:.75rem;color:var(--texto2);border:1px solid var(--borde);border-radius:999px;padding:0 .45rem}
+.tipo-sala .arbol-badge{color:#7d74d6;border-color:#7d74d6}.tipo-rack .arbol-badge{color:#4a90d9;border-color:#4a90d9}
+.tipo-frame .arbol-badge{color:#d9922e;border-color:#d9922e}.tipo-equipo .arbol-badge{color:var(--ok);border-color:var(--ok)}
+
 /* Pantallas angostas: el lateral pasa a cajón */
 @media (max-width:800px){
   #app{grid-template-columns:1fr}

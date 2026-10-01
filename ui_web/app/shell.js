@@ -12,7 +12,7 @@ export function parseRuta(hash = location.hash) {
 }
 
 export async function iniciar(rpc) {
-  const estado = { dbBytes: null, iniciado: false };
+  const estado = { dbBytes: null, iniciado: false, gen: 0 };   // gen: versión de la base, para invalidar cachés de las pantallas
   let token = 0;
 
   instalarGlobales();
@@ -22,7 +22,7 @@ export async function iniciar(rpc) {
   const splash = $("splash-txt"); if (splash) splash.textContent = t("Iniciando el motor (Pyodide)…");
 
   rpc.on("state", (d) => {
-    const antes = estado.dbBytes; estado.dbBytes = d.dbBytes;
+    const antes = estado.dbBytes; estado.dbBytes = d.dbBytes; estado.gen++;
     if (!estado.iniciado) return;
     const info = $("db-info"); if (info) info.textContent = textoBase();
     if (antes !== d.dbBytes) mostrarVista();       // base cargada o cambiada: repintar la pantalla actual
@@ -70,7 +70,7 @@ export async function iniciar(rpc) {
     if (!main) return;
     main.replaceChildren(h("p", { class: "sub" }, t("Cargando…")));
     try {
-      const nodo = await resolverVista(estado.dbBytes ? id : "cargar_db", { rpc, args });
+      const nodo = await resolverVista(estado.dbBytes ? id : "cargar_db", { rpc, args, gen: estado.gen });
       if (miToken === token) main.replaceChildren(nodo);
     } catch (err) {
       if (miToken !== token) return;

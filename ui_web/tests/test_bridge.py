@@ -127,6 +127,31 @@ check(len(ll("slots_lista")) == 2 and len(ll("slots_lista", id_frame=1)) == 2, "
 fr = ll("frame_ficha", id_frame=1)
 check(fr["slots"][0]["equipo"] == "CAM 2" and fr["racks"][0]["orificio"] == 10, "frame_ficha")
 
+# ── arbol_equipos (A.3) ──
+c = sqlite3.connect(m.DB_PATH)
+c.executescript("INSERT INTO equipo(id_equipo,id_tipo_equipo,id_marca,nombre) VALUES (5,1,2,'MONITOR');"
+                "INSERT INTO equiponoraqueable_por_sala(id_sala,id_equipo) VALUES (1,5),(1,3);")  # el 3 ya está en un slot: no debe repetirse
+c.commit(); c.close()
+ar = ll("arbol_equipos")
+check(ar["n_equipos"] == 5, "arbol_equipos: n_equipos excluye el id 0")
+sala, sinub = ar["nodos"]
+check(sala["t"] == "sala" and sala["l"] == "Control Central" and sinub["t"] == "sin_ubicacion" and sinub["n"] == 2, "arbol: sala + grupo sin ubicación al final")
+rack, sueltos = sala["h"]
+check(rack["t"] == "rack" and rack["l"] == "Rack 1" and sueltos["t"] == "sueltos" and sueltos["n"] == 1
+      and [x["l"] for x in sueltos["h"]] == ["MONITOR Blackmagic CAMARA"], "arbol: rack y equipos sueltos (sin los ya ubicados)")
+frame, matriz = rack["h"]
+check(frame["t"] == "frame" and frame["l"] == "Frame 1" and [x["l"] for x in frame["h"]] == ["CAM 2 Sony CAMARA HDC-3500 102 S3"],
+      "arbol: frame con el equipo de su slot y etiqueta nombre+marca+tipo+modelo+inventario+serie")
+check(matriz["t"] == "equipo" and matriz["b"] == "MATRIZ" and [x["l"] for x in matriz["h"]] == ["IN 1", "OUT 1"]
+      and matriz["h"][0]["b"] == "BNC" and matriz["h"][0]["t"] == "conector", "arbol: equipo directo en rack con sus conectores y su tipo")
+check([x["l"].split()[0] for x in sinub["h"]] == ["CAM", "SIN"] and "h" not in sinub["h"][1], "arbol: sin ubicación ordenado por nombre; sin conectores no hay 'h'")
+ids = []
+def _rec(n):
+    if n["t"] == "equipo": ids.append(n["i"])
+    for x in n.get("h", []): _rec(x)
+for n in ar["nodos"]: _rec(n)
+check(sorted(ids) == [1, 2, 3, 4, 5], "arbol: cada equipo aparece exactamente una vez")
+
 # Errores: siempre JSON, nunca excepción hacia JS
 e = json.loads(bridge.call("equipo_ficha", json.dumps({"id_equipo": 999})))
 check(e["ok"] is False and "999" in e["error"], "id inexistente -> error JSON")

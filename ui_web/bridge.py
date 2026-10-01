@@ -121,6 +121,114 @@ def equipos_lista(incluir_sistema=False):
         ORDER BY lower(e.nombre), e.id_equipo""")
 
 
+def arbol_equipos():
+    """Árbol de infraestructura para A.3: Sala → Rack → Frame → Equipo → Conectores.
+
+    Misma jerarquía y mismo texto de búsqueda que `PanelArbol` (ui_gtk/panel_arbol_ui.py),
+    pero con consultas en lote (una por tabla, sin N+1) y sin la sección "Cables".
+    Nodo: {t: tipo, i: id, l: etiqueta, b: badge, h: [hijos]} (h falta en las hojas: conectores y equipos sin conectores).
+    Tipos: sala | rack | frame | equipo | conector | sueltos | sin_ubicacion. Los dos últimos son
+    grupos sin etiqueta (l=None, n=cantidad): el texto lo pone la UI para traducirlo.
+    La etiqueta del equipo es "<nombre> <marca> <tipo> <modelo> <inventario> <serie>" (vacíos
+    omitidos): el filtro de la UI matchea contra ella.
+    Raíz: salas por nombre y, si hay, el grupo "sin_ubicacion" al final.
+    """
+    def txt(v):
+        return "" if v is None else str(v).strip()
+
+    equipos = {}  # id → (etiqueta, tipo); en orden por nombre (también ordena a los sin ubicación)
+    for r in _rows("""
+            SELECT e.id_equipo, e.nombre, m.nombre AS marca, te.nombre AS tipo, e.modelo,
+                   e.num_inventario AS inv, e.num_serie AS serie
+            FROM equipo e
+            LEFT JOIN marca m ON m.id_marca = e.id_marca
+            LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo
+            WHERE e.id_equipo != 0
+            ORDER BY e.nombre, e.id_equipo"""):
+        partes = (txt(r["nombre"]), txt(r["marca"]), txt(r["tipo"]), txt(r["modelo"]), txt(r["inv"]), txt(r["serie"]))
+        equipos[r["id_equipo"]] = (" ".join(v for v in partes if v) or f"#{r['id_equipo']}", partes[2])
+
+    conectores = {}  # id_equipo → [nodo conector]
+    for r in _rows("""
+            SELECT c.id_conector, c.id_equipo, c.nombre, tc.nombre AS tipo
+            FROM conector c LEFT JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector
+            ORDER BY c.nombre, c.id_conector"""):
+        conectores.setdefault(r["id_equipo"], []).append(
+            {"t": "conector", "i": r["id_conector"], "l": txt(r["nombre"]) or f"#{r['id_conector']}", "b": txt(r["tipo"])})
+
+    def nodo_equipo(id_eq):
+        etiqueta, tipo = equipos[id_eq]
+        n = {"t": "equipo", "i": id_eq, "l": etiqueta, "b": tipo}
+        if id_eq in conectores:
+            n["h"] = conectores[id_eq]
+        return n
+
+    def agrupar(filas, clave, valor):
+        out = {}
+        for r in filas:
+            out.setdefault(r[clave], []).append(valor(r))
+        return out
+
+    # Equipos en slots de cada frame (los que no existen en `equipo` se descartan, como el INNER JOIN del desktop).
+    en_frame = agrupar(_rows("""
+            SELECT sl.id_frame, sl.id_equipo FROM slot sl
+            WHERE sl.id_equipo IS NOT NULL AND sl.id_equipo != 0
+            ORDER BY sl.id_frame, sl.nombre, sl.id_slot"""),
+        "id_frame", lambda r: r["id_equipo"])
+    frames_de_rack = agrupar(_rows("""
+            SELECT p.id_rack, f.id_frame, f.nombre, MIN(p.orificio_posicion_equipo_en_rack) AS pos
+            FROM posicion_en_rack p JOIN frame f ON f.id_frame = p.id_frame
+            WHERE p.id_frame IS NOT NULL
+            GROUP BY p.id_rack, f.id_frame
+            ORDER BY p.id_rack, pos, f.id_frame"""),
+        "id_rack", lambda r: r)
+    directos_de_rack = agrupar(_rows("""
+            SELECT p.id_rack, p.id_equipo
+            FROM posicion_en_rack p JOIN equipo e ON e.id_equipo = p.id_equipo
+            WHERE p.id_frame IS NULL AND p.id_equipo IS NOT NULL AND p.id_equipo != 0
+            ORDER BY p.id_rack, p.orificio_posicion_equipo_en_rack, e.nombre, p.id_posicion_en_rack"""),
+        "id_rack", lambda r: r["id_equipo"])
+    racks_de_sala = agrupar(_rows("""
+            SELECT rps.id_sala, r.id_rack, r.nombre
+            FROM rack r JOIN rack_por_sala rps ON rps.id_rack = r.id_rack
+            ORDER BY rps.id_sala, r.numero, r.id_rack"""),
+        "id_sala", lambda r: r)
+
+    en_rack_o_slot = {r["id_equipo"] for r in _rows("""
+        SELECT id_equipo FROM posicion_en_rack WHERE id_equipo IS NOT NULL AND id_equipo != 0
+        UNION SELECT id_equipo FROM slot WHERE id_equipo IS NOT NULL AND id_equipo != 0""")}
+    sueltos_de_sala = agrupar(_rows("""
+            SELECT en.id_sala, e.id_equipo
+            FROM equiponoraqueable_por_sala en JOIN equipo e ON e.id_equipo = en.id_equipo
+            ORDER BY en.id_sala, e.nombre, e.id_equipo"""),
+        "id_sala", lambda r: r["id_equipo"])
+    con_sala = {r["id_equipo"] for r in _rows(
+        "SELECT id_equipo FROM equiponoraqueable_por_sala WHERE id_equipo IS NOT NULL")}
+
+    raiz = []
+    for sala in _rows("SELECT id_sala, nombre FROM sala ORDER BY nombre, id_sala"):
+        hijos_sala = []
+        for rk in racks_de_sala.get(sala["id_sala"], []):
+            hijos_rack = []
+            for fr in frames_de_rack.get(rk["id_rack"], []):
+                hijos_rack.append({
+                    "t": "frame", "i": fr["id_frame"], "l": txt(fr["nombre"]) or f"#{fr['id_frame']}", "b": "",
+                    "h": [nodo_equipo(e) for e in en_frame.get(fr["id_frame"], []) if e in equipos]})
+            hijos_rack += [nodo_equipo(e) for e in directos_de_rack.get(rk["id_rack"], []) if e in equipos]
+            hijos_sala.append({"t": "rack", "i": rk["id_rack"], "l": txt(rk["nombre"]) or f"#{rk['id_rack']}", "b": "", "h": hijos_rack})
+        sueltos = [e for e in sueltos_de_sala.get(sala["id_sala"], []) if e in equipos and e not in en_rack_o_slot]
+        if sueltos:
+            hijos_sala.append({"t": "sueltos", "i": sala["id_sala"], "l": None, "b": "", "n": len(sueltos),
+                              "h": [nodo_equipo(e) for e in sueltos]})
+        raiz.append({"t": "sala", "i": sala["id_sala"], "l": txt(sala["nombre"]) or f"#{sala['id_sala']}", "b": "", "h": hijos_sala})
+
+    sin_ubicacion = [e for e in equipos if e not in en_rack_o_slot and e not in con_sala]
+    if sin_ubicacion:
+        raiz.append({"t": "sin_ubicacion", "i": None, "l": None, "b": "", "n": len(sin_ubicacion),
+                     "h": [nodo_equipo(e) for e in sin_ubicacion]})
+    return {"nodos": raiz, "n_equipos": len(equipos)}
+
+
 def _conexiones_de_conectores(ids):
     """{id_conector: [conexión, ...]} con el/los extremo(s) opuesto(s) de cada cable."""
     ids = list(ids)
@@ -425,7 +533,7 @@ def firmas():
 
 FUNCIONES = {f.__name__: f for f in (
     resumen, catalogos,
-    equipos_lista, equipo_ficha, conector_ficha,
+    equipos_lista, arbol_equipos, equipo_ficha, conector_ficha,
     cables_lista, cable_ficha, conexiones_lista,
     salas_lista, sala_ficha, racks_lista, rack_ficha,
     frames_lista, slots_lista, frame_ficha,
