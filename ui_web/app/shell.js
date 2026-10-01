@@ -4,7 +4,7 @@ import { h, $ } from "./dom.js";
 import { t, idioma, IDIOMAS, idiomaInicial, cacheado, aplicar, alCambiar } from "./i18n.js";
 import { TEMAS, ETIQUETAS, temaGuardado, aplicarTema } from "./tema.js";
 import { reportar, panelError, instalarGlobales, texto } from "./errores.js";
-import { NAV, resolverVista } from "./vistas.js";
+import { NAV, ALIAS_NAV, resolverVista } from "./vistas.js";
 
 export function parseRuta(hash = location.hash) {
   const [id, ...args] = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
@@ -32,7 +32,7 @@ export async function iniciar(rpc) {
   const textoBase = () => (estado.dbBytes ? t("Base cargada ({kb} KB)", { kb: Math.round(estado.dbBytes / 1024) }) : "");
 
   function marcarActivo() {
-    const { id } = parseRuta();
+    const { id: ruta } = parseRuta(), id = ALIAS_NAV[ruta] || ruta;
     document.querySelectorAll("#lateral a[data-id]").forEach((a) =>
       id === a.dataset.id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   }

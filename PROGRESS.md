@@ -207,6 +207,26 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-01 — Fase A.4 de `plan_pyodide_v1.md` (fichas de equipo, cable y conector + imágenes en OPFS, camino 2), sobre `main` en `77727ae` (A.3 ya mergeada, PR #87)._
+
+### Current Focus
+A.4 entregada como diff: `ui_web/app/fichas.js` (equipo, conector, cable y lista de cables), `imagenes.js` (carga a OPFS + blob URL) e `imagen_conectores.js` (conectores superpuestos en %). Pendiente: smoke test en el navegador real con el `db.db` y la carpeta `imagen/` reales, y commit. Siguiente: A.5 (árbol de conexiones y cadena de extensiones).
+
+### Todo List
+- [x] Done — 0.1 a 0.8 (Fase 0, GO), A.1 bridge, A.2 shell, A.3 árbol de equipos (mergeada)
+- [x] Done — A.4 fichas + imágenes en OPFS (diff presentado; tests Python y Node OK; falta smoke en navegador real)
+- [ ] Todo — A.5 a A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Smoke test a hacer: `app.html` → cargar el db.db → Equipos → abrir un equipo con imagen → "Elegir carpeta" y elegir `data/imagen` (94 archivos, ~13 MB). Mirar (1) que guarde sin errores y diga "94 imágenes guardadas", (2) que la imagen aparezca sola y los marcadores caigan sobre sus conectores, (3) que tras F5 la imagen siga ahí (OPFS persistente), (4) clic en un marcador/fila → ficha del conector, (5) un SVG o imagen grande si hay.
+- Las coordenadas de conector son % (0-100): no hace falta medir la imagen. Los datos con valores fuera de 0-100 (reemplazo de imagen por otra de distinto tamaño, ver nota en `Modelo`) no se dibujan: salen listados como "Conectores fuera de la imagen".
+- `dom.js`: `h()` aplana hijos a cualquier profundidad (cambio retrocompatible; sin esto las listas anidadas salían como "[object HTMLElement]").
+- Si el navegador no tiene OPFS (p. ej. algunas pestañas privadas) las imágenes quedan en memoria y se pierden al recargar; la pantalla lo avisa.
+- A.10 (export/import) debería incluir las imágenes (reusar `guardarArchivos`/`vaciarImagenes`). Picon se guarda pero todavía ninguna pantalla lo muestra.
+- `plan_pyodide_v1.md` no está en el repo: marcar A.1, A.3 y A.4 como hechas ahí.
+
+## Current Focus (sesión anterior)
+
 **Sesión 2026-09-28 (tarde) — Fase 2.1 de `plan_inteligencia_implicita_v1.md`, sobre `main` en `7ab25be` (Fase 1 y Fase 4 ya mergeadas). Detección de referencia en cascada. Pendiente de smoke test y commit de Fede.**
 
 ### Current Focus

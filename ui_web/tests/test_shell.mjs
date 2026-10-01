@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas"];
 
 if (!escenario) {
   let mal = 0;
@@ -74,7 +74,13 @@ async function rpcPyodide() {              // rpc real: Pyodide + core.zip + bri
 import sqlite3
 c = sqlite3.connect("/tmp/fixture.db"); c.executescript(open("/app/data/schema_db.sql", encoding="utf-8").read())
 c.executescript("""INSERT INTO tipo_equipo(id_tipo_equipo,nombre,rol_senal) VALUES (1,'CAMARA','FUENTE');
-INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (1,1,'CAM 1'),(2,1,'CAM 2');"""); c.commit(); c.close()`);
+INSERT INTO tipo_conector(id_tipo_conector,nombre) VALUES (1,'BNC');
+INSERT INTO tipo_cable(id_tipo_cable,nombre) VALUES (1,'RG59');
+INSERT INTO imagen(id_imagen,path_archivo,descripcion) VALUES (1,'cam.png','Frente');
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre,id_imagen,modelo) VALUES (1,1,'CAM 1',1,'HDC-3500'),(2,1,'CAM 2',NULL,NULL);
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector,id_imagen,coordenada_x_en_imagen,coordenada_y_en_imagen) VALUES (1,'OUT 1',1,1,1,40,55),(2,'IN 1',2,1,NULL,NULL,NULL),(3,'OUT 2',1,1,1,150,10);
+INSERT INTO cable(id_cable,codigo,longitud,unidad_longitud,id_tipo_cable,es_cable_conexion_interna) VALUES (1,'C-001',10,'m',1,0);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES (1,1,1,0),(2,1,2,0);"""); c.commit(); c.close()`);
   const fixture = py.FS.readFile("/tmp/fixture.db");
   b.res({ type: "ready" });                // el estado inicial lo emite emitirEstado() cuando el shell ya escucha
   return { rpc, b, fixture, py, emitirEstado: estado, fallar: (v) => (rpc.llamar = async (fn) => { const { ErrorBridge } = await import(pathToFileURL(path.join(WEB, "app/errores.js")).href); throw new ErrorBridge(fn, v); }) };
@@ -97,9 +103,9 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/cables");
-  ok($("#lateral a[data-id=cables]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.4 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/conexiones");
+  ok($("#lateral a[data-id=conexiones]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
+  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.5 del plan."), "pantalla pendiente con su etapa");
   await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
   ok($("#contenido .arbol"), "Equipos muestra el árbol");
   const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
@@ -107,13 +113,13 @@ if (escenario === "completo") {
   ok($("#contenido .arbol-estado").textContent === "2 equipos", "contador de equipos");
   await ir("#/zzz");
   ok($("#contenido h2").textContent === "Pantalla desconocida", "ruta desconocida");
-  await ir("#/equipos/12/extra");
-  ok($("#contenido h2").textContent === "Equipos", "ruta con argumentos extra");
-  await ir("#/cables");
+  await ir("#/equipos/abc");
+  ok($("#contenido h2").textContent === "Pantalla desconocida", "id no numérico → pantalla desconocida");
+  await ir("#/conexiones");
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.4 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido .pendiente").textContent.includes("Available in stage A.5 of the plan."), "pantalla pendiente en inglés (con {etapa})");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -138,7 +144,7 @@ if (escenario === "completo") {
   $("#toasts .toast button").click(); ok(!$("#toasts .toast"), "toast se cierra");
   // 8) menú móvil
   $("#btn-menu").click(); ok(document.body.classList.contains("menu-abierto") && $("#btn-menu").getAttribute("aria-expanded") === "true", "abre el menú");
-  await ir("#/cables"); ok(!document.body.classList.contains("menu-abierto"), "navegar cierra el menú");
+  await ir("#/conexiones"); ok(!document.body.classList.contains("menu-abierto"), "navegar cierra el menú");
 }
 
 if (escenario === "motor_caido") {
@@ -304,6 +310,131 @@ if (escenario === "arbol_vista") {         // pantalla con rpc falso y jsdom
   // base vacía
   olvidarArbol(); const p3 = await vistaEquipos({ rpc: { llamar: async () => ({ nodos: [], n_equipos: 0 }) }, gen: 3 });
   ok(p3.querySelector(".arbol-estado").textContent === "No hay equipos cargados", "base sin equipos");
+}
+
+// ── A.4: imágenes (OPFS) ──
+function opfsFalso() {                       // navigator.storage.getDirectory() mínimo, en memoria
+  const nuevoDir = () => {
+    const hijos = new Map();
+    const e = (n) => Object.assign(new Error(n), { name: n });
+    return {
+      kind: "directory", hijos,
+      async getDirectoryHandle(n, { create } = {}) { if (!hijos.has(n)) { if (!create) throw e("NotFoundError"); hijos.set(n, nuevoDir()); } const d = hijos.get(n); if (d.kind !== "directory") throw e("TypeMismatchError"); return d; },
+      async getFileHandle(n, { create } = {}) {
+        if (hijos.get(n)?.kind === "directory") throw e("TypeMismatchError");
+        if (!hijos.has(n)) { if (!create) throw e("NotFoundError"); hijos.set(n, { kind: "file", blob: null,
+          async createWritable() { const f = this; return { async write(b) { f.blob = b; }, async close() {} }; }, async getFile() { return this.blob; } }); }
+        return hijos.get(n);
+      },
+      async removeEntry(n) { if (!hijos.delete(n)) throw e("NotFoundError"); },
+      async *entries() { yield* hijos.entries(); },
+    };
+  };
+  return { storage: { getDirectory: async () => raiz }, raiz: null, _init() { raiz = nuevoDir(); return this; } };
+  var raiz;
+}
+const png = (nombre, rel, tipo = "image/png") => ({ name: nombre, webkitRelativePath: rel ?? "", type: tipo, size: 4 });
+
+if (escenario === "imagenes") {
+  const M = await import(pathToFileURL(path.join(WEB, "app/imagenes.js")).href);
+  ok(M.segmentos("a\\b/./c.png").join("/") === "a/b/c.png" && M.segmentos("../x.png") === null && M.segmentos("") === null && M.segmentos(null) === null, "segmentos: normaliza y rechaza ..");
+  const d = (r) => JSON.stringify(M.destino(r));
+  ok(d("imagen/a.png") === '{"kind":"imagen","ruta":"a.png"}' && d("data/imagen/sub/B.JPG") === '{"kind":"imagen","ruta":"sub/B.JPG"}', "destino: reconoce la carpeta imagen/");
+  ok(d("data/picon/p.svg") === '{"kind":"picon","ruta":"p.svg"}', "destino: reconoce picon/");
+  ok(d("fotos/x.png") === '{"kind":"imagen","ruta":"x.png"}' && d("suelta.webp") === '{"kind":"imagen","ruta":"suelta.webp"}', "destino: sin carpeta conocida, solo el nombre");
+  ok(d("imagen/notas.txt") === "null" && d("imagen/") === "null" && d("") === "null", "destino: ignora lo que no es imagen");
+  // almacén OPFS (falso) con la lógica real de almacenOpfs
+  const nav = opfsFalso()._init(); const op = M.almacenOpfs(nav);
+  ok(op && op.nombre === "opfs" && M.almacenOpfs({}) === null, "almacenOpfs: null si el navegador no lo soporta");
+  ok(await op.leer("imagen/x.png") === null && await op.contar() === 0, "OPFS vacío: leer → null, contar → 0");
+  await op.guardar("imagen/sub/x.png", { id: "A" }); await op.guardar("picon/p.png", { id: "B" });
+  ok((await op.leer("imagen/sub/x.png")).id === "A" && (await op.contar()) === 2, "OPFS: guardar, leer en subcarpeta y contar");
+  ok(await op.leer("imagen/sub") === null, "OPFS: pedir una carpeta como archivo → null");
+  await op.vaciar(); ok((await op.contar()) === 0 && await op.leer("imagen/sub/x.png") === null, "OPFS: vaciar");
+  // módulo con el almacén OPFS falso
+  let n = 0, revocadas = [];
+  M.configurar({ almacen: M.almacenOpfs(opfsFalso()._init()), crearUrl: () => "blob:t/" + ++n, revocar: (u) => revocadas.push(u) });
+  ok(await M.urlImagen("cam.png") === null, "urlImagen: no cargada → null");
+  const cambios = []; const baja = M.alCambiarImagenes(() => cambios.push(1));
+  const r = await M.guardarArchivos([png("cam.png", "data/imagen/cam.png"), png("p.png", "data/picon/p.png"), png("x.txt", "imagen/x.txt", "text/plain"), png("sub.png", "imagen/sub/z.png")], () => {});
+  ok(r.guardadas === 3 && r.ignoradas === 1 && r.errores.length === 0 && cambios.length === 1, "guardarArchivos: cuenta guardadas/ignoradas y avisa una vez");
+  const u1 = await M.urlImagen("cam.png"); ok(u1 === "blob:t/1" && await M.urlImagen("cam.png") === u1, "urlImagen: crea el blob URL una vez y lo cachea");
+  ok(await M.urlImagen("sub\\z.png") === "blob:t/2" && await M.urlImagen("p.png", "picon") === "blob:t/3", "urlImagen: subcarpeta con \\ y kind picon");
+  await M.guardarArchivos([png("cam.png", "imagen/cam.png")]); ok(revocadas.includes("blob:t/1") && await M.urlImagen("cam.png") === "blob:t/4", "reemplazar una imagen revoca su URL vieja");
+  ok(await M.urlImagen("../etc/passwd") === null && await M.urlImagen("") === null, "urlImagen: rutas inválidas → null");
+  baja(); await M.guardarArchivos([png("otra.png", "imagen/otra.png")]); ok(cambios.length === 2, "la baja del oyente funciona");
+  ok(await M.cantidadGuardadas() === 4, "cantidadGuardadas: cam (reemplazada), picon, subcarpeta y otra");
+  await M.vaciarImagenes(); ok(await M.urlImagen("cam.png") === null && await M.cantidadGuardadas() === 0, "vaciarImagenes");
+  // un archivo que falla al guardar no frena el resto
+  M.configurar({ almacen: { nombre: "x", async guardar(k) { if (k.endsWith("mal.png")) throw new Error("cuota"); }, async leer() { return null; }, async contar() { return 0; }, async vaciar() {} } });
+  const r2 = await M.guardarArchivos([png("mal.png", "imagen/mal.png"), png("bien.png", "imagen/bien.png")]);
+  ok(r2.guardadas === 1 && r2.errores.length === 1 && r2.errores[0].includes("cuota"), "error en un archivo: se informa y sigue");
+}
+
+if (escenario === "fichas") {              // fichas con el bridge REAL (Pyodide) sobre la base de prueba
+  const E = await rpcPyodide();
+  instalarDom();
+  const IM = await import(pathToFileURL(path.join(WEB, "app/imagenes.js")).href);
+  IM.configurar({ almacen: IM.almacenMemoria(), crearUrl: (b) => "blob:test/" + b.name, revocar() {} });
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  const txt = (s) => $(s)?.textContent;
+  const hrefs = (s) => [...document.querySelectorAll(s)].map((a) => a.getAttribute("href"));
+
+  // árbol → ficha: las filas de equipo y conector enlazan
+  await ir("#/equipos");
+  ok(hrefs("#contenido a.arbol-etiqueta").includes("#/equipos/1"), "el árbol enlaza cada equipo a su ficha");
+
+  // ficha de equipo
+  await ir("#/equipos/1");
+  ok(txt("#contenido h2") === "CAM 1" && $(".ficha-equipo"), "ficha de equipo: título");
+  ok(txt("#contenido .datos").includes("HDC-3500") && txt("#contenido .datos").includes("CAMARA"), "ficha: modelo y tipo en los datos");
+  ok($("#lateral a[data-id=equipos]").getAttribute("aria-current") === "page", "la ficha de equipo resalta Equipos");
+  const filas = [...document.querySelectorAll(".ficha-equipo tbody tr")];
+  ok(filas.length === 2 && filas[0].dataset.conector === "1", "tabla de conectores: los 2 de CAM 1");
+  ok(filas[0].textContent.includes("OUT 1") && filas[0].textContent.includes("BNC") && filas[0].textContent.includes("C-001"), "fila: nombre, tipo y cable");
+  ok(hrefs(".ficha-equipo tbody a").includes("#/cables/1") && hrefs(".ficha-equipo tbody a").includes("#/equipos/2") && hrefs(".ficha-equipo tbody a").includes("#/conectores/2"),
+    "la conexión enlaza al cable y al extremo opuesto (equipo y conector)");
+  ok(filas[1].textContent.includes("Sin conexión"), "conector sin cable: 'Sin conexión'");
+  // imagen: aún no cargada → aviso + cargador; sin marcadores
+  ok(txt(".img-falta").includes("Imagen no cargada en este navegador: cam.png") && $(".img-falta input[data-carpeta]") && $(".img-falta input[data-archivos]"), "imagen sin cargar: aviso y selectores");
+  ok(!$(".marcador"), "sin imagen no hay marcadores");
+  // cargar la imagen → se repinta sola con marcadores en %
+  await IM.guardarArchivos([{ name: "cam.png", webkitRelativePath: "imagen/cam.png", type: "image/png", size: 4 }]); await tick(60);
+  ok($(".img-caja img")?.getAttribute("src") === "blob:test/cam.png", "al guardar la imagen, la ficha la muestra");
+  const mk = [...document.querySelectorAll(".marcador")];
+  ok(mk.length === 1 && mk[0].style.left === "40%" && mk[0].style.top === "55%" && mk[0].getAttribute("href") === "#/conectores/1" && mk[0].textContent === "1", "marcador en 40%/55% con enlace y número");
+  ok(txt(".img-conectores").includes("Conectores fuera de la imagen: OUT 2"), "el conector en 150% se informa aparte, no se dibuja");
+  mk[0].dispatchEvent(new window.Event("mouseenter")); ok(filas[0].classList.contains("resaltada"), "pasar el mouse por el marcador resalta su fila");
+  mk[0].dispatchEvent(new window.Event("mouseleave")); ok(!filas[0].classList.contains("resaltada"), "…y lo quita");
+
+  // ficha de conector
+  await ir("#/conectores/1");
+  ok(txt("#contenido h2") === "OUT 1" && hrefs(".volver a")[0] === "#/equipos/1", "ficha de conector: título y vuelta a su equipo");
+  ok($("#lateral a[data-id=equipos]").getAttribute("aria-current") === "page", "la ficha de conector resalta Equipos");
+  ok($(".marcador.actual") && txt(".ficha-conector").includes("C-001"), "conector: marcador propio y su conexión");
+  await ir("#/conectores"); ok(txt("#contenido h2") === "Pantalla desconocida", "conectores sin id → desconocida");
+
+  // cables: lista y ficha
+  await ir("#/cables");
+  ok(txt("#contenido h2") === "Cables" && document.querySelectorAll("#contenido tbody tr").length === 1 && txt("#contenido .sub[aria-live]") === "1 cables", "lista de cables");
+  const f = $("#contenido input[type=search]"); f.value = "zzz"; f.dispatchEvent(new window.Event("input")); await tick(300);
+  ok(document.querySelectorAll("#contenido tbody tr").length === 0 && txt("#contenido .sub[aria-live]") === "Sin resultados", "filtro de cables sin resultados");
+  f.value = "c-0"; f.dispatchEvent(new window.Event("input")); await tick(300);
+  ok(document.querySelectorAll("#contenido tbody tr").length === 1, "filtro de cables por código");
+  await ir("#/cables/1");
+  ok(txt("#contenido h2") === "C-001" && txt(".ficha-cable .datos").includes("10 m") && document.querySelectorAll(".ficha-cable tbody tr").length === 2, "ficha de cable: datos y 2 extremos");
+  ok($("#lateral a[data-id=cables]").getAttribute("aria-current") === "page", "la ficha de cable resalta Cables");
+  ok(hrefs(".ficha-cable tbody a").includes("#/equipos/1") && hrefs(".ficha-cable tbody a").includes("#/conectores/2"), "extremos enlazan a equipo y conector");
+
+  // un id inexistente muestra el panel de error del shell (con reintento), no una pantalla en blanco
+  await ir("#/equipos/999");
+  ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("999"), "equipo inexistente → panel de error");
+
+  // idioma: etiquetas de la ficha traducidas
+  await ir("#/equipos/1"); await cambiar("#sel-idioma", "en");
+  ok(txt(".volver").includes("Back to Equipment") && txt(".ficha-equipo").includes("Location"), "ficha en inglés");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);
