@@ -135,6 +135,17 @@ check(e["ok"] is False and "desconocida" in e["error"], "función desconocida ->
 e = json.loads(bridge.call("resumen", "{no es json"))
 check(e["ok"] is False, "args inválidos -> error JSON")
 
+e = json.loads(bridge.call("equipos_lista", json.dumps({"id_equipo": 180})))
+check(e["ok"] is False and "no acepta ['id_equipo']" in e["error"] and "incluir_sistema (opcional)" in e["error"],
+      "argumento que sobra -> error que lista los válidos")
+e = json.loads(bridge.call("equipo_ficha", "{}"))
+check(e["ok"] is False and "falta ['id_equipo']" in e["error"], "argumento obligatorio ausente -> error claro")
+e = json.loads(bridge.call("resumen", "[1]"))
+check(e["ok"] is False and "objeto JSON" in e["error"], "args que no son objeto -> error claro")
+fm = ll("firmas")
+check(fm["equipo_ficha"] == [{"nombre": "id_equipo", "requerido": True, "defecto": None}]
+      and fm["equipos_lista"][0]["defecto"] is False and fm["resumen"] == [], "firmas")
+
 # Base vieja sin tablas opcionales: debe degradar a vacío
 c = sqlite3.connect(m.DB_PATH)
 c.executescript("DROP TABLE riesgo_equipo_cache; DROP TABLE problema_equipo; DROP TABLE senal_en_conector;")
