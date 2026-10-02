@@ -1,4 +1,4 @@
-// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 + bridge de lectura A.1 + i18n A.2 (plan_pyodide_v1.md).
+// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 + bridge de lectura A.1 + i18n A.2 + datos A.10 (plan_pyodide_v1.md).
 const VERSION = "314.0.7";
 // Orden: copia local (ui_web/pyodide/) → jsDelivr npm → jsDelivr oficial.
 const BASES = ["pyodide/", `https://cdn.jsdelivr.net/npm/pyodide@${VERSION}/`, `https://cdn.jsdelivr.net/pyodide/v${VERSION}/full/`];
@@ -13,6 +13,9 @@ if (!CDN) { postMessage({ type: "log", msg: "❌ No hay ninguna fuente de Pyodid
 postMessage({ type: "log", msg: "Pyodide desde: " + CDN });
 
 let py = null;
+// A.10: respuesta de las órdenes de Datos (JSON + bytes opcionales, transferidos sin copiar).
+const resp = (id, obj, data) => postMessage({ type: "datos", id, result: JSON.stringify(obj), data: data || null }, data ? [data.buffer] : []);
+const pyJson = (codigo) => JSON.parse(py.runPython("import json, datos_web\n" + codigo));
 const log = (msg) => postMessage({ type: "log", msg });
 const sync = (populate) => new Promise((res, rej) => py.FS.syncfs(populate, (e) => (e ? rej(e) : res())));
 const existe = (p) => { try { py.FS.stat(p); return true; } catch { return false; } };
@@ -41,6 +44,7 @@ async function init() {
   py.FS.writeFile("/app/bench_web.py", await (await fetch("bench_web.py")).text());
   py.FS.writeFile("/app/bridge.py", await (await fetch("bridge.py")).text());
   py.FS.writeFile("/app/i18n_web.py", await (await fetch("i18n_web.py")).text());
+  py.FS.writeFile("/app/datos_web.py", await (await fetch("datos_web.py")).text());
   py.runPython("import sys; sys.path.insert(0, '/app')");
   log(`core.zip (${Math.round(zip.byteLength / 1024)} KB) montado en ${((performance.now() - t1) / 1000).toFixed(2)} s`);
   py.FS.mkdirTree(DBDIR);
@@ -118,6 +122,33 @@ f"Pillow OK: PNG de {len(b.getvalue())} bytes, {Image.open(io.BytesIO(b.getvalue
     if (!existe(DB)) return log("⚠ No hay db.db");
     const data = py.FS.readFile(DB);
     postMessage({ type: "download", name: "db_exportado.db", data }, [data.buffer]);
+  },
+  // Fase A.10: respaldo e intercambio. El .db importado se valida en un archivo temporal ANTES de reemplazar la base actual.
+  async datos_exportar_db({ id }) {
+    if (!existe(DB)) return resp(id, { ok: false, error: "Primero cargá un db.db" });
+    resp(id, { ok: true }, py.FS.readFile(DB));
+  },
+  async datos_importar_db({ id, buf }) {
+    const TMP = "/tmp/candidato.db"; py.FS.mkdirTree("/tmp");
+    py.FS.writeFile(TMP, new Uint8Array(buf)); py.globals.set("_p", TMP);
+    let r; try {
+      r = pyJson("json.dumps(datos_web.validar_db(_p))");
+      if (r.ok) { py.FS.writeFile(DB, py.FS.readFile(TMP)); await sync(false); log("db.db importado y persistido"); }
+    } finally { py.FS.unlink(TMP); }
+    resp(id, r); await estado();
+  },
+  async datos_catalogo_exportar({ id, tipo }) {
+    if (!existe(DB)) return resp(id, { ok: false, error: "Primero cargá un db.db" });
+    const OUT = "/tmp/catalogo.zip"; py.FS.mkdirTree("/tmp"); py.globals.set("_t", tipo); py.globals.set("_o", OUT);
+    const r = pyJson("datos_web.catalogo_exportar(_t, _o)");
+    const data = py.FS.readFile(OUT); py.FS.unlink(OUT); resp(id, r, data);
+  },
+  async datos_catalogo_importar({ id, buf }) {
+    if (!existe(DB)) return resp(id, { ok: false, error: "Primero cargá un db.db" });
+    const IN = "/tmp/catalogo_in"; py.FS.mkdirTree("/tmp"); py.FS.writeFile(IN, new Uint8Array(buf)); py.globals.set("_i", IN);
+    let r; try { r = pyJson("datos_web.catalogo_importar(_i)"); } finally { py.FS.unlink(IN); }
+    if (r.ok) { await sync(false); log("Catálogo importado y persistido"); }
+    resp(id, r); if (r.ok) await estado();
   },
   async reset() {
     for (const p of [DB, PRUEBA]) if (existe(p)) py.FS.unlink(p);

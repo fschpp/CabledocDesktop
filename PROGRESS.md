@@ -207,6 +207,29 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-03 — Fase A.10 de `plan_pyodide_v1.md` (respaldo del `.db` y catálogos), sobre `main` en `ef7c6fd` (A.1–A.9 mergeadas, A.9 por PR #93)._
+
+### Current Focus
+A.10 entregada como diff: pantalla `#/datos` (`app/datos.js`), `datos_web.py` (validación del `.db` y catálogos de equipos/frames en el formato del desktop), órdenes `datos_*` en `worker.js` y 4 métodos en `rpc.js`. Pendiente: smoke test en el navegador real y commit. Siguiente: A.11 (service worker para uso offline); con eso se cierra la Fase A y toca evaluar si el visor alcanza antes de B y C.
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 a A.9 (mergeadas, A.9 por PR #93)
+- [x] Done — A.10 respaldo y catálogos (diff presentado; `test_datos.py` y los 15 escenarios de `test_shell.mjs` OK; falta smoke en navegador real)
+- [ ] Todo — A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Smoke a hacer en el navegador real con el `db.db` real: (1) `#/datos` → «Exportar la base»: baja `cabledoc_AAAAMMDD.db` de ~930 KB; (2) importar ese mismo archivo: avisa 418 equipos, 2071 conectores, 515 cables, y tras F5 la base sigue cargada (persistencia); (3) importar un archivo cualquiera (no SQLite) y un `.db` sin tablas de CableDoc: se rechaza y la base queda igual; (4) exportar los catálogos de equipos y de frames, abrirlos con `unzip -l` (un solo `.json`) e importarlos en GTK; (5) al revés, un catálogo exportado por GTK importado acá.
+- **«Catálogo JSON v2» del plan no existe en el repo**: no hay ningún formato con ese nombre. Se implementaron los dos formatos que sí existen en `core/modelo.py` (`cabledoc_catalogo_equipos` versión 5 y `cabledoc_catalogo_frames`). Si «v2» era otra cosa (p. ej. un catálogo completo de tipos/marcas/señales), hay que definirlo.
+- **Las imágenes no viajan** ni en el `.db` ni en los catálogos: viven en OPFS (A.4) y `Modelo` solo ve el FS virtual de Pyodide. Un catálogo exportado desde la web no lleva imágenes embebidas (el de GTK sí) y al importar uno con imágenes las filas `imagen` se crean pero los archivos no llegan a OPFS. Cerrarlo requiere pasar los archivos entre OPFS y el FS de Pyodide en cada export/import (el README de A.4 ya anticipaba reutilizar `guardarArchivos`/`vaciarImagenes`); no entró en esta entrega.
+- Importar un catálogo **escribe** en la base (el resto de la Fase A es solo lectura): se aceptó porque el plan lo pide en A.10; lleva confirmación y `syncfs`. No hay diálogo de conflictos: se informa la cantidad y se conserva el valor local.
+- `Modelo.exportar_catalogo_*` ejecuta `asegurar_tablas_catalogo*` (migra el esquema de una base vieja). `datos_web` evita crear las tablas cuando faltan, pero si existen y la base está desactualizada se migran. Con el `db.db` al día del desktop es un no-op.
+- Importar un `.db` reemplaza la base sin copia de seguridad automática (el aviso invita a exportar antes). Si se quiere red de seguridad, guardar la anterior como `db.db.bak` en IDBFS es una línea en `datos_importar_db`.
+- `plan_pyodide_v1.md` no está en el repo: marcar A.10 como hecha ahí (y A.9 si falta).
+- `test_shell.mjs`: el escenario `completo` ya no tiene ninguna pantalla marcador para probar (`NAV.etapa` quedó en `null` en todos los ítems); `pendiente` en `vistas.js` queda sin uso hasta que haya una etapa futura que marcar.
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-02 — Fase A.9 de `plan_pyodide_v1.md` (búsqueda global), sobre `main` en `c333d8a` (A.1–A.8 mergeadas, A.8 por PR #92)._
 
 ### Current Focus

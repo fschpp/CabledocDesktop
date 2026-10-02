@@ -406,3 +406,43 @@ _WEB_A9 = {
          "pt": "Mostrando as primeiras {n} correspondências; refine a busca para ver o resto."},
 }
 _WEB.update(_WEB_A9)
+
+# Fase A.10 — Datos: respaldo del .db y catálogos de equipos/frames
+_WEB_A10 = {
+    "Trabajando…": {"en": "Working…", "pt": "Trabalhando…"},
+    "Primero cargá un db.db": {"en": "Load a db.db first", "pt": "Carregue primeiro um db.db"},
+    "Base completa": {"en": "Full database", "pt": "Base completa"},
+    "El respaldo es el archivo .db: sirve para llevar la instalación a otra computadora o volver a cargarla acá. Las imágenes no viajan con él.":
+        {"en": "The backup is the .db file: use it to move the installation to another computer or to load it back here. Images do not travel with it.",
+         "pt": "O backup é o arquivo .db: serve para levar a instalação a outro computador ou carregá-la de novo aqui. As imagens não viajam com ele."},
+    "Exportar la base (.db)": {"en": "Export the database (.db)", "pt": "Exportar a base (.db)"},
+    "Importar una base (.db)": {"en": "Import a database (.db)", "pt": "Importar uma base (.db)"},
+    "Base exportada ({kb} KB).": {"en": "Database exported ({kb} KB).", "pt": "Base exportada ({kb} KB)."},
+    "Esto reemplaza la base actual de este navegador por «{nombre}». Exportá la actual antes si la necesitás. ¿Seguir?":
+        {"en": "This replaces the current database in this browser with “{nombre}”. Export the current one first if you need it. Continue?",
+         "pt": "Isto substitui a base atual deste navegador por «{nombre}». Exporte a atual antes se precisar dela. Continuar?"},
+    "Base importada: {equipos} equipos, {conectores} conectores, {cables} cables.":
+        {"en": "Database imported: {equipos} equipment, {conectores} connectors, {cables} cables.",
+         "pt": "Base importada: {equipos} equipamentos, {conectores} conectores, {cables} cabos."},
+    "El archivo no es una base SQLite.": {"en": "The file is not a SQLite database.", "pt": "O arquivo não é uma base SQLite."},
+    "La base está dañada (quick_check falló).": {"en": "The database is damaged (quick_check failed).", "pt": "A base está danificada (quick_check falhou)."},
+    "No parece una base de CableDoc: falta la tabla «{tabla}».":
+        {"en": "This does not look like a CableDoc database: table “{tabla}” is missing.",
+         "pt": "Não parece uma base do CableDoc: falta a tabela «{tabla}»."},
+    "Formato del escritorio: un .zip con un .json. Las imágenes del catálogo no viajan: se guardan aparte en este navegador.":
+        {"en": "Desktop format: a .zip with a .json inside. Catalog images do not travel: they are stored separately in this browser.",
+         "pt": "Formato do desktop: um .zip com um .json. As imagens do catálogo não viajam: ficam guardadas à parte neste navegador."},
+    "Exportar catálogo de equipos": {"en": "Export equipment catalog", "pt": "Exportar catálogo de equipamentos"},
+    "Exportar catálogo de frames": {"en": "Export frame catalog", "pt": "Exportar catálogo de frames"},
+    "Importar un catálogo (.zip o .json)": {"en": "Import a catalog (.zip or .json)", "pt": "Importar um catálogo (.zip ou .json)"},
+    "Catálogo exportado: {moldes} molde(s).": {"en": "Catalog exported: {moldes} template(s).", "pt": "Catálogo exportado: {moldes} molde(s)."},
+    "Importar «{nombre}» agrega moldes a la base de este navegador. ¿Seguir?":
+        {"en": "Importing “{nombre}” adds templates to the database in this browser. Continue?",
+         "pt": "Importar «{nombre}» adiciona moldes à base deste navegador. Continuar?"},
+    "Importados {moldes} molde(s) con {hijos} conector(es) o slot(s).":
+        {"en": "Imported {moldes} template(s) with {hijos} connector(s) or slot(s).", "pt": "Importados {moldes} molde(s) com {hijos} conector(es) ou slot(s)."},
+    "{conflictos} conflicto(s) de rol o dirección: se conservó el valor local.":
+        {"en": "{conflictos} role or direction conflict(s): the local value was kept.", "pt": "{conflictos} conflito(s) de papel ou direção: o valor local foi mantido."},
+    "El archivo no es un catálogo de CableDoc válido.": {"en": "The file is not a valid CableDoc catalog.", "pt": "O arquivo não é um catálogo do CableDoc válido."},
+}
+_WEB.update(_WEB_A10)
