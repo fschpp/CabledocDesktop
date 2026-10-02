@@ -35,6 +35,7 @@ export async function iniciar(rpc) {
     const { id: ruta } = parseRuta(), id = ALIAS_NAV[ruta] || ruta;
     document.querySelectorAll("#lateral a[data-id]").forEach((a) =>
       id === a.dataset.id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+    document.body.dataset.ruta = ruta;               // la caja de la barra se oculta en Búsqueda (la pantalla ya tiene la suya)
   }
 
   async function cambiarIdioma(l) {
@@ -51,9 +52,16 @@ export async function iniciar(rpc) {
       TEMAS.map((c) => h("option", { value: c, selected: c === temaGuardado() }, t(ETIQUETAS[c]))));
     const menu = h("button", { id: "btn-menu", type: "button", "aria-label": t("Menú"), "aria-expanded": "false", "aria-controls": "lateral",
       onclick: () => { const ab = document.body.classList.toggle("menu-abierto"); menu.setAttribute("aria-expanded", String(ab)); } }, "☰");
+    // Búsqueda global (A.9): Enter lleva a #/busqueda/<texto>; la tecla "/" enfoca la caja desde cualquier pantalla.
+    const caja = h("input", { type: "search", id: "barra-busqueda", autocomplete: "off", placeholder: t("Buscar equipos, conectores, cables, racks…"), "aria-label": t("Búsqueda") });
+    const buscar = h("form", { id: "barra-buscar", role: "search", onsubmit: (e) => {
+      e.preventDefault();
+      const q = caja.value.trim(); caja.value = "";
+      window.location.hash = q ? "#/busqueda/" + encodeURIComponent(q) : "#/busqueda";
+    } }, caja);
     const app = h("div", { id: "app" },
       h("a", { class: "saltar", href: "#contenido" }, t("Saltar al contenido")),
-      h("header", { id: "barra" }, menu, h("h1", {}, "CableDoc"),
+      h("header", { id: "barra" }, menu, h("h1", {}, "CableDoc"), buscar,
         h("label", {}, t("Idioma"), selIdioma), h("label", {}, t("Tema"), selTema)),
       h("nav", { id: "lateral", "aria-label": t("Menú") },
         NAV.map((n) => h("a", { href: "#/" + n.id, "data-id": n.id }, h("span", { "aria-hidden": "true" }, n.icono), t(n.clave))),
@@ -78,6 +86,14 @@ export async function iniciar(rpc) {
       main.replaceChildren(panelError(err, mostrarVista));
     }
   }
+
+  document.addEventListener("keydown", (e) => {     // "/" → buscar (salvo que ya se esté escribiendo en un campo)
+    if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || !estado.iniciado) return;
+    const el = e.target, tag = el?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+    const campo = $("busqueda-texto") || $("barra-busqueda");
+    if (campo) { e.preventDefault(); campo.focus(); }
+  });
 
   alCambiar(() => { if (estado.iniciado) { montarShell(); mostrarVista(); } });
   window.addEventListener("hashchange", () => {

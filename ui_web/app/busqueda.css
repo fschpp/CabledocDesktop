@@ -1,0 +1,15 @@
+/* Búsqueda global (A.9) y caja de la barra superior. Usa los tokens de color de app.css. */
+#barra-buscar{flex:1;min-width:8rem;max-width:26rem;margin:0}
+#barra-buscar input{width:100%;background:var(--bg);border:1px solid var(--borde);border-radius:6px;padding:.3rem .6rem}
+body[data-ruta="busqueda"] #barra-buscar{display:none}
+.busqueda-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0}
+.busqueda-chips .chip{background:var(--panel);border:1px solid var(--borde);border-radius:999px;padding:.15rem .7rem;cursor:pointer}
+.busqueda-chips .chip[aria-pressed="true"]{background:var(--acento);color:var(--acento-t);border-color:var(--acento)}
+.busqueda-grupo h3{margin:1rem 0 .3rem}
+.resultados{list-style:none;margin:0;padding:0;border:1px solid var(--borde);border-radius:8px;background:var(--panel)}
+.resultado{display:flex;gap:.7rem;align-items:baseline;padding:.4rem .7rem;border-bottom:1px solid var(--borde)}
+.resultado:last-child{border-bottom:0}
+.resultado-tipo{flex:0 0 7.5rem;color:var(--texto2);font-size:.85rem;white-space:nowrap}
+.resultado-cuerpo{min-width:0;overflow-wrap:anywhere}
+.ver-todos{margin-top:.4rem;background:var(--panel);border:1px solid var(--borde);border-radius:6px;padding:.25rem .8rem;cursor:pointer}
+@media (max-width:700px){#barra{flex-wrap:wrap}#barra-buscar{order:5;flex-basis:100%;max-width:none}.resultado{flex-direction:column;gap:.1rem}}

@@ -389,3 +389,20 @@ _WEB_A8 = {
          "pt": "Calculado em {ms} ms. O resultado não é salvo nem altera o estado do cenário."},
 }
 _WEB.update(_WEB_A8)
+
+# Fase A.9 — búsqueda global (equipos, conectores, cables, salas, racks y frames)
+_WEB_A9 = {
+    "Buscar equipos, conectores, cables, racks…":
+        {"en": "Search equipment, connectors, cables, racks…", "pt": "Buscar equipamentos, conectores, cabos, racks…"},
+    "Busca en equipos, conectores, cables, salas, racks y frames. Todas las palabras deben aparecer, en cualquier orden y sin distinguir mayúsculas ni acentos (por ejemplo «sony 3500» o «cam 1 out»).":
+        {"en": "Searches equipment, connectors, cables, rooms, racks and frames. Every word must appear, in any order, ignoring case and accents (for example “sony 3500” or “cam 1 out”).",
+         "pt": "Busca em equipamentos, conectores, cabos, salas, racks e frames. Todas as palavras devem aparecer, em qualquer ordem, sem distinguir maiúsculas nem acentos (por exemplo «sony 3500» ou «cam 1 out»)."},
+    "Escribí al menos 2 caracteres para buscar.":
+        {"en": "Type at least 2 characters to search.", "pt": "Digite pelo menos 2 caracteres para buscar."},
+    "Tipo de resultado":    {"en": "Result type",         "pt": "Tipo de resultado"},
+    "Ver todos ({n})":      {"en": "Show all ({n})",      "pt": "Ver todos ({n})"},
+    "Se muestran las primeras {n} coincidencias; afiná la búsqueda para ver el resto.":
+        {"en": "Showing the first {n} matches; refine the search to see the rest.",
+         "pt": "Mostrando as primeiras {n} correspondências; refine a busca para ver o resto."},
+}
+_WEB.update(_WEB_A9)

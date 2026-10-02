@@ -99,7 +99,7 @@ let rid = 0; const pend = new Map();
 const rpc = (fn, args = {}) => new Promise((res) => { const id = ++rid; pend.set(id, res); w.postMessage({ cmd: "call", id, fn, args }); });
 const FNS = ["resumen", "catalogos", "equipos_lista", "arbol_equipos", "cables_lista", "conexiones_lista", "salas_lista", "racks_lista", "frames_lista", "slots_lista",
   "equipo_ficha", "conector_ficha", "cable_ficha", "sala_ficha", "rack_ficha", "frame_ficha", "conexiones_equipo", "cadena_extension",
-  "ubicaciones", "rack_vista", "frame_vista", "patcheras_global"];
+  "ubicaciones", "rack_vista", "frame_vista", "patcheras_global", "busqueda_indice"];
 $("fn").innerHTML = FNS.map((f) => `<option>${f}</option>`).join("");
 // Al elegir una función, prellena los argumentos obligatorios y muestra cuáles acepta.
 let FIRMAS = null;
@@ -148,6 +148,7 @@ $("smoke").onclick = async () => {
   if (racks && racks[0]) await run("rack_vista", { id_rack: racks[0].id_rack });              // A.6
   if (frames && frames[0]) await run("frame_vista", { id_frame: frames[0].id_frame });        // A.6
   await run("patcheras_global");                                                               // A.6
+  await run("busqueda_indice");                                                                // A.9
   const escs = await run("escenarios_lista");                                                  // A.8
   if (escs && escs[0]) { await run("escenario_ficha", { id_escenario: escs[0].id_escenario }); await run("escenario_evaluar", { id_escenario: escs[0].id_escenario }); }
   busy = false; enable(true);
