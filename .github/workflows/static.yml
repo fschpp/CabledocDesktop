@@ -18,7 +18,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}app.html
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,10 +27,15 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # Paso Intermedio: Hacer que app.html actúe como la página principal de cara al público
+      - name: Set app.html as the primary landing page
+        run: |
+          cp ./ui_web/index.html ./ui_web/diagnostico.html
+          cp ./ui_web/app.html ./ui_web/index.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Aquí indicamos la carpeta contenedora de tu app web
           path: './ui_web'
 
       - name: Deploy to GitHub Pages
