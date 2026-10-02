@@ -207,6 +207,27 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-03 — Fase A.11 de `plan_pyodide_v1.md` (service worker para uso offline), sobre `main` en `250e2ff` (A.1–A.10 mergeadas, A.10 por PR #94). **Cierra la Fase A.**_
+
+### Current Focus
+A.11 entregada como diff: `ui_web/sw.js` (precaché de la app y de Pyodide; «red primero» para la app, «caché primero» para Pyodide), `app/offline.js` (registro y estado), registro desde `main.js` tras `rpc.listo` y estado al pie del menú (`shell.js`). Pendiente: smoke test en un navegador real y commit. Siguiente: criterio de corte del plan tras la Fase A — evaluar si el visor solo cubre la necesidad antes de invertir en B (ABM) y C (diagramas).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 a A.10 (mergeadas, A.10 por PR #94)
+- [x] Done — A.11 service worker offline (diff presentado; `test_sw.mjs` 78 chequeos y los 15 escenarios de `test_shell.mjs` OK; falta smoke en navegador real)
+- [ ] Todo — decisión de corte tras la Fase A; luego B y C
+
+### Latest Blockers/Discoveries
+- Smoke a hacer en un navegador real (Firefox o Chrome) con `python3 -m http.server 8000` en `ui_web/`, abriendo `http://127.0.0.1:8000/app.html`: (1) primera visita con conexión: cargar el `db.db`; en DevTools → Application → Service Workers debe figurar `sw.js` «activated», y en Cache Storage `cabledoc-web-v1` (34 archivos) y `cabledoc-pyodide-314.0.7` (5 archivos); (2) el pie del menú pasa de «Preparando el uso sin conexión…» a «Listo para usar sin conexión»; (3) cortar la red (DevTools → Network → Offline, o parar el servidor) y recargar con F5: la app abre, el motor arranca y la base sigue cargada; (4) con conexión y servidor activo, editar un archivo de `app/` y recargar: se ve el cambio (red primero); (5) en Chrome, medir si la carga en frío offline es más rápida que la de red.
+- **Riesgo no verificado**: que Pyodide no pida en runtime ningún archivo fuera de los 5 que se precachean (`pyodide.mjs`, `pyodide.asm.mjs`, `pyodide.asm.wasm`, `python_stdlib.zip`, `pyodide-lock.json`). Se revisó el paquete npm 314.0.7 y esos son los que trae y referencia; cualquier otro (p. ej. un paquete como Pillow) se guarda en el primer uso con conexión mientras el service worker controla la página. Si el paso (3) falla pidiendo un archivo, ese es el candidato.
+- Si el navegador ya tenía la página abierta durante la primera instalación, el service worker toma el control al activarse (`clients.claim`), pero los pedidos de esa primera carga no pasaron por él: el precaché de la instalación es lo que garantiza el offline.
+- Servir por `http://` desde otra IP (LAN) no permite service workers: sin offline pero la app funciona.
+- `ARCHIVOS` en `sw.js` se mantiene a mano; `test_sw.mjs` falla si no coincide con el disco. Cada etapa futura que agregue un `.js`/`.css`/`.py` debe sumarlo.
+- Pendiente de etapas anteriores (sin tocar): `plan_pyodide_v1.md` no está en el repo, marcar A.10 y A.11 como hechas ahí; imágenes que no viajan en export/import (A.10); etiquetas `t("sala")`/`t("rack")`/`t("frame")` sin traducir en el árbol de A.3.
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-03 — Fase A.10 de `plan_pyodide_v1.md` (respaldo del `.db` y catálogos), sobre `main` en `ef7c6fd` (A.1–A.9 mergeadas, A.9 por PR #93)._
 
 ### Current Focus

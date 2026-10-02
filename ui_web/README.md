@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.10)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.11)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -116,3 +116,16 @@ Pantalla `#/datos` (ítem **Datos** del menú). Todo ocurre en el navegador; nad
 - **Exportar un catálogo no crea tablas**: en una base que nunca tuvo catálogo sale un `.zip` con 0 moldes. Con una base vieja, `Modelo.exportar_catalogo_*` migra el esquema al correr (igual que los motores de A.7); con el `db.db` al día del desktop es un no-op.
 - **Las imágenes NO viajan**: ni en el `.db` (guarda solo `imagen.path_archivo`) ni en los catálogos. Las imágenes viven en OPFS (A.4) y `Modelo` solo ve el FS virtual, donde no están, así que `_exportar_imagen` embebe `null` y al importar el catálogo las filas `imagen` se crean sin archivo. Respaldar `data/imagen/` y `data/picon/` (carpeta o zip) y repoblar OPFS queda pendiente.
 - Pruebas: `python3 ui_web/tests/test_datos.py` (17 chequeos: validación, formato del zip, exportar sin modificar datos ni crear tablas, importar zip y `.json`, rechazos) y el escenario `datos` de `node tests/test_shell.mjs` (15 chequeos con `datos_web.py` real sobre Pyodide).
+
+## Uso sin conexión (Fase A.11)
+
+`sw.js` es un service worker con alcance `ui_web/`. Se registra desde `app/main.js` (`app/offline.js`) **después** de que el motor Pyodide está listo, para no competir con la primera descarga. Después de la primera visita con conexión, la app abre sin red: `app.html`, los módulos de `app/`, `worker.js`, `core.zip`, los `.py` del bridge y Pyodide.
+
+- **Solo en contexto seguro**: `https://` o `http://localhost` / `127.0.0.1`. Por IP de la LAN con `http://` el navegador no permite service workers (la app funciona igual, sin offline). En ventanas privadas de Firefox tampoco.
+- **Archivos de la app**: «red primero». Con conexión se sirve siempre la versión del servidor (y se guarda); sin conexión, o si la red tarda más de 5 s, se sirve la copia. Así no hay que borrar nada al actualizar y los módulos nunca quedan mezclados entre versiones. Al instalar se guardan todos de una vez (`ARCHIVOS` en `sw.js`); si uno falta, la instalación falla en vez de dejar un offline roto.
+- **Pyodide**: «caché primero» (está versionado). Se guarda al instalar desde la primera fuente que lo tenga completo, en el orden de `worker.js` (`ui_web/pyodide/` → jsDelivr npm → jsDelivr oficial); lo que falte se guarda en el primer uso con conexión.
+- **No pasan por el service worker**: la base (IndexedDB) y las imágenes (OPFS + blob URL).
+- **El menú muestra el estado** al pie: «Preparando el uso sin conexión…», «Listo para usar sin conexión» o, si falta el motor, «Sin conexión: falta guardar el motor…».
+- **Al sumar o quitar un archivo de `app/` o un `.py` del worker hay que tocar `ARCHIVOS` en `sw.js`**; `tests/test_sw.mjs` lo verifica contra el disco. Si se cambia la versión de Pyodide hay que cambiarla en `worker.js` y en `sw.js` (también verificado). Para descartar todas las copias viejas, subir `CACHE_APP`.
+- Durante el desarrollo: con DevTools → Application → Service Workers → «Update on reload» / «Bypass for network», o simplemente trabajar con conexión (red primero ya trae lo nuevo).
+- Pruebas: `node ui_web/tests/test_sw.mjs` (78 chequeos con `caches`/`fetch`/`clients` simulados, sin npm) y, en `node tests/test_shell.mjs`, el pie de estado del menú (escenario `completo`).

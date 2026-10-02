@@ -5,6 +5,7 @@ import { t, idioma, IDIOMAS, idiomaInicial, cacheado, aplicar, alCambiar } from 
 import { TEMAS, ETIQUETAS, temaGuardado, aplicarTema } from "./tema.js";
 import { reportar, panelError, instalarGlobales, texto } from "./errores.js";
 import { NAV, ALIAS_NAV, resolverVista } from "./vistas.js";
+import { estadoOffline, alCambiarOffline } from "./offline.js";
 
 export function parseRuta(hash = location.hash) {
   const [id, ...args] = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
@@ -29,6 +30,9 @@ export async function iniciar(rpc) {
   });
   rpc.on("error", (err) => reportar(err, "Error del motor Python"));
 
+  const TEXTO_OFFLINE = { preparando: "Preparando el uso sin conexión…", parcial: "Sin conexión: falta guardar el motor (se completa en la próxima visita con conexión)", listo: "Listo para usar sin conexión" };
+  const textoOffline = () => { const e = estadoOffline(); return e ? t(TEXTO_OFFLINE[e]) : ""; };
+  alCambiarOffline(() => { const el = $("offline-info"); if (el) el.textContent = textoOffline(); });
   const textoBase = () => (estado.dbBytes ? t("Base cargada ({kb} KB)", { kb: Math.round(estado.dbBytes / 1024) }) : "");
 
   function marcarActivo() {
@@ -67,6 +71,7 @@ export async function iniciar(rpc) {
         NAV.map((n) => h("a", { href: "#/" + n.id, "data-id": n.id }, h("span", { "aria-hidden": "true" }, n.icono), t(n.clave))),
         h("div", { class: "sep" }),
         h("div", { class: "aparte", id: "db-info" }, textoBase()),
+        h("div", { class: "aparte", id: "offline-info", role: "status" }, textoOffline()),
         h("a", { href: "index.html", class: "aparte" }, "🛠 " + t("Diagnóstico técnico"))),
       h("main", { id: "contenido", tabindex: "-1" }));
     const previo = $("app") || $("splash"); previo ? previo.replaceWith(app) : document.body.prepend(app);

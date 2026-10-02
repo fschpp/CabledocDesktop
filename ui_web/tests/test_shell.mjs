@@ -145,6 +145,13 @@ if (escenario === "completo") {
   ok($("#lateral a[data-id=cables]").textContent.includes("Cabos"), "nav en portugués");
   await cambiar("#sel-idioma", "es");
   ok($("#lateral a[data-id=cables]").textContent.includes("Cables") && document.documentElement.lang === "es", "vuelve a español");
+  // 5) uso sin conexión (A.11): el pie del menú refleja el estado del service worker, también tras cambiar de idioma
+  const off = await import(pathToFileURL(path.join(WEB, "app/offline.js")).href);
+  ok($("#offline-info") && $("#offline-info").textContent === "", "sin service worker (jsdom) el pie offline está vacío");
+  off.fijarEstadoOffline("listo"); ok($("#offline-info").textContent === "Listo para usar sin conexión", "pie offline: listo");
+  await cambiar("#sel-idioma", "en"); ok($("#offline-info").textContent === "Ready to use offline", "pie offline en inglés tras remontar el menú");
+  off.fijarEstadoOffline("parcial"); ok($("#offline-info").textContent.startsWith("Offline: the engine is not saved yet"), "pie offline: parcial");
+  await cambiar("#sel-idioma", "es");
   // 5) tema
   await cambiar("#sel-tema", "oscuro"); ok(document.documentElement.getAttribute("data-theme") === "dark" && localStorage.getItem("cabledoc.tema") === "oscuro", "tema oscuro");
   await cambiar("#sel-tema", "claro"); ok(document.documentElement.getAttribute("data-theme") === "light", "tema claro");

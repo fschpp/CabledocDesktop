@@ -446,3 +446,13 @@ _WEB_A10 = {
     "El archivo no es un catálogo de CableDoc válido.": {"en": "The file is not a valid CableDoc catalog.", "pt": "O arquivo não é um catálogo do CableDoc válido."},
 }
 _WEB.update(_WEB_A10)
+
+# Fase A.11 — uso sin conexión (service worker)
+_WEB_A11 = {
+    "Preparando el uso sin conexión…": {"en": "Getting ready for offline use…", "pt": "Preparando o uso offline…"},
+    "Sin conexión: falta guardar el motor (se completa en la próxima visita con conexión)":
+        {"en": "Offline: the engine is not saved yet (it completes on the next online visit)",
+         "pt": "Offline: falta guardar o motor (conclui na próxima visita com conexão)"},
+    "Listo para usar sin conexión": {"en": "Ready to use offline", "pt": "Pronto para usar offline"},
+}
+_WEB.update(_WEB_A11)
