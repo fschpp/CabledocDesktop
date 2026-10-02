@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.6)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.7)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -65,3 +65,19 @@ Rutas: `#/ubicaciones` (salas → racks, racks sin sala y frames), `#/racks/<id>
 - **Frame** (réplica de `VistaFrameSlots`): rectángulos de los slots sobre la imagen, en píxeles de la imagen (se mide al cargarla, a diferencia de los conectores, que son %). La imagen es la del frame o, si no tiene, la del primer slot que la tenga; sin imagen cargada (subir `data/imagen`, ver A.4) se dibujan solo los rectángulos. Slot sin medida = 50 × 30. Los slots se numeran por nombre; los que tienen equipo toman un color de la paleta en orden de aparición y los vacíos van en gris.
 - **Patcheras** (réplica de `PatcherasVista` en modo global): un bloque por rack, una franja por frame y una columna por módulo (número = el que trae el nombre del slot). Fila A = `BACK_ENTRADA`/`FRONT_DERIVACION`, fila B = `BACK_SALIDA`/`FRONT_INSERCION`, siempre por función de patchera (un conector sin función asignada no se dibuja). El color del orificio es el equipo cableado por atrás (✖ = fantasma). Los patchcords del frente son una curva (une dos módulos del mismo rack) o un cabo suelto; los que cambian de rack son cabos hasta activar "Cables entre racks", que dibuja la curva real. No está el modo "por equipo" ni el color por auditoría ni el export.
 - Pruebas: `test_bridge.py` (segmentos y slots contra `Modelo`, patcheras con jumpers/fantasma) y escenario `ubicaciones` de `node tests/test_shell.mjs` (47 chequeos con el bridge real).
+
+## Análisis (Fase A.7)
+
+Pantalla `#/analisis` con cuatro pestañas (`app/analisis.js`, estilos en `app/analisis.css`). Todo es de solo lectura: **no se guarda nada**, ni siquiera el caché de riesgo (`riesgo_equipo_cache`).
+
+- **Impacto** (`#/analisis/impacto/equipo|cable|rack[/<id>]`): `GraphImpactAnalyzer` (`simular_falla_equipo`, `simular_desconexion`, `simular_perdida_rack`). Muestra equipos sin señal (con % del parque y puntos finales afectados), cables afectados y reglas lógicas que dejan de cumplirse. Las fichas de equipo y cable enlazan acá.
+- **Riesgo (IRF)** (`#/analisis/riesgo`): `RiskEngine.calcular_todos(persistir=False)`, sin guardar. Tarda ~3 s con la base real: no corre solo, hay botón "Calcular IRF" y el resultado queda en memoria mientras no cambie la base (`ctx.gen`). Filtro por nivel y por texto; el tooltip de probabilidad/riesgo muestra edad, uso e historial.
+- **Diagnóstico** (`#/analisis/diagnostico[/equipo/<id> | /<id_conector>]`): `MotorDiagnostico` + `SesionDiagnostico`. El bridge es **sin estado**: la UI manda `ramas` (bifurcaciones elegidas) y `respuestas` (`[[indice, "SI"|"NO"|"NO_SE"], ...]`) y recibe la cadena y la sesión rearmadas; "Deshacer" es reenviar sin la última respuesta. Sin puntos de test marcados en el tramo, la UI deja elegir a mano (como `elegir_manual` del desktop). La ficha del conector enlaza acá.
+- **Topología** (`#/analisis/topologia`): las 4 reglas de `linter_topologia.py` (fuera de patchera, fuera de distribuidor, loop en uso, referencia en cascada). Se ordenan por el riesgo **cacheado en la base**; si la base no lo trae, la pantalla avisa que los hallazgos no están priorizados (recalcularlo es una escritura: Fase B).
+
+Funciones nuevas del bridge: `impacto_equipo`, `impacto_cable`, `impacto_rack`, `riesgo_irf`, `conectores_de_equipo`, `diagnostico`, `linter_topologia`. Los ids de los motores de `core/` (str) se convierten a int en la frontera.
+
+Nota sobre "solo lectura": con una base vieja, los motores de `core/` migran el esquema al correr (columnas nuevas, tablas auxiliares vacías, semilla de `parametro_riesgo`). Con el `db.db` del desktop, que ya está al día, es un no-op; los datos nunca se modifican (`test_analisis.py` lo verifica).
+
+Pruebas: `python3 ui_web/tests/test_analisis.py` (bridge, topología de 7 equipos) y el escenario `analisis` de `node tests/test_shell.mjs` (62 chequeos con el bridge real sobre Pyodide: navegación, impacto, IRF, bisección completa con deshacer/reiniciar, linter, enlaces desde las fichas, inglés).
+

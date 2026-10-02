@@ -217,3 +217,117 @@ def diccionario_json(lang):
     """Igual que `diccionario` pero como string JSON (lo que cruza al worker)."""
     return json.dumps({"lang": lang, "idiomas": IDIOMAS, "textos": diccionario(lang)},
                       ensure_ascii=False)
+
+
+# ── Análisis (A.7): se agrega acá, al final, para no pisar el bloque de otras etapas ──────────────────
+_WEB_A7 = {
+    "Riesgo (IRF)":         {"en": "Risk (IRF)",          "pt": "Risco (IRF)"},
+    "Diagnóstico":          {"en": "Diagnosis",           "pt": "Diagnóstico"},
+    "Impacto si falla":     {"en": "Impact if it fails",  "pt": "Impacto se falhar"},
+    "Impacto si se corta":  {"en": "Impact if cut",       "pt": "Impacto se cortado"},
+    "Diagnosticar falla desde este conector": {"en": "Diagnose a fault from this connector", "pt": "Diagnosticar falha a partir deste conector"},
+    "Ver ficha":            {"en": "View record",         "pt": "Ver ficha"},
+    "Elegir otro":          {"en": "Choose another",      "pt": "Escolher outro"},
+    "Buscar rack…":         {"en": "Search rack…",        "pt": "Buscar rack…"},
+    "Rack":                 {"en": "Rack",                "pt": "Rack"},
+    "Crítico":              {"en": "Critical",            "pt": "Crítico"},
+    "Alto":                 {"en": "High",                "pt": "Alto"},
+    "Medio":                {"en": "Medium",              "pt": "Médio"},
+    "Bajo":                 {"en": "Low",                 "pt": "Baixo"},
+    "alto":                 {"en": "high",                "pt": "alto"},
+    "bajo":                 {"en": "low",                 "pt": "baixo"},
+    "Todos los niveles":    {"en": "All levels",          "pt": "Todos os níveis"},
+    "Prob. / Impacto":      {"en": "Prob. / Impact",      "pt": "Prob. / Impacto"},
+    "Edad":                 {"en": "Age",                 "pt": "Idade"},
+    "Uso":                  {"en": "Usage",               "pt": "Uso"},
+    "Historial":            {"en": "History",             "pt": "Histórico"},
+    "No hay elementos cargados": {"en": "No items loaded", "pt": "Nenhum item carregado"},
+    "{n} elementos":        {"en": "{n} items",           "pt": "{n} itens"},
+    "{n} conexiones":       {"en": "{n} connections",     "pt": "{n} conexões"},
+    "{p}% de {n}":          {"en": "{p}% of {n}",         "pt": "{p}% de {n}"},
+    "de {n}":               {"en": "of {n}",              "pt": "de {n}"},
+    "Equipos sin señal":    {"en": "Equipment without signal", "pt": "Equipamentos sem sinal"},
+    "Puntos finales afectados": {"en": "End points affected", "pt": "Pontos finais afetados"},
+    "Cables afectados":     {"en": "Cables affected",     "pt": "Cabos afetados"},
+    "Punto final":          {"en": "End point",           "pt": "Ponto final"},
+    "Causa":                {"en": "Cause",               "pt": "Causa"},
+    "Reglas lógicas que dejan de cumplirse": {"en": "Logic rules no longer met", "pt": "Regras lógicas que deixam de ser cumpridas"},
+    "Sin impacto: ningún equipo queda sin señal.": {"en": "No impact: no equipment loses signal.", "pt": "Sem impacto: nenhum equipamento perde sinal."},
+    "Si falla «{n}» por completo":   {"en": "If “{n}” fails completely", "pt": "Se “{n}” falhar por completo"},
+    "Si se corta el cable «{n}»":    {"en": "If cable “{n}” is cut",     "pt": "Se o cabo “{n}” for cortado"},
+    "Si se pierde el rack «{n}»":    {"en": "If rack “{n}” is lost",     "pt": "Se o rack “{n}” for perdido"},
+    "Elegí un equipo para ver qué otros equipos quedan sin señal si deja de funcionar.":
+        {"en": "Pick a piece of equipment to see which others lose signal if it stops working.", "pt": "Escolha um equipamento para ver quais outros ficam sem sinal se ele parar."},
+    "Elegí un cable para ver qué equipos quedan sin señal si se corta.":
+        {"en": "Pick a cable to see which equipment loses signal if it is cut.", "pt": "Escolha um cabo para ver quais equipamentos ficam sem sinal se ele for cortado."},
+    "Elegí un rack para ver qué equipos quedan sin señal si se pierde completo.":
+        {"en": "Pick a rack to see which equipment loses signal if it is lost entirely.", "pt": "Escolha um rack para ver quais equipamentos ficam sem sinal se ele for perdido por completo."},
+    "Índice de Riesgo de Falla: probabilidad (edad, uso, historial) × impacto (fracción del parque que queda sin señal). Se calcula acá, sin guardar nada en la base.":
+        {"en": "Failure Risk Index: probability (age, usage, history) × impact (share of the plant left without signal). Calculated here; nothing is saved to the database.",
+         "pt": "Índice de Risco de Falha: probabilidade (idade, uso, histórico) × impacto (fração do parque que fica sem sinal). Calculado aqui, sem gravar nada na base."},
+    "Calcular IRF":         {"en": "Calculate IRF",       "pt": "Calcular IRF"},
+    "Recalcular":           {"en": "Recalculate",         "pt": "Recalcular"},
+    "Calculando… puede tardar unos segundos.": {"en": "Calculating… this may take a few seconds.", "pt": "Calculando… pode levar alguns segundos."},
+    "Calculado en {s} s":   {"en": "Calculated in {s} s", "pt": "Calculado em {s} s"},
+    "resultado guardado en memoria": {"en": "result kept in memory", "pt": "resultado mantido em memória"},
+    "El impacto se mide contra los equipos críticos marcados en el escritorio.":
+        {"en": "Impact is measured against the critical equipment marked on the desktop.", "pt": "O impacto é medido contra os equipamentos críticos marcados no desktop."},
+    "No se pudo construir el grafo: el impacto usa un valor neutro (50).":
+        {"en": "The graph could not be built: impact uses a neutral value (50).", "pt": "Não foi possível construir o grafo: o impacto usa um valor neutro (50)."},
+    "Elegí el equipo donde falta la señal y después el conector donde lo notás (el síntoma).":
+        {"en": "Pick the equipment missing the signal, then the connector where you notice it (the symptom).", "pt": "Escolha o equipamento sem sinal e depois o conector onde você nota o problema (o sintoma)."},
+    "Elegir otro equipo":   {"en": "Choose another equipment", "pt": "Escolher outro equipamento"},
+    "Elegir otro conector": {"en": "Choose another connector", "pt": "Escolher outro conector"},
+    "¿En qué conector de «{n}» falta la señal?": {"en": "On which connector of “{n}” is the signal missing?", "pt": "Em qual conector de “{n}” falta o sinal?"},
+    "Este equipo no tiene conectores.": {"en": "This equipment has no connectors.", "pt": "Este equipamento não tem conectores."},
+    "Diagnóstico desde «{n}»": {"en": "Diagnosis from “{n}”", "pt": "Diagnóstico a partir de “{n}”"},
+    "Cadena hacia el origen": {"en": "Chain toward the source", "pt": "Cadeia até a origem"},
+    "síntoma: sin señal":   {"en": "symptom: no signal",  "pt": "sintoma: sem sinal"},
+    "extremo alcanzado: se asume con señal": {"en": "far end reached: assumed to have signal", "pt": "extremo alcançado: assume-se com sinal"},
+    "punto de test":        {"en": "test point",          "pt": "ponto de teste"},
+    "Hay señal":            {"en": "Has signal",          "pt": "Tem sinal"},
+    "No hay señal":         {"en": "No signal",           "pt": "Sem sinal"},
+    "No sé":                {"en": "Don't know",          "pt": "Não sei"},
+    "Sí, hay señal":        {"en": "Yes, there is signal", "pt": "Sim, há sinal"},
+    "¿Hay señal en «{n}»?": {"en": "Is there signal at “{n}”?", "pt": "Há sinal em “{n}”?"},
+    "Medilo con un monitor o analizador en ese punto.": {"en": "Check it with a monitor or analyzer at that point.", "pt": "Meça com um monitor ou analisador nesse ponto."},
+    "Hay que elegir una entrada": {"en": "An input must be chosen", "pt": "É preciso escolher uma entrada"},
+    "El equipo «{n}» tiene {c} entradas. ¿Cuál corresponde a lo que falta?":
+        {"en": "“{n}” has {c} inputs. Which one carries what is missing?", "pt": "“{n}” tem {c} entradas. Qual corresponde ao que falta?"},
+    "Elegí dónde medir":    {"en": "Choose where to measure", "pt": "Escolha onde medir"},
+    "No hay puntos de test marcados en este tramo. Elegí a mano uno de los puntos intermedios:":
+        {"en": "There are no test points marked in this stretch. Pick one of the intermediate points by hand:", "pt": "Não há pontos de teste marcados neste trecho. Escolha manualmente um dos pontos intermediários:"},
+    "Sospechoso":           {"en": "Suspect",             "pt": "Suspeito"},
+    "El problema está dentro del equipo «{n}»: hay señal en «{b}» pero no en «{a}». Revisá su conexión interna o su alimentación.":
+        {"en": "The problem is inside “{n}”: there is signal at “{b}” but not at “{a}”. Check its internal connection or power.",
+         "pt": "O problema está dentro de “{n}”: há sinal em “{b}”, mas não em “{a}”. Verifique a conexão interna ou a alimentação."},
+    "El problema está en el cable (o su conexión) entre «{a}» y «{b}».":
+        {"en": "The problem is in the cable (or its connection) between “{a}” and “{b}”.", "pt": "O problema está no cabo (ou na conexão) entre “{a}” e “{b}”."},
+    "La cadena tiene un solo punto: no hay nada para acotar.": {"en": "The chain has a single point: nothing to narrow down.", "pt": "A cadeia tem um único ponto: não há nada a delimitar."},
+    "Deshacer":             {"en": "Undo",                "pt": "Desfazer"},
+    "Reiniciar":            {"en": "Restart",             "pt": "Reiniciar"},
+    "Fuera de patchera":    {"en": "Outside patch panel", "pt": "Fora de patch panel"},
+    "Fuera de distribuidor": {"en": "Outside distributor", "pt": "Fora de distribuidor"},
+    "Loop en uso":          {"en": "Loop in use",         "pt": "Loop em uso"},
+    "Referencia en cascada": {"en": "Cascaded reference", "pt": "Referência em cascata"},
+    "Equipos con cables documentados, pero ninguno llega a una patchera: cableado directo.":
+        {"en": "Equipment with documented cables, none of which reaches a patch panel: direct wiring.", "pt": "Equipamentos com cabos documentados, nenhum chega a um patch panel: cabeamento direto."},
+    "Equipos cuyas salidas no entran directo a un distribuidor (ni pasando solo por patcheras).":
+        {"en": "Equipment whose outputs do not go straight into a distributor (nor only through patch panels).", "pt": "Equipamentos cujas saídas não entram direto em um distribuidor (nem passando só por patch panels)."},
+    "Salidas loop-through con un cable real conectado.": {"en": "Loop-through outputs with a real cable connected.", "pt": "Saídas loop-through com um cabo real conectado."},
+    "Equipos que re-emiten la referencia sin ser distribuidores de sincronismo: si caen, arrastran lo que cuelga de ellos.":
+        {"en": "Equipment that re-emits the reference without being a sync distributor: if it falls, everything hanging from it falls too.",
+         "pt": "Equipamentos que reemitem a referência sem serem distribuidores de sincronismo: se caírem, arrastam o que depende deles."},
+    "Salida loop":          {"en": "Loop output",         "pt": "Saída loop"},
+    "Salida de referencia": {"en": "Reference output",    "pt": "Saída de referência"},
+    "Origen":               {"en": "Source",              "pt": "Origem"},
+    "Destinos":             {"en": "Destinations",        "pt": "Destinos"},
+    "Tipo de equipo":       {"en": "Equipment type",      "pt": "Tipo de equipamento"},
+    "Sin hallazgos.":       {"en": "No findings.",        "pt": "Sem achados."},
+    "Reglas de diseño que se revisan solas sobre los datos cargados. Cada lista va ordenada por riesgo.":
+        {"en": "Design rules checked automatically against the loaded data. Each list is sorted by risk.", "pt": "Regras de projeto verificadas automaticamente sobre os dados carregados. Cada lista é ordenada por risco."},
+    "La base no tiene riesgo calculado: los hallazgos no están priorizados. Calculalo en el escritorio con «Recalcular riesgo».":
+        {"en": "The database has no calculated risk: findings are not prioritised. Calculate it on the desktop with “Recalculate risk”.",
+         "pt": "A base não tem risco calculado: os achados não estão priorizados. Calcule no desktop com “Recalcular risco”."},
+}
+_WEB.update(_WEB_A7)

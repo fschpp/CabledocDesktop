@@ -207,6 +207,26 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-02 — Fase A.7 de `plan_pyodide_v1.md` (impacto, IRF, diagnóstico de falla y linter de topología), sobre `main` en `96ad07d` (A.1–A.6 mergeadas, A.6 por PR #89)._
+
+### Current Focus
+A.7 entregada como diff: 7 funciones nuevas en `ui_web/bridge.py`, pantalla `#/analisis` (`app/analisis.js` + `app/analisis.css`) con 4 pestañas y enlaces desde las fichas. Pendiente: smoke test en el navegador con el `db.db` real y commit. Siguiente: A.8 (escenarios: abrir y evaluar).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 bridge · A.2 shell · A.3 árbol de equipos · A.4 fichas e imágenes · A.5 conexiones y cadena · A.6 rack / frame-slots / patcheras (mergeada, PR #89)
+- [x] Done — A.7 análisis (diff presentado; `test_analisis.py`, `test_i18n_web.py` y los 11 escenarios de `test_shell.mjs` OK; falta smoke en navegador real)
+- [ ] Todo — A.8 a A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Smoke a hacer con el `db.db` real: (1) "Calcular IRF" — medir el tiempo en el navegador (3,2 s esperados según 0.7) y que el primero de la lista coincida con el desktop; (2) Topología — contar los hallazgos de cada regla contra las tarjetas de "Trabajo pendiente" del desktop; (3) un diagnóstico real desde un conector con matriz/patchera en el camino.
+- Los motores de `core/` **migran el esquema** al correr sobre una base vieja (p. ej. `parametro_riesgo` se siembra, `conector.id_conector_loop_de` y `tipo_equipo.es_distribuidor_sync` se agregan, `VisualizadorSenal._cargar` crea tablas auxiliares y hace un UPDATE de `rol_senal` de MODULO PATCHERA). Con el `db.db` del desktop ya está todo al día y es un no-op; los datos de `equipo/cable/conexion/...` no cambian (verificado en `test_analisis.py`). Esto no se persiste en IDBFS hasta el próximo `syncfs`: coordinar con la política de escritura de B.12.
+- El linter prioriza con `riesgo_equipo_cache` (lo que el desktop guardó con "Recalcular riesgo"); la pantalla de IRF calcula con `persistir=False`, así que NO alimenta ese caché. Persistirlo es una escritura (Fase B).
+- El diagnóstico sugiere un punto solo si hay `conector.es_punto_test = 1` en el tramo; si no, la UI ofrece elegir a mano. Si la base real tiene pocos puntos de test marcados, va a pedir elegir a mano casi siempre.
+- Ids: los motores usan `str`, el bridge `int`; la conversión está en `_id()` (frontera).
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-02 — Fase A.6 de `plan_pyodide_v1.md` (rack, frame/slots y patcheras en SVG, solo lectura), sobre `main` en `7714866` (A.5 ya mergeada)._
 
 ### Current Focus

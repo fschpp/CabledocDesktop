@@ -920,6 +920,181 @@ def patcheras_global():
     }
 
 
+# ── Análisis (A.7): impacto, IRF, diagnóstico de falla y linter de topología ─
+#
+# Todo es de solo lectura (no se persiste nada, ni siquiera el caché de riesgo).
+# Los motores de core/ trabajan con ids `str`; acá se convierten a int en la
+# frontera (el resto del bridge usa int tal cual SQLite).
+
+def _id(v):
+    """'12' -> 12 (ids de los motores de core/ vuelven como str)."""
+    return int(v) if isinstance(v, str) and v.isdigit() else v
+
+
+def _db_path():
+    from core import modelo
+    return modelo.DB_PATH
+
+
+def _grafo():
+    from core.graph_impact import GraphImpactAnalyzer
+    g = GraphImpactAnalyzer(_db_path())
+    g.construir_grafo()
+    return g
+
+
+def _resultado_impacto(g, tipo, id_origen, nombre, r):
+    """Normaliza ResultadoImpacto / ResultadoImpactoEquipo a un dict JSON."""
+    finales = set(getattr(r, "puntos_finales_impactados", ()) or ())
+    equipos = sorted(({"id_equipo": _id(e), "nombre": g.nombre_equipo(e), "punto_final": e in finales}
+                      for e in r.equipos_impactados), key=lambda x: (x["nombre"].lower(), x["id_equipo"]))
+    cables = sorted(({"id_cable": _id(c), "codigo": g.nombre_cable(c)} for c in r.cables_impactados),
+                    key=lambda x: (str(x["codigo"]).lower(), x["id_cable"]))
+    causas = sorted(({"id_equipo": _id(e), "nombre": g.nombre_equipo(e), "texto": txt}
+                     for e, txt in (r.causas_regla or {}).items()), key=lambda x: x["nombre"].lower())
+    total, total_finales = g.totales()
+    return {"origen": {"tipo": tipo, "id": id_origen, "nombre": nombre},
+            "total_equipos": total, "total_puntos_finales": total_finales,
+            "n_impactados": len(equipos), "n_puntos_finales": len(finales),
+            "porcentaje": round(100.0 * len(equipos) / total, 1) if total else 0.0,
+            "equipos_impactados": equipos, "cables_impactados": cables, "causas_regla": causas}
+
+
+def impacto_cable(id_cable):
+    """Qué equipos quedan sin señal si se corta este cable (GraphImpactAnalyzer.simular_desconexion)."""
+    if _one("SELECT 1 AS x FROM cable WHERE id_cable = ?", (id_cable,)) is None:
+        raise ValueError(f"No existe el cable {id_cable}")
+    g = _grafo()
+    r = g.simular_desconexion(str(id_cable))
+    return _resultado_impacto(g, "cable", id_cable, g.nombre_cable(str(id_cable)), r)
+
+
+def impacto_equipo(id_equipo):
+    """Qué otros equipos quedan sin señal si este equipo falla por completo."""
+    if _one("SELECT 1 AS x FROM equipo WHERE id_equipo = ?", (id_equipo,)) is None:
+        raise ValueError(f"No existe el equipo {id_equipo}")
+    g = _grafo()
+    r = g.simular_falla_equipo(str(id_equipo))
+    return _resultado_impacto(g, "equipo", id_equipo, g.nombre_equipo(str(id_equipo)), r)
+
+
+def impacto_rack(id_rack):
+    """Qué equipos quedan sin señal si se pierde el rack completo (energía, incendio, etc.)."""
+    rack = _one("SELECT nombre FROM rack WHERE id_rack = ?", (id_rack,))
+    if rack is None:
+        raise ValueError(f"No existe el rack {id_rack}")
+    g = _grafo()
+    r = g.simular_perdida_rack(str(id_rack))
+    return _resultado_impacto(g, "rack", id_rack, rack["nombre"] or f"Rack #{id_rack}", r)
+
+
+def riesgo_irf():
+    """IRF de todos los equipos, calculado en el momento y SIN persistir (persistir=False).
+    Tarda ~3 s en wasm con la base real: correr siempre desde el worker."""
+    from core import risk_engine as re_
+    t0 = time.perf_counter()
+    res = re_.RiskEngine(_db_path()).calcular_todos(persistir=False)
+    nombres = {str(r["id_equipo"]): r for r in _rows(
+        "SELECT e.id_equipo, e.nombre, t.nombre AS tipo FROM equipo e "
+        "LEFT JOIN tipo_equipo t ON t.id_tipo_equipo = e.id_tipo_equipo")}
+    filas = []
+    for k, v in res.items():
+        n = nombres.get(str(k), {})
+        p, i = v["probabilidad"], v["impacto"]
+        filas.append({"id_equipo": _id(k), "nombre": n.get("nombre") or f"Equipo #{k}", "tipo": n.get("tipo"),
+                      "probabilidad": p, "impacto": i, "riesgo": v["riesgo"], "nivel": v["nivel"],
+                      "cuadrante": ("alto" if p >= re_.UMBRAL_CUADRANTE else "bajo") + "/"
+                                   + ("alto" if i >= re_.UMBRAL_CUADRANTE else "bajo"),
+                      "detalle": v["detalle"]})
+    filas.sort(key=lambda f: (-f["riesgo"], -f["impacto"], f["nombre"].lower()))
+    det = filas[0]["detalle"] if filas else {}
+    return {"filas": filas, "umbral_cuadrante": re_.UMBRAL_CUADRANTE,
+            "niveles": [{"desde": d, "nivel": n} for d, n, _c in re_.NIVELES],
+            "modo_impacto": det.get("modo_impacto", "todos"), "grafo_disponible": det.get("grafo_disponible", True),
+            "calculo_ms": round((time.perf_counter() - t0) * 1000, 1)}
+
+
+def conectores_de_equipo(id_equipo):
+    """Nombre del equipo y sus conectores (liviano, para elegir el síntoma del diagnóstico)."""
+    eq = _one("SELECT id_equipo, nombre FROM equipo WHERE id_equipo = ?", (id_equipo,))
+    if eq is None:
+        raise ValueError(f"No existe el equipo {id_equipo}")
+    eq["conectores"] = _rows("""
+        SELECT c.id_conector, c.nombre, tc.nombre AS tipo_conector,
+               (SELECT count(*) FROM conexion cx WHERE cx.id_conector = c.id_conector) AS n_conexiones
+        FROM conector c LEFT JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector
+        WHERE c.id_equipo = ? ORDER BY c.id_conector""", (id_equipo,))
+    return eq
+
+
+def _paso(p):
+    return {"id_conector": _id(p.id_conector), "nombre": p.nombre, "id_equipo": _id(p.id_equipo),
+            "equipo": p.nombre_equipo, "es_punto_test": bool(p.es_punto_test)}
+
+
+def diagnostico(id_conector, ramas=None, respuestas=None):
+    """Asistente de diagnóstico sin estado: se rearma la cadena y se repiten las respuestas.
+    ramas: {id_equipo: id_conector_entrada} para resolver bifurcaciones ya elegidas.
+    respuestas: [[indice, 'SI'|'NO'|'NO_SE'], ...] en orden (deshacer = sacar la última)."""
+    from core.diagnostico_falla import MotorDiagnostico, SesionDiagnostico
+    if _one("SELECT 1 AS x FROM conector WHERE id_conector = ?", (id_conector,)) is None:
+        raise ValueError(f"No existe el conector {id_conector}")
+    ramas = {str(k): str(v) for k, v in (ramas or {}).items()}
+    cad = MotorDiagnostico(_db_path()).construir_cadena(str(id_conector), ramas)
+    pasos = [_paso(p) for p in cad.pasos]
+    bif = None
+    if cad.bifurcacion is not None:
+        b = cad.bifurcacion
+        bif = {"id_equipo": _id(b.id_equipo), "equipo": b.nombre_equipo,
+               "opciones": [{"id_conector": _id(c), "nombre": n} for c, n in b.opciones]}
+    out = {"pasos": pasos, "motivo_corte": cad.motivo_corte, "categoria_corte": cad.categoria_corte,
+           "bifurcacion": bif, "sesion": None}
+    if len(cad.pasos) < 2:
+        return out
+    ses = SesionDiagnostico(cad.pasos)
+    for item in (respuestas or []):
+        indice, resp = item
+        ses.responder(int(indice), resp)
+    sig = ses.siguiente_punto()
+    res = None
+    if ses.convergido():
+        sin, con = ses.resultado()
+        res = {"sin_senal": _paso(sin), "con_senal": _paso(con),
+               "sospechoso": "equipo" if sin.id_equipo == con.id_equipo else "cable"}
+    out["sesion"] = {"lo": ses.lo, "hi": ses.hi, "convergido": ses.convergido(),
+                     "siguiente": sig[0] if sig else None,
+                     "historial": [[i, r] for i, r in ses.historial], "resultado": res}
+    return out
+
+
+def linter_topologia():
+    """Las 4 reglas del linter de topología, cada una ya priorizada por riesgo (core/linter_topologia.py).
+    El orden usa el riesgo CACHEADO en la base (riesgo_equipo_cache): sin él, `con_riesgo` es False."""
+    from core import linter_topologia as lt
+    db = _db_path()
+
+    def planos(filas):
+        out = []
+        for f in filas:
+            d = {k: v for k, v in f.items() if not k.startswith("_")}
+            for k in ("id_equipo", "id_conector", "id_conector_origen"):
+                if k in d:
+                    d[k] = _id(d[k])
+            if isinstance(d.get("destinos"), list):
+                d["destinos"] = [{**x, "id_equipo": _id(x.get("id_equipo"))} for x in d["destinos"]]
+            out.append(d)
+        return out
+
+    reglas = [("fuera_de_patchera", lt.equipos_fuera_de_patchera_priorizados),
+              ("fuera_de_distribuidor", lt.equipos_fuera_de_distribuidor_priorizados),
+              ("loop_en_uso", lt.loops_en_uso_priorizados),
+              ("referencia_en_cascada", lt.referencia_en_cascada_priorizada)]
+    out = [{"id": rid, "hallazgos": planos(fn(db))} for rid, fn in reglas]
+    con_riesgo = any(h.get("riesgo") is not None for r in out for h in r["hallazgos"])
+    return {"reglas": out, "con_riesgo": con_riesgo}
+
+
+
 def firmas():
     """Argumentos de cada función: {nombre: [{nombre, requerido, defecto}]}.
     La página lo usa para prellenar los argumentos al elegir una función."""
@@ -940,6 +1115,7 @@ FUNCIONES = {f.__name__: f for f in (
     salas_lista, sala_ficha, racks_lista, rack_ficha,
     frames_lista, slots_lista, frame_ficha,
     ubicaciones, rack_vista, frame_vista, patcheras_global,
+    impacto_cable, impacto_equipo, impacto_rack, riesgo_irf, conectores_de_equipo, diagnostico, linter_topologia,
 )}
 
 
