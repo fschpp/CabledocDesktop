@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis"];
 
 if (!escenario) {
   let mal = 0;
@@ -103,9 +103,9 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/analisis");
-  ok($("#lateral a[data-id=analisis]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.7 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/escenarios");
+  ok($("#lateral a[data-id=escenarios]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
+  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.8 del plan."), "pantalla pendiente con su etapa");
   await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
   ok($("#contenido .arbol"), "Equipos muestra el árbol");
   const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
@@ -115,11 +115,11 @@ if (escenario === "completo") {
   ok($("#contenido h2").textContent === "Pantalla desconocida", "ruta desconocida");
   await ir("#/equipos/abc");
   ok($("#contenido h2").textContent === "Pantalla desconocida", "id no numérico → pantalla desconocida");
-  await ir("#/analisis");
+  await ir("#/escenarios");
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.7 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido .pendiente").textContent.includes("Available in stage A.8 of the plan."), "pantalla pendiente en inglés (con {etapa})");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -653,6 +653,150 @@ c.commit(); c.close()`);
   ok(txt(".volver").includes("Back to Locations") && txt(".rack-svg .rk-bandeja .rk-txt") === "Tray: CAM 1, CAM 2" && txt(".rack-svg .rk-cabecera + .rk-titulo") === "Rack 1", "rack en inglés");
   await ir("#/patcheras"); ok(txt(".pat-resumen").includes("4 connected devices") && txt(".ficha-patcheras h2") === "Patchbays", "patcheras en inglés");
   await ir("#/frames/2"); ok(txt(".ficha-frame .sub") === "Frame with no slots recorded", "frame en inglés");
+}
+
+if (escenario === "analisis") {          // A.7: impacto, IRF, diagnóstico y linter con el bridge REAL (Pyodide)
+  const E = await rpcPyodide();
+  instalarDom();
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  // Red de prueba: CAM X --X-001--> DIST A --X-002--> MON 1 / --X-003--> MON 2 (DIST A en el rack 1). Los tipos de conector se llaman IN/OUT como en la base real.
+  E.py.runPython(`
+from core.modelo import Modelo
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""
+INSERT INTO tipo_equipo(id_tipo_equipo,nombre,rol_senal) VALUES (2,'DISTRIBUIDOR','DISTRIBUIDOR'),(3,'MONITOR',NULL);
+INSERT INTO tipo_conector(id_tipo_conector,nombre) VALUES (2,'IN'),(3,'OUT');
+""")
+c.commit(); c.close()
+Modelo.asegurar_columnas_control_idioma()   # agrega tipo_conector.direccion y la siembra por nombre (la base real ya la tiene)
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (10,1,'CAM X'),(11,2,'DIST A'),(12,3,'MON 1'),(13,3,'MON 2');
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector) VALUES (10,'OUT',10,3),(11,'IN',11,2),(12,'OUT 1',11,3),(13,'OUT 2',11,3),(14,'IN',12,2),(15,'IN',13,2);
+INSERT INTO cable(id_cable,codigo,es_cable_conexion_interna) VALUES (10,'X-001',0),(11,'X-002',0),(12,'X-003',0);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES (10,10,10,0),(11,10,11,0),(12,11,12,0),(13,11,14,0),(14,12,13,0),(15,12,15,0);
+INSERT INTO rack(id_rack,numero,nombre,cantidad_maxima) VALUES (1,1,'Rack 1',42);
+INSERT INTO posicion_en_rack(id_posicion_en_rack,id_rack,id_equipo,orificio_posicion_equipo_en_rack,unidades_de_rack_equipo) VALUES (1,1,11,3,1);
+""")
+c.commit(); c.close()`);
+  E.rpc.cargarDb(new Uint8Array(E.py.FS.readFile("/app/data/database/db.db")).buffer); await tick(300);   // el shell repinta con la base ya completa
+  const txt = (s) => $(s)?.textContent;
+  const hrefs = (s) => [...document.querySelectorAll(s)].map((a) => a.getAttribute("href"));
+  const esperar = async (cond, ms = 15000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await tick(50); return cond(); };
+  const cuerpo = (s) => [...document.querySelectorAll(s)].map((tr) => [...tr.children].map((td) => td.textContent));
+  const botones = () => [...document.querySelectorAll("#contenido button")].map((b) => b.textContent);
+  const boton = (re) => [...document.querySelectorAll("#contenido button")].find((b) => re.test(b.textContent));
+  const clic = async (re) => { const b = boton(re); ok(b, "botón " + re); b.click(); await tick(300); };
+  const pasos = () => [...document.querySelectorAll("#contenido .cadena-diag .paso")];
+
+  // navegación y pestañas
+  await ir("#/analisis");
+  ok($("#lateral a[data-id=analisis]").getAttribute("aria-current") === "page" && !txt("#contenido").includes("Disponible en la etapa"), "Análisis ya no es un marcador");
+  ok(txt("#contenido h2") === "Análisis" && [...document.querySelectorAll(".pestanas a")].map((a) => a.textContent).join() === "Impacto,Riesgo (IRF),Diagnóstico,Topología", "cuatro pestañas");
+  ok(document.querySelector(".pestanas a[aria-current=page]").textContent === "Impacto", "por defecto: Impacto");
+  await ir("#/analisis/nada"); ok(txt("#contenido .aviso.error").includes("nada"), "subpantalla desconocida");
+
+  // impacto: elegir
+  await ir("#/analisis/impacto");
+  const lista = () => [...document.querySelectorAll("#contenido .elegir-equipo a")];
+  ok(lista().length === 6 && hrefs("#contenido .elegir-equipo a").includes("#/analisis/impacto/equipo/11"), "elegir equipo: lista y enlaces");
+  const f = $("#contenido input[type=search]"); f.value = "dist"; f.dispatchEvent(new window.Event("input")); await tick(300);
+  ok(lista().length === 1 && lista()[0].textContent === "DIST A", "el filtro acota (solo el nombre en el enlace)");
+  ok([...document.querySelectorAll(".chip")].map((a) => a.textContent).join() === "Equipo,Cable,Rack" && document.querySelector(".chip[aria-current=true]").textContent === "Equipo", "selector de tipo");
+  await ir("#/analisis/impacto/cable");
+  ok(hrefs("#contenido .elegir-equipo a").includes("#/analisis/impacto/cable/11"), "elegir cable");
+  await ir("#/analisis/impacto/rack");
+  ok(lista().length === 1 && lista()[0].textContent === "Rack 1" && hrefs("#contenido .elegir-equipo a")[0] === "#/analisis/impacto/rack/1", "elegir rack");
+
+  // impacto: resultados
+  await ir("#/analisis/impacto/equipo/10"); await tick(150);
+  ok(txt("#contenido h3") === "Si falla «CAM X» por completo", "título equipo: " + txt("#contenido h3"));
+  ok([...document.querySelectorAll("#contenido .tarjeta .n")].map((e) => e.textContent).join() === "3,2,2", "tarjetas: 3 equipos, 2 puntos finales, 2 cables: " + [...document.querySelectorAll("#contenido .tarjeta .n")].map((e) => e.textContent));
+  ok([...document.querySelectorAll("#contenido tbody tr")].map((tr) => tr.children[0].textContent.replace(" 📉", "")).join() === "DIST A,MON 1,MON 2", "equipos sin señal (ordenados por nombre)");
+  ok(hrefs("#contenido tbody a").includes("#/equipos/12") && hrefs("#contenido tbody a").includes("#/analisis/impacto/equipo/12"), "enlaces a la ficha y a su propio impacto");
+  ok(hrefs("#contenido .cables-afectados a").join() === "#/cables/11,#/cables/12", "cables afectados con enlace");
+  await ir("#/analisis/impacto/cable/11"); await tick(150);
+  ok(txt("#contenido h3") === "Si se corta el cable «X-002»" && [...document.querySelectorAll("#contenido .tarjeta .n")][0].textContent === "1", "impacto de cable: solo MON 1");
+  await ir("#/analisis/impacto/rack/1"); await tick(150);
+  ok(txt("#contenido h3") === "Si se pierde el rack «Rack 1»" && [...document.querySelectorAll("#contenido tbody tr")].map((tr) => tr.children[0].textContent.replace(" 📉", "")).join() === "MON 1,MON 2", "impacto de rack");
+  await ir("#/analisis/impacto/equipo/12"); await tick(150);
+  ok(txt("#contenido .aviso.ok").includes("Sin impacto"), "una hoja no deja a nadie sin señal");
+  await ir("#/analisis/impacto/equipo/999"); ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("999"), "id inexistente → panel de error");
+
+  // IRF
+  await ir("#/analisis/riesgo");
+  ok(!$("#contenido table") && boton(/Calcular IRF/), "IRF: no calcula solo, hay botón");
+  boton(/Calcular IRF/).click();
+  ok(await esperar(() => $("#contenido table.tabla-riesgo")), "IRF: aparece la tabla");
+  ok(document.querySelectorAll("#contenido .tabla-riesgo tbody tr").length === 6 && txt("#contenido .sub[aria-live]") !== "", "una fila por equipo (6)");
+  const riesgos = [...document.querySelectorAll("#contenido .tabla-riesgo td.riesgo")].map((td) => Number(td.textContent.replace(",", ".")));
+  ok(riesgos.every((v, i) => i === 0 || riesgos[i - 1] >= v), "ordenado por riesgo descendente");
+  ok(boton(/Recalcular/) && [...document.querySelectorAll("#contenido .tarjetas .et")].map((e) => e.textContent).join() === "Crítico,Alto,Medio,Bajo", "niveles y botón Recalcular");
+  const sel = $("#contenido select"); sel.value = "Bajo"; sel.dispatchEvent(new window.Event("change")); await tick(100);
+  ok(document.querySelectorAll("#contenido .tabla-riesgo tbody tr").length <= 6 && [...document.querySelectorAll("#contenido .tabla-riesgo .nivel")].every((e) => e.textContent === "Bajo"), "filtro por nivel");
+  sel.value = ""; sel.dispatchEvent(new window.Event("change")); await tick(100);
+  const ft = $("#contenido input[type=search]"); ft.value = "mon"; ft.dispatchEvent(new window.Event("input")); await tick(300);
+  ok(document.querySelectorAll("#contenido .tabla-riesgo tbody tr").length === 2, "filtro por texto");
+  await ir("#/analisis/topologia"); await ir("#/analisis/riesgo");
+  ok($("#contenido table.tabla-riesgo") && txt("#contenido .sub[aria-live]").includes("guardado en memoria"), "volver a Riesgo reusa el resultado (misma base)");
+
+  // diagnóstico: elegir equipo → conector
+  await ir("#/analisis/diagnostico");
+  ok(hrefs("#contenido .elegir-equipo a").includes("#/analisis/diagnostico/equipo/12"), "diagnóstico: elegir equipo");
+  await ir("#/analisis/diagnostico/equipo/12");
+  ok(txt("#contenido h3") === "¿En qué conector de «MON 1» falta la señal?" && hrefs("#contenido .elegir-equipo a").join() === "#/analisis/diagnostico/14", "diagnóstico: conectores del equipo");
+
+  // sin puntos de test: elección manual
+  await ir("#/analisis/diagnostico/15"); await tick(200);
+  ok(pasos().length === 4 && txt("#contenido h3") === "Diagnóstico desde «MON 2 / IN»", "cadena de 4 puntos desde MON 2 / IN: " + pasos().length);
+  ok(pasos()[0].classList.contains("sintoma") && pasos()[0].textContent.includes("síntoma: sin señal") && pasos()[3].textContent.includes("extremo alcanzado"), "síntoma y extremo marcados");
+  ok(document.querySelector("#contenido .pregunta h3").textContent === "Elegí dónde medir", "sin puntos de test → elegir a mano");
+  ok(botones().includes("DIST A / OUT 2") && botones().includes("DIST A / IN"), "botones con los puntos intermedios: " + botones());
+  await clic(/DIST A \/ IN/);
+  ok(txt("#contenido .pregunta h3") === "¿Hay señal en «DIST A / IN»?", "elegido a mano: pregunta ese punto");
+  await clic(/Sí, hay señal/);     // hay señal en idx 2 → el segmento queda (0, 2): falta medir idx 1
+  ok(pasos()[2].classList.contains("con-senal") && txt("#contenido .pregunta h3") === "Elegí dónde medir" && botones().includes("DIST A / OUT 2") && !botones().includes("DIST A / IN"), "respuesta registrada y segmento acotado a (0, 2)");
+  await clic(/DIST A \/ OUT 2/); await clic(/No hay señal/);
+  ok(txt("#contenido .resultado h3").includes("Sospechoso") && txt("#contenido .resultado p").includes("«DIST A»") && txt("#contenido .resultado p").includes("dentro del equipo"), "converge: el problema está dentro de DIST A: " + txt("#contenido .resultado"));
+  ok(!$("#contenido .pregunta") && boton(/Deshacer/) && boton(/Reiniciar/), "resultado final con Deshacer/Reiniciar");
+  await clic(/Deshacer/); ok($("#contenido .pregunta") && !$("#contenido .resultado"), "Deshacer vuelve a preguntar");
+  await clic(/Reiniciar/); ok(txt("#contenido .pregunta h3") === "Elegí dónde medir" && !boton(/Deshacer/), "Reiniciar vuelve al comienzo");
+
+  // con puntos de test marcados: sugerencia automática
+  E.py.runPython(`import sqlite3\nc = sqlite3.connect("/app/data/database/db.db"); c.execute("UPDATE conector SET es_punto_test = 1 WHERE id_conector IN (11, 12)"); c.commit(); c.close()`);
+  await ir("#/analisis/diagnostico/14"); await tick(200);
+  ok(txt("#contenido .pregunta h3") === "¿Hay señal en «DIST A / OUT 1»?" && pasos()[1].textContent.includes("punto de test"), "con puntos de test: pregunta sola el punto del medio");
+  await clic(/No hay señal/);
+  ok(txt("#contenido .pregunta h3") === "¿Hay señal en «DIST A / IN»?" && pasos()[1].classList.contains("sin-senal"), "NO acota hacia el origen y sugiere el siguiente");
+  await clic(/No sé/); ok(txt("#contenido .pregunta h3") === "¿Hay señal en «DIST A / IN»?" && pasos()[2].textContent.includes("No sé"), "No sé no mueve el segmento");
+  await clic(/Sí, hay señal/);
+  ok(txt("#contenido .resultado p").includes("dentro del equipo «DIST A»"), "converge");
+  await ir("#/analisis/diagnostico/10"); await tick(200);
+  ok(pasos().length === 1 && txt("#contenido .aviso").includes("un solo punto") && !$("#contenido .pregunta"), "cadena de un solo punto");
+  await ir("#/analisis/diagnostico/999"); ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("999"), "conector inexistente → panel de error");
+
+  // linter
+  await ir("#/analisis/topologia"); await tick(150);
+  const reglas = [...document.querySelectorAll("#contenido .regla")];
+  ok(reglas.map((r) => r.dataset.regla).join() === "fuera_de_patchera,fuera_de_distribuidor,loop_en_uso,referencia_en_cascada", "cuatro reglas en orden");
+  ok(reglas[0].querySelector("h3").textContent.startsWith("⚠️ Fuera de patchera (") && reglas[2].querySelector("h3").textContent === "✔ Loop en uso (0)" && reglas[2].textContent.includes("Sin hallazgos."), "títulos con cantidad; regla vacía marcada");
+  const hf = hrefs(".regla[data-regla=fuera_de_patchera] tbody a");
+  ok(hf.length > 0 && hf.every((h) => /^#\/equipos\/\d+$/.test(h)), "fuera de patchera: enlaces a las fichas (" + hf.length + ")");
+  ok(txt("#contenido .aviso").includes("no tiene riesgo calculado"), "aviso: la base no tiene riesgo calculado");
+
+  // enlaces desde las fichas
+  await ir("#/equipos/10"); ok(hrefs(".acciones a").includes("#/analisis/impacto/equipo/10") && hrefs(".acciones a")[0] === "#/conexiones/10", "ficha de equipo: enlace a Impacto");
+  await ir("#/cables/10"); ok(hrefs(".acciones a").includes("#/analisis/impacto/cable/10") && hrefs(".acciones a")[0] === "#/cadena/10", "ficha de cable: enlace a Impacto");
+  await ir("#/conectores/14"); ok(hrefs(".acciones a").includes("#/analisis/diagnostico/14"), "ficha de conector: enlace a Diagnóstico");
+
+  // idioma
+  await ir("#/analisis/impacto/equipo/10"); await cambiar("#sel-idioma", "en"); await tick(150);
+  ok(txt("#contenido h3") === "If “CAM X” fails completely" && txt(".pestanas a[aria-current=page]") === "Impact", "impacto en inglés: " + txt("#contenido h3"));
+  await ir("#/analisis/diagnostico/14"); await tick(200);
+  ok(boton(/Yes, there is signal/) && txt("#contenido .pregunta h3").startsWith("Is there signal at"), "diagnóstico en inglés");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

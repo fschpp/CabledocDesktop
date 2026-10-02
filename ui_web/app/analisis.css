@@ -1,0 +1,18 @@
+/* Análisis (A.7). Usa las variables de color de app.css. */
+.pestanas{display:flex;gap:.3rem;flex-wrap:wrap;margin:.2rem 0 1rem;border-bottom:1px solid var(--borde)}
+.pestanas a,.chip{padding:.35rem .8rem;border-radius:8px 8px 0 0;text-decoration:none;color:var(--texto2)}
+.pestanas a[aria-current=page]{background:var(--panel);color:var(--texto);font-weight:600;border:1px solid var(--borde);border-bottom-color:var(--panel);margin-bottom:-1px}
+.chip{border:1px solid var(--borde);border-radius:999px;margin-right:.3rem}.chip[aria-current=true]{background:var(--acento);color:var(--acento-t)}
+.aviso{padding:.5rem .8rem;border-radius:8px;background:var(--panel2);border:1px solid var(--borde)}
+.aviso.ok{border-color:var(--ok)}.aviso.error{border-color:var(--mal)}
+.nivel{display:inline-block;padding:0 .5rem;border-radius:999px;font-size:.85em;color:#fff;background:#6b7280}
+.nivel.n-critico{background:#c0392b}.nivel.n-alto{background:#d9822b}.nivel.n-medio{background:#b8a21b}.nivel.n-bajo{background:#2e8b57}
+.tabla td.riesgo{font-weight:700}
+.cadena-diag{list-style:none;margin:.5rem 0;padding:0;counter-reset:paso}
+.cadena-diag .paso{counter-increment:paso;padding:.3rem .6rem .3rem 2rem;border-left:3px solid var(--borde);position:relative;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.cadena-diag .paso::before{content:counter(paso);position:absolute;left:.5rem;color:var(--texto2);font-variant-numeric:tabular-nums}
+.cadena-diag .paso.vigente{background:var(--panel2);border-left-color:var(--acento)}
+.cadena-diag .paso.sin-senal{border-left-color:var(--mal)}.cadena-diag .paso.con-senal{border-left-color:var(--ok)}
+.cadena-diag .etiqueta{font-size:.8em;color:var(--texto2);border:1px solid var(--borde);border-radius:999px;padding:0 .5rem}
+.pregunta,.resultado{background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:.6rem 1rem}
+.pregunta .acciones button{margin-right:.4rem}
