@@ -1202,6 +1202,105 @@ def escenario_evaluar(id_escenario):
     return out
 
 
+# ── Búsqueda global (A.9) ────────────────────────────────────────────────────
+
+def busqueda_indice():
+    """Índice plano de todo lo que se puede buscar, para la pantalla Búsqueda (A.9).
+
+    Se pide UNA vez por carga de base y el filtro corre en el navegador sobre esa copia (mismo patrón que el
+    árbol de A.3: nada de una consulta por tecla). Una fila por entidad:
+        {t: tipo, i: id, l: etiqueta, d: [datos para mostrar], x: texto que solo se busca, int?: true}
+    Tipos: sala | rack | frame | equipo | conector | cable. El JS busca sobre `l` + `d` + `x`.
+      - equipo: l = nombre; d = tipo, marca + modelo, inventario, serie (los mismos campos que la etiqueta del árbol,
+        así que "sony 3500" o un número de serie encuentran el equipo igual que en el panel de GTK/Kivy).
+      - conector: l = nombre; d = tipo de conector, equipo ("cam 1 out" funciona). Los del equipo 0 (sin equipo) no entran.
+      - cable: l = código; d = estado, tipo de cable, equipos de sus extremos (máx. 4); x = "equipo conector" de
+        cada extremo (como el desktop, donde el cable aparece si matchea alguna de sus conexiones).
+        Entran también los internos (el árbol de GTK/Kivy los lista), marcados con `int`.
+      - sala: solo el nombre. rack: l = nombre; d = sus salas. frame: l = nombre; d = marca + modelo, inventario, su rack.
+    Solo lectura. Orden: por nombre dentro de cada tipo (los conectores, por equipo y luego nombre).
+    """
+    def txt(v):
+        return "" if v is None else str(v).strip()
+
+    def junta(*partes):
+        return " ".join(p for p in partes if p)
+
+    def nombre(fila, clave, id_):
+        return txt(fila[clave]) or f"#{fila[id_]}"
+
+    items = []
+    for r in _rows("""
+            SELECT s.id_sala, s.nombre FROM sala s ORDER BY lower(s.nombre), s.id_sala"""):
+        items.append({"t": "sala", "i": r["id_sala"], "l": nombre(r, "nombre", "id_sala"), "d": []})
+
+    salas_de_rack = {}
+    for r in _rows("""
+            SELECT rs.id_rack, s.nombre FROM rack_por_sala rs JOIN sala s ON s.id_sala = rs.id_sala
+            ORDER BY rs.id_rack, s.id_sala"""):
+        salas_de_rack.setdefault(r["id_rack"], []).append(txt(r["nombre"]))
+    for r in _rows("SELECT id_rack, nombre FROM rack ORDER BY lower(nombre), numero, id_rack"):
+        items.append({"t": "rack", "i": r["id_rack"], "l": nombre(r, "nombre", "id_rack"),
+                      "d": [s for s in salas_de_rack.get(r["id_rack"], []) if s]})
+
+    rack_de_frame = {}
+    for r in _rows("""
+            SELECT p.id_frame, r.nombre FROM posicion_en_rack p JOIN rack r ON r.id_rack = p.id_rack
+            WHERE p.id_frame IS NOT NULL ORDER BY p.id_posicion_en_rack"""):
+        rack_de_frame.setdefault(r["id_frame"], txt(r["nombre"]))     # el primero, como en la lista de Ubicaciones
+    for r in _rows("""
+            SELECT f.id_frame, f.nombre, m.nombre AS marca, f.modelo, f.num_inventario AS inv
+            FROM frame f LEFT JOIN marca m ON m.id_marca = f.id_marca
+            ORDER BY lower(f.nombre), f.id_frame"""):
+        d = [junta(txt(r["marca"]), txt(r["modelo"])), txt(r["inv"]), rack_de_frame.get(r["id_frame"], "")]
+        items.append({"t": "frame", "i": r["id_frame"], "l": nombre(r, "nombre", "id_frame"), "d": [x for x in d if x]})
+
+    for r in _rows("""
+            SELECT e.id_equipo, e.nombre, m.nombre AS marca, te.nombre AS tipo, e.modelo,
+                   e.num_inventario AS inv, e.num_serie AS serie
+            FROM equipo e
+            LEFT JOIN marca m ON m.id_marca = e.id_marca
+            LEFT JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo
+            WHERE e.id_equipo != 0
+            ORDER BY lower(e.nombre), e.id_equipo"""):
+        d = [txt(r["tipo"]), junta(txt(r["marca"]), txt(r["modelo"])), txt(r["inv"]), txt(r["serie"])]
+        items.append({"t": "equipo", "i": r["id_equipo"], "l": nombre(r, "nombre", "id_equipo"), "d": [x for x in d if x]})
+
+    for r in _rows("""
+            SELECT c.id_conector, c.nombre, tc.nombre AS tipo, e.nombre AS equipo
+            FROM conector c
+            JOIN equipo e ON e.id_equipo = c.id_equipo
+            LEFT JOIN tipo_conector tc ON tc.id_tipo_conector = c.id_tipo_conector
+            WHERE c.id_equipo != 0
+            ORDER BY lower(e.nombre), lower(c.nombre), c.id_conector"""):
+        d = [txt(r["tipo"]), txt(r["equipo"])]
+        items.append({"t": "conector", "i": r["id_conector"], "l": nombre(r, "nombre", "id_conector"), "d": [x for x in d if x]})
+
+    extremos = {}      # id_cable → [(equipo, conector)] de las conexiones que apuntan a un equipo real
+    for r in _rows("""
+            SELECT cx.id_cable, e.nombre AS equipo, c.nombre AS conector
+            FROM conexion cx
+            JOIN conector c ON c.id_conector = cx.id_conector
+            JOIN equipo e ON e.id_equipo = c.id_equipo
+            WHERE c.id_equipo != 0
+            ORDER BY cx.id_cable, cx.id_conexion"""):
+        extremos.setdefault(r["id_cable"], []).append((txt(r["equipo"]), txt(r["conector"])))
+    for r in _rows("""
+            SELECT k.id_cable, k.codigo, k.estado, tc.nombre AS tipo_cable,
+                   COALESCE(k.es_cable_conexion_interna, 0) AS interno
+            FROM cable k LEFT JOIN tipo_cable tc ON tc.id_tipo_cable = k.id_tipo_cable
+            ORDER BY lower(k.codigo), k.id_cable"""):
+        ext = extremos.get(r["id_cable"], [])
+        equipos = list(dict.fromkeys(e for e, _c in ext if e))[:4]
+        it = {"t": "cable", "i": r["id_cable"], "l": nombre(r, "codigo", "id_cable"),
+              "d": [x for x in (txt(r["estado"]), txt(r["tipo_cable"]), " ⇄ ".join(equipos)) if x],
+              "x": " ".join(junta(e, c) for e, c in ext)}
+        if r["interno"]:
+            it["int"] = True
+        items.append(it)
+    return {"items": items}
+
+
 def firmas():
     """Argumentos de cada función: {nombre: [{nombre, requerido, defecto}]}.
     La página lo usa para prellenar los argumentos al elegir una función."""
@@ -1224,6 +1323,7 @@ FUNCIONES = {f.__name__: f for f in (
     ubicaciones, rack_vista, frame_vista, patcheras_global,
     impacto_cable, impacto_equipo, impacto_rack, riesgo_irf, conectores_de_equipo, diagnostico, linter_topologia,
     escenarios_lista, escenario_ficha, escenario_evaluar,
+    busqueda_indice,
 )}
 
 

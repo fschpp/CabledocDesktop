@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda"];
 
 if (!escenario) {
   let mal = 0;
@@ -103,9 +103,9 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/busqueda");                  // A.9 sigue siendo un marcador (A.8 ya es real)
-  ok($("#lateral a[data-id=busqueda]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.9 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/datos");                     // A.10 sigue siendo un marcador (A.9 ya es real)
+  ok($("#lateral a[data-id=datos]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
+  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.10 del plan."), "pantalla pendiente con su etapa");
   await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
   ok($("#contenido .arbol"), "Equipos muestra el árbol");
   const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
@@ -115,11 +115,11 @@ if (escenario === "completo") {
   ok($("#contenido h2").textContent === "Pantalla desconocida", "ruta desconocida");
   await ir("#/equipos/abc");
   ok($("#contenido h2").textContent === "Pantalla desconocida", "id no numérico → pantalla desconocida");
-  await ir("#/busqueda");
+  await ir("#/datos");
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.9 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido .pendiente").textContent.includes("Available in stage A.10 of the plan."), "pantalla pendiente en inglés (con {etapa})");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -909,6 +909,189 @@ c.commit(); c.close()
   ok(txt("#contenido h2").startsWith("Falla CAM X") && tarj("Recuperados") && txt("#contenido .volver a") === "← Voltar a Cenários" && txt("#contenido .aviso.ok").includes("passam de 3 para 0"), "ficha en portugués");
   await ir("#/escenarios/" + ID.V); await tick(150);
   ok(txt("#contenido h2") === "Vacío Descartado" && txt("#contenido").includes("Este cenário está descartado."), "descartado en portugués");
+}
+
+if (escenario === "busqueda_modelo") {      // busqueda_modelo.js puro, sin DOM
+  const { TIPOS, prepararIndice, buscar, rutaDe } = await import(pathToFileURL(path.join(WEB, "app/busqueda_modelo.js")).href);
+  const it = (t, i, l, d = [], x = "") => ({ t, i, l, d, x });
+  const idx = prepararIndice([
+    it("sala", 1, "Control Central"), it("rack", 2, "Rack 1", ["Control Central"]), it("frame", 3, "Frame Sony", ["Blackmagic Studio", "500"]),
+    it("equipo", 4, "CÁMARA 1", ["CAMARA", "Sony HDC-3500", "100", "WT-77"]), it("equipo", 5, "Monitor de Cámara", ["MONITOR", "LG"]),
+    it("equipo", 6, "Switcher", ["MATRIZ", "Sony", "XYZ"]), it("conector", 7, "OUT 1", ["BNC", "CÁMARA 1"]), it("conector", 8, "IN 1", ["BNC", "Switcher"]),
+    it("cable", 9, "C-001", ["VERIFICADO", "RG59", "CÁMARA 1 ⇄ Switcher"], "CÁMARA 1 OUT 1 Switcher IN 1"),
+  ]);
+  ok(TIPOS.join() === "sala,rack,frame,equipo,conector,cable", "orden de los grupos: infraestructura primero, cables al final");
+  ok(idx[3].nl === "camara 1" && idx[3].busqueda === "camara 1 camara sony hdc-3500 100 wt-77 ", "prepararIndice: etiqueta y texto normalizados (sin acentos ni mayúsculas)");
+  ok(idx[8].busqueda.includes("camara 1 out 1 switcher in 1"), "el texto extra de un cable entra en lo buscable");
+
+  let r = buscar(idx, "");
+  ok(!r.filtra && r.conteo.todos === 0 && TIPOS.every((t) => r.grupos[t].length === 0), "sin texto: no filtra y no hay resultados");
+  r = buscar(idx, "c");
+  ok(!r.filtra, "un solo carácter no filtra (mínimo 2)");
+  r = buscar(idx, "camara");
+  ok(r.filtra && r.conteo.equipo === 2 && r.conteo.conector === 1 && r.conteo.cable === 1 && r.conteo.todos === 4 && r.conteo.sala === 0, "«camara» (sin acento) encuentra CÁMARA: " + JSON.stringify(r.conteo));
+  ok(r.grupos.equipo.map((x) => x.i).join() === "4,5", "equipos: el que EMPIEZA con la palabra va antes que el que solo la contiene (4 antes que 5)");
+  r = buscar(idx, "sony 3500");
+  ok(r.conteo.todos === 1 && r.grupos.equipo[0].i === 4, "«sony 3500» = marca + modelo, en cualquier campo");
+  r = buscar(idx, "3500 sony");
+  ok(r.conteo.todos === 1, "el orden de las palabras no importa");
+  r = buscar(idx, "wt-77");
+  ok(r.conteo.todos === 1 && r.grupos.equipo[0].i === 4, "el número de serie encuentra el equipo");
+  r = buscar(idx, "camara 1 out");
+  ok(r.conteo.conector === 1 && r.grupos.conector[0].i === 7 && r.conteo.cable === 1 && r.conteo.equipo === 0, "«camara 1 out»: el conector y el cable que lo usa, no el equipo");
+  r = buscar(idx, "sony");
+  ok(r.conteo.frame === 1 && r.conteo.equipo === 2 && r.grupos.equipo.map((x) => x.i).join() === "4,6", "una palabra pega en varios tipos; el conteo es por tipo");
+  ok(r.grupos.equipo.every((x) => x.puntaje === undefined && x.it === undefined), "los grupos devuelven los items (no envoltorios)");
+  r = buscar(idx, "zzz");
+  ok(r.filtra && r.conteo.todos === 0, "sin coincidencias: filtra=true y todo en 0");
+  r = buscar(idx, "  CENTRAL   control ");
+  ok(r.conteo.sala === 1 && r.conteo.rack === 1, "espacios de más y mayúsculas no molestan; el rack matchea por su sala");
+  const antes = JSON.stringify(idx);
+  buscar(idx, "camara"); buscar(idx, "sony");
+  ok(JSON.stringify(idx) === antes, "buscar no modifica el índice");
+  ok([rutaDe(idx[0]), rutaDe(idx[1]), rutaDe(idx[2]), rutaDe(idx[3]), rutaDe(idx[6]), rutaDe(idx[8])].join(" ") === "#/ubicaciones #/racks/2 #/frames/3 #/equipos/4 #/conectores/7 #/cables/9", "rutas de cada tipo");
+
+  // rendimiento: ~20.000 items, consulta con varios tokens
+  const grande = prepararIndice(Array.from({ length: 20000 }, (_, i) => it(i % 3 ? "conector" : "equipo", i, "ITEM " + i, ["BNC", "EQUIPO " + (i % 500)], i % 7 ? "" : "extra " + i)));
+  const t0 = performance.now(); r = buscar(grande, "item 19 equipo"); const ms = performance.now() - t0;
+  ok(r.conteo.todos > 0 && ms < 200, `20.000 items se filtran en ${ms.toFixed(1)} ms (< 200)`);
+}
+
+if (escenario === "busqueda") {             // A.9: pantalla Búsqueda y caja de la barra, con el bridge REAL (Pyodide)
+  const E = await rpcPyodide();
+  instalarDom();
+  const llamadas = [];
+  const llamarReal = E.rpc.llamar; E.rpc.llamar = async (fn, a) => { llamadas.push(fn); return llamarReal(fn, a); };
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  const txt = (s) => $(s)?.textContent;
+  const todos = (s) => [...document.querySelectorAll(s)];
+  const hrefs = (s) => todos(s).map((a) => a.getAttribute("href"));
+  const nIndice = () => llamadas.filter((f) => f === "busqueda_indice").length;
+  const escribir = async (sel, valor) => { const el = $(sel); el.value = valor; el.dispatchEvent(new window.Event("input", { bubbles: true })); await tick(300); };
+  const grupo = (tipo) => todos(`#contenido .busqueda-grupo[data-tipo=${tipo}] .resultado`);
+  const chip = (tipo) => $(`#contenido .chip[data-tipo=${tipo}]`);
+
+  // Datos de prueba sobre la base ya cargada: marca, sala/rack/frame, un equipo con acento, uno con HTML, 30 monitores (tope por grupo) y un cable interno.
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""
+INSERT INTO marca(id_marca,nombre) VALUES (1,'Sony');
+INSERT INTO tipo_equipo(id_tipo_equipo,nombre) VALUES (2,'MONITOR');
+UPDATE equipo SET id_marca=1, num_serie='WT-77' WHERE id_equipo=1;
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (3,1,'CÁMARA DE ESTUDIO'),(4,1,'<b>NEGRITA</b> & Cía');
+INSERT INTO sala(id_sala,nombre) VALUES (1,'Control Central');
+INSERT INTO rack(id_rack,numero,nombre,cantidad_maxima) VALUES (1,1,'Rack Principal',42);
+INSERT INTO rack_por_sala(id_rack,id_sala) VALUES (1,1);
+INSERT INTO frame(id_frame,nombre,num_inventario) VALUES (1,'Frame Audio',500);
+INSERT INTO posicion_en_rack(id_posicion_en_rack,id_rack,orificio_posicion_equipo_en_rack,unidades_de_rack_equipo,id_frame) VALUES (1,1,10,4,1);
+INSERT INTO cable(id_cable,codigo,es_cable_conexion_interna) VALUES (2,'INT-CAM1',1);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES (3,2,3,1);
+""")
+c.executemany("INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (?,2,?)", [(100 + i, "MON %02d" % i) for i in range(30)])
+c.commit(); c.close()`);
+  E.emitirEstado(); await tick(100);              // base cambiada: el shell invalida el índice (gen)
+
+  // 1) menú: Búsqueda ya no es un marcador; sin texto pide 2 caracteres
+  await ir("#/busqueda"); await tick(100);
+  ok($("#lateral a[data-id=busqueda]").getAttribute("aria-current") === "page" && !txt("#contenido").includes("Disponible en la etapa"), "Búsqueda ya no es un marcador");
+  ok(txt("#contenido h2") === "Búsqueda" && txt("#busqueda-estado") === "Escribí al menos 2 caracteres para buscar." && !$("#contenido .resultado"), "sin texto: pide 2 caracteres y no lista nada");
+  ok(document.body.dataset.ruta === "busqueda", "el body sabe la ruta (la caja de la barra se oculta por CSS)");
+  await escribir("#busqueda-texto", "c");
+  ok(txt("#busqueda-estado") === "Escribí al menos 2 caracteres para buscar." && !$("#contenido .resultado"), "un solo carácter no busca");
+
+  // 2) búsqueda: grupos, enlaces, acentos
+  await escribir("#busqueda-texto", "camara");
+  ok(txt("#busqueda-estado") === "4 coincidencias", "«camara» sin acento: " + txt("#busqueda-estado"));
+  ok(grupo("equipo").length === 4 && !$("#contenido .busqueda-grupo[data-tipo=conector]"), "4 equipos (CÁMARA DE ESTUDIO por el nombre; los otros por su tipo CAMARA); ningún conector");
+  ok(hrefs("#contenido .busqueda-grupo[data-tipo=equipo] .resultado a").join() === "#/equipos/3,#/equipos/4,#/equipos/1,#/equipos/2", "enlaces a la ficha de cada equipo (CÁMARA DE ESTUDIO primero: empieza con la palabra)");
+  ok(grupo("equipo")[0].querySelector("a").textContent === "CÁMARA DE ESTUDIO", "el que EMPIEZA con la palabra va primero");
+
+  // 3) la ruta refleja la búsqueda sin repintar la pantalla; los datos de cada tipo salen completos
+  ok(window.location.hash === "#/busqueda/camara", "replaceState: " + window.location.hash);
+  const entradaViva = $("#busqueda-texto");
+  await escribir("#busqueda-texto", "sony 3500");
+  ok($("#busqueda-texto") === entradaViva && window.location.hash === "#/busqueda/sony%203500", "tipear no repinta la pantalla (el campo es el mismo) y la ruta sigue al texto");
+  ok(grupo("equipo").length === 1 && grupo("equipo")[0].querySelector(".sub").textContent === "CAMARA · Sony HDC-3500 · WT-77", "marca + modelo: " + grupo("equipo")[0]?.textContent);
+  await escribir("#busqueda-texto", "wt-77");
+  ok(grupo("equipo").length === 1 && grupo("equipo")[0].querySelector("a").textContent === "CAM 1", "el número de serie encuentra el equipo");
+  await escribir("#busqueda-texto", "cam 1 out");
+  ok(grupo("conector").length === 2 && grupo("equipo").length === 0 && grupo("cable").length === 2, "«cam 1 out»: conectores OUT 1/OUT 2, y los cables que los usan: " + todos("#contenido .busqueda-grupo").map((g) => g.dataset.tipo + g.querySelectorAll(".resultado").length));
+  ok(hrefs("#contenido .busqueda-grupo[data-tipo=conector] .resultado a").join() === "#/conectores/1,#/conectores/3" && hrefs("#contenido .busqueda-grupo[data-tipo=cable] .resultado a").join() === "#/cables/1,#/cables/2", "enlaces de conectores y cables");
+  ok(grupo("cable")[0].querySelector(".etiqueta") === null && grupo("cable")[1].querySelector(".etiqueta").textContent === "interna" && grupo("cable")[0].textContent.includes("CAM 1 ⇄ CAM 2"), "cable externo con sus extremos; el interno, marcado");
+
+  // 4) infraestructura
+  await escribir("#busqueda-texto", "control");
+  ok(grupo("sala").length === 1 && hrefs("#contenido .busqueda-grupo[data-tipo=sala] a")[0] === "#/ubicaciones" && grupo("rack").length === 1 && grupo("rack")[0].textContent.includes("Control Central"), "sala (enlaza a Ubicaciones) y rack (con su sala)");
+  await escribir("#busqueda-texto", "audio");
+  ok(hrefs("#contenido .busqueda-grupo[data-tipo=frame] a")[0] === "#/frames/1" && grupo("frame")[0].textContent.includes("Rack Principal") && grupo("frame")[0].textContent.includes("500"), "frame con su rack e inventario");
+  await escribir("#busqueda-texto", "rack principal");
+  ok(hrefs("#contenido .busqueda-grupo[data-tipo=rack] a")[0] === "#/racks/1" && grupo("frame").length === 1, "rack enlaza a su vista; el frame que está en él también aparece");
+
+  // 5) sin resultados, HTML como texto
+  await escribir("#busqueda-texto", "zzzzzz");
+  ok(txt("#busqueda-estado") === "Sin resultados" && !$("#contenido .resultado") && todos("#contenido .chip").length === 1, "sin resultados: aviso y solo el chip «Todos (0)»");
+  await escribir("#busqueda-texto", "negrita");
+  ok(grupo("equipo").length === 1 && grupo("equipo")[0].querySelector("a").textContent === "<b>NEGRITA</b> & Cía" && !$("#contenido .resultado b"), "el HTML de un nombre se muestra como texto (sin inyección)");
+
+  // 6) chips por tipo y tope por grupo
+  await escribir("#busqueda-texto", "mon");
+  ok(grupo("equipo").length === 25 && txt("#contenido .ver-todos") === "Ver todos (30)", "en «Todos»: 25 filas por tipo y botón «Ver todos (30)»");
+  ok(chip("todos").textContent === "Todos (30)" && chip("equipo").textContent === "Equipos (30)" && !chip("conector") && chip("todos").getAttribute("aria-pressed") === "true", "chips con conteo; los tipos sin resultados no se ofrecen");
+  $("#contenido .ver-todos").click(); await tick(50);
+  ok(grupo("equipo").length === 30 && !$("#contenido .ver-todos") && chip("equipo").getAttribute("aria-pressed") === "true" && window.location.hash === "#/busqueda/mon/equipo", "«Ver todos» pasa al tipo: 30 filas, chip activo y ruta con el tipo");
+  chip("todos").click(); await tick(50);
+  ok(grupo("equipo").length === 25 && window.location.hash === "#/busqueda/mon", "volver a «Todos»");
+
+  // 7) la ruta se abre directo (texto y tipo) y el tipo vacío cae a «Todos»
+  await ir("#/busqueda/cam%201%20out/conector"); await tick(100);
+  ok($("#busqueda-texto").value === "cam 1 out" && grupo("conector").length === 2 && !$("#contenido .busqueda-grupo[data-tipo=equipo]") && chip("conector").getAttribute("aria-pressed") === "true", "#/busqueda/cam%201%20out/conector abre filtrado por conectores");
+  await escribir("#busqueda-texto", "negrita");
+  ok(chip("todos").getAttribute("aria-pressed") === "true" && grupo("equipo").length === 1, "si el tipo elegido queda sin resultados, vuelve a «Todos»");
+  await ir("#/busqueda/mon/inventado"); await tick(100);
+  ok(chip("todos").getAttribute("aria-pressed") === "true" && grupo("equipo").length === 25, "un tipo desconocido en la ruta se ignora");
+
+  // 8) caja de la barra: Enter navega; la tecla «/» enfoca
+  await ir("#/inicio"); await tick(100);
+  ok($("#barra-buscar") && $("#barra-buscar").getAttribute("role") === "search" && $("#barra-busqueda").placeholder === "Buscar equipos, conectores, cables, racks…", "la barra tiene la caja de búsqueda");
+  $("#contenido").dispatchEvent(new window.KeyboardEvent("keydown", { key: "/", bubbles: true })); await tick();
+  ok(document.activeElement === $("#barra-busqueda"), "«/» enfoca la caja de la barra");
+  const ev = new window.KeyboardEvent("keydown", { key: "/", bubbles: true, cancelable: true });
+  $("#barra-busqueda").dispatchEvent(ev);
+  ok(!ev.defaultPrevented, "«/» dentro de un campo no se roba (se escribe normal)");
+  $("#barra-busqueda").value = "  cam 1 "; $("#barra-buscar").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); await tick(150);
+  ok(window.location.hash === "#/busqueda/cam%201" && $("#busqueda-texto").value === "cam 1" && grupo("equipo").length >= 1 && $("#barra-busqueda").value === "", "Enter en la barra abre #/busqueda/cam%201, ya buscado, y vacía la caja");
+  $("#contenido").dispatchEvent(new window.KeyboardEvent("keydown", { key: "/", bubbles: true })); await tick();
+  ok(document.activeElement === $("#busqueda-texto"), "en Búsqueda «/» enfoca el campo de la pantalla");
+  $("#barra-busqueda").value = ""; $("#barra-buscar").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); await tick(150);
+  ok(window.location.hash === "#/busqueda" && txt("#busqueda-estado") === "Escribí al menos 2 caracteres para buscar.", "Enter con la caja vacía abre Búsqueda sin texto");
+
+  // 9) caché: un solo pedido por carga de base
+  const n0 = nIndice();
+  await ir("#/inicio"); await ir("#/busqueda/mon"); await ir("#/equipos"); await ir("#/busqueda/cam");
+  ok(nIndice() === n0, "volver a Búsqueda no vuelve a pedir el índice (" + nIndice() + " pedido/s en total)");
+  E.emitirEstado(); await tick(200);              // la base cambió (gen++)
+  await ir("#/busqueda/mon"); await tick(100);
+  ok(nIndice() === n0 + 1, "al cambiar la base se vuelve a pedir una sola vez");
+
+  // 10) idioma
+  await cambiar("#sel-idioma", "en"); await tick(150);
+  ok(txt("#contenido h2") === "Search" && $("#busqueda-texto").placeholder === "Search equipment, connectors, cables, racks…" && $("#barra-busqueda").placeholder.startsWith("Search equipment"), "inglés: título y placeholders");
+  ok(chip("todos").textContent === "All (30)" && chip("equipo").textContent === "Equipment (30)" && txt("#contenido .ver-todos") === "Show all (30)" && txt("#busqueda-estado") === "30 matches", "inglés: chips, botón y contador: " + chip("equipo").textContent);
+  await ir("#/busqueda/cam%201%20out"); await tick(100);
+  ok(grupo("conector")[0].querySelector(".resultado-tipo").textContent.endsWith("Connector") && grupo("cable")[0].querySelector(".resultado-tipo").textContent.endsWith("Cable") && grupo("cable")[1].textContent.includes("internal"), "inglés: tipo de cada fila y «internal»: ");
+  await escribir("#busqueda-texto", "q"); ok(txt("#busqueda-estado") === "Type at least 2 characters to search.", "inglés: pedir 2 caracteres");
+  await escribir("#busqueda-texto", "zzzzzz"); ok(txt("#busqueda-estado") === "No results", "inglés: sin resultados");
+  await cambiar("#sel-idioma", "pt"); await tick(150);
+  ok($("#barra-busqueda").placeholder.startsWith("Buscar equipamentos") && txt("#busqueda-estado") === "Sem resultados", "portugués: placeholder y sin resultados: " + txt("#busqueda-estado"));
+  await cambiar("#sel-idioma", "es"); await tick(100);
+
+  // 11) error del bridge: panel con detalle
+  E.fallar("Boom del índice"); E.emitirEstado(); await tick(200);   // gen++ invalida la caché: el próximo pedido falla
+  await ir("#/busqueda/mon"); await tick(100);
+  ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("Boom del índice"), "si el bridge falla, panel de error con el detalle");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

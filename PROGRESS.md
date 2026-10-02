@@ -207,6 +207,28 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-02 — Fase A.9 de `plan_pyodide_v1.md` (búsqueda global), sobre `main` en `c333d8a` (A.1–A.8 mergeadas, A.8 por PR #92)._
+
+### Current Focus
+A.9 entregada como diff: `bridge.busqueda_indice()` (índice plano de equipos, conectores, cables, salas, racks y frames), pantalla `#/busqueda` (`app/busqueda.js` + `app/busqueda_modelo.js` + `app/busqueda.css`) y caja de búsqueda en la barra superior (`shell.js`, tecla `/`). Pendiente: smoke test en el navegador con el `db.db` real y commit. Siguiente: A.10 (export/import del `.db` completo y catálogo JSON v2).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 bridge · A.2 shell · A.3 árbol de equipos · A.4 fichas e imágenes · A.5 conexiones y cadena · A.6 rack / frame-slots / patcheras · A.7 análisis · A.8 escenarios (mergeadas, A.8 por PR #92)
+- [x] Done — A.9 búsqueda global (diff presentado; `test_busqueda.py`, `test_bridge.py`, `test_analisis.py`, `test_escenarios.py`, `test_i18n_web.py` y los 14 escenarios de `test_shell.mjs` OK; falta smoke en navegador real)
+- [ ] Todo — A.10 y A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Smoke a hacer con el `db.db` real: (1) `#/busqueda` — buscar `sony 3500`, un número de serie y un código de cable: tienen que dar lo mismo que el filtro del panel de infraestructura del desktop (equipos) y de Cables; (2) tiempo de la primera búsqueda (el índice son ~3.000 filas con la base real: 418 equipos, 2.071 conectores, 515 cables) y fluidez al tipear; (3) la caja de la barra y la tecla `/`; (4) el índice se vuelve a pedir tras cargar otra base.
+- Búsqueda por conector: el texto buscable incluye el nombre del equipo (para que `cam 1 out` funcione), así que buscar solo el nombre de un equipo también muestra sus conectores en el grupo «Conectores», debajo de los equipos. El árbol de GTK/Kivy no lo hace (ahí un conector solo matchea por su nombre). Si resulta ruidoso con la base real, la salida es sacar el equipo de `x`/`d` del conector y dejarlo solo como dato mostrado.
+- Los cables internos (`es_cable_conexion_interna = 1`) entran al índice y se marcan «interna» (la lista `#/cables` de A.4 los oculta por defecto; el árbol del desktop los lista).
+- Orden dentro de cada tipo: `lower()` de SQLite solo baja ASCII y ordena los NULL primero (igual que el resto del bridge): un nombre con acento puede quedar un poco fuera del orden alfabético esperado. Los que EMPIEZAN con lo buscado van primero, así que casi no se nota.
+- Bug menor encontrado de pasada, SIN corregir (fuera del alcance de A.9): en el árbol de A.3 la etiqueta de los nodos sala/rack/frame usa `t("sala")`, `t("rack")`, `t("frame")` en minúscula y esas claves no existen en el diccionario: en inglés y portugués se ven en español. `busqueda.js` usa las claves capitalizadas (`Sala`, `Rack`, `Frame`), que sí están traducidas.
+- `plan_pyodide_v1.md` no está en el repo: marcar A.9 como hecha ahí (y A.1 y A.3 a A.8 si falta).
+- `test_shell.mjs`: el escenario `completo` usaba `#/busqueda` como ejemplo de pantalla marcador; pasó a `#/datos` (A.10).
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-02 — Fase A.8 de `plan_pyodide_v1.md` (escenarios: abrir y evaluar), sobre `main` en `566f4cd` (A.1–A.7 mergeadas, A.7 por PR #91)._
 
 ### Current Focus

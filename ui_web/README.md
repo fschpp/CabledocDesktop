@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.8)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.9)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -92,3 +92,16 @@ Pantalla `#/escenarios` (`app/escenarios.js`; los estilos están en `app/analisi
 - Un escenario `aplicado` se evalúa sobre el estado actual de la base, que ya incluye sus cambios (la pantalla lo avisa). Si una reconexión apunta a un conector que ya no existe, el motor la ignora y la pantalla lo informa sin romper el resto.
 
 Pruebas: `python3 ui_web/tests/test_escenarios.py` (bridge: lista, ficha, 5 escenarios evaluados, coherencia con `Escenario.evaluar()`, solo lectura) y el escenario `escenarios` de `node tests/test_shell.mjs` (35 chequeos con el bridge real sobre Pyodide: lista, fichas, avisos, enlaces, errores de ruta, inglés y portugués).
+
+## Búsqueda global (Fase A.9)
+
+Pantalla `#/busqueda` (ítem **Búsqueda** del menú) y una caja en la barra superior de todas las pantallas: Enter lleva a `#/busqueda/<texto>`; la tecla `/` enfoca la caja desde cualquier pantalla (si ya se está escribiendo en un campo, no se roba). Busca a la vez en **equipos, conectores, cables, salas, racks y frames**. Solo lectura.
+
+- **Datos**: `bridge.busqueda_indice()` devuelve una lista plana (una fila por entidad: `t` tipo, `i` id, `l` etiqueta, `d` datos que se muestran, `x` texto que solo se busca). La pantalla la pide **una vez por carga de base** y el filtro corre en memoria (`app/busqueda_modelo.js`, sin DOM); no hay consultas por tecla.
+- **Qué se busca en cada tipo**: equipo = nombre, tipo, marca, modelo, inventario y serie (los mismos campos que la etiqueta del árbol de A.3 y del panel de GTK/Kivy: `sony 3500` o un número de serie encuentran el equipo); conector = nombre, tipo de conector y equipo (`cam 1 out`); cable = código, estado, tipo y, de cada extremo, `equipo conector` (en el desktop un cable aparece si matchea alguna de sus conexiones); sala = nombre; rack = nombre y sus salas; frame = nombre, marca/modelo, inventario y su rack. Los conectores del equipo 0 («sin equipo») no entran; los cables internos sí (como en el árbol del desktop) y se marcan «interna».
+- **Reglas** (las mismas del filtro del árbol): todas las palabras deben aparecer, en cualquier orden, sin distinguir mayúsculas ni acentos; mínimo 2 caracteres; pausa de 200 ms al tipear. Dentro de cada tipo van primero los que **empiezan** con la primera palabra, luego los que la llevan en el nombre y al final los que coinciden solo por sus datos (equipo, marca, extremos…); a igual puntaje, orden alfabético.
+- **Presentación**: grupos en el orden del árbol (Salas, Racks, Frames, Equipos, Conectores, Cables) y chips por tipo con su cantidad (los tipos sin resultados no se ofrecen). En «Todos» se muestran 25 filas por tipo con «Ver todos (n)»; en un tipo, hasta 300 filas. Cada resultado enlaza a su ficha (`#/equipos/<id>`, `#/conectores/<id>`, `#/cables/<id>`, `#/racks/<id>`, `#/frames/<id>`); las salas no tienen ficha y enlazan a `#/ubicaciones`.
+- **Ruta**: la búsqueda queda en la URL (`#/busqueda/sony%203500`, con tipo `#/busqueda/mon/equipo`) y se actualiza al tipear **sin repintar** la pantalla, así que se puede copiar el enlace.
+- Los nombres de la base se insertan como texto (nunca como HTML).
+- Pruebas: `python3 ui_web/tests/test_busqueda.py` (índice contra una base armada con `schema_db.sql`: tipos, exclusiones, extremos de cable, coherencia con `arbol_equipos`, solo lectura) y, en `node tests/test_shell.mjs`, los escenarios `busqueda_modelo` (filtro puro, 20.000 items) y `busqueda` (pantalla y caja de la barra con el bridge real: acentos, orden, chips, tope por grupo, ruta, tecla `/`, caché por carga de base, es/en/pt, error del bridge).
+- No incluido (queda para etapas siguientes): señales y escenarios como resultados, resaltado de las palabras encontradas, búsqueda en notas/observaciones.
