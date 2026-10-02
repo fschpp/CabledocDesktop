@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.7)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.8)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -81,3 +81,14 @@ Nota sobre "solo lectura": con una base vieja, los motores de `core/` migran el 
 
 Pruebas: `python3 ui_web/tests/test_analisis.py` (bridge, topología de 7 equipos) y el escenario `analisis` de `node tests/test_shell.mjs` (62 chequeos con el bridge real sobre Pyodide: navegación, impacto, IRF, bisección completa con deshacer/reiniciar, linter, enlaces desde las fichas, inglés).
 
+## Escenarios (Fase A.8)
+
+Pantalla `#/escenarios` (`app/escenarios.js`; los estilos están en `app/analisis.css`). Es de solo lectura: se **abren y evalúan** los escenarios que el escritorio guardó en la base (tablas `escenario` y `escenario_cambio`). Crear, editar y aplicar a la infraestructura es B.11.
+
+- **Lista** (`#/escenarios`): nombre, estado (borrador / simulado / aprobado / aplicado / descartado), resumen de cambios por tipo y fecha de la última edición, del más reciente al más viejo (`escenarios_lista`).
+- **Ficha y evaluación** (`#/escenarios/<id>`): los cambios (falla de equipo, cable cortado, reconexión virtual) con enlaces a equipos, cables y conectores, y el resultado de `Escenario.evaluar()` (`escenario_evaluar`): todos los cambios juntos en un solo cálculo, como el desktop. Corre sola al abrir (milisegundos). Con reconexiones virtuales muestra el comparativo **antes → después** y los equipos recuperados; sin ellas, los equipos sin señal, puntos finales y cables afectados, y las reglas lógicas que dejan de cumplirse. Los equipos que fallan en el escenario no cuentan como "sin señal" (igual que el motor).
+- **Bridge** (`bridge.py`): `escenarios_lista`, `escenario_ficha` (datos + cambios con nombres, sin evaluar; la usa `escenario_evaluar` y queda lista para B.11) y `escenario_evaluar`. Usa el motor real `core/escenario_engine.py`; `core/` y `core.zip` no cambian.
+- **Solo lectura de verdad**: las tablas se leen con `_rows_opt` (una base que nunca las creó muestra la lista vacía y **no** se crean: `Modelo.asegurar_tablas_escenario` escribiría). Evaluar no guarda el resultado, no cambia el estado del escenario y la reconexión virtual **no** crea cables (eso lo hace `aplicar_a_infraestructura`, B.11).
+- Un escenario `aplicado` se evalúa sobre el estado actual de la base, que ya incluye sus cambios (la pantalla lo avisa). Si una reconexión apunta a un conector que ya no existe, el motor la ignora y la pantalla lo informa sin romper el resto.
+
+Pruebas: `python3 ui_web/tests/test_escenarios.py` (bridge: lista, ficha, 5 escenarios evaluados, coherencia con `Escenario.evaluar()`, solo lectura) y el escenario `escenarios` de `node tests/test_shell.mjs` (35 chequeos con el bridge real sobre Pyodide: lista, fichas, avisos, enlaces, errores de ruta, inglés y portugués).

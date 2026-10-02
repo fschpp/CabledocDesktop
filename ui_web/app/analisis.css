@@ -1,4 +1,4 @@
-/* Análisis (A.7). Usa las variables de color de app.css. */
+/* Análisis (A.7) y Escenarios (A.8). Usa las variables de color de app.css. */
 .pestanas{display:flex;gap:.3rem;flex-wrap:wrap;margin:.2rem 0 1rem;border-bottom:1px solid var(--borde)}
 .pestanas a,.chip{padding:.35rem .8rem;border-radius:8px 8px 0 0;text-decoration:none;color:var(--texto2)}
 .pestanas a[aria-current=page]{background:var(--panel);color:var(--texto);font-weight:600;border:1px solid var(--borde);border-bottom-color:var(--panel);margin-bottom:-1px}
@@ -16,3 +16,8 @@
 .cadena-diag .etiqueta{font-size:.8em;color:var(--texto2);border:1px solid var(--borde);border-radius:999px;padding:0 .5rem}
 .pregunta,.resultado{background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:.6rem 1rem}
 .pregunta .acciones button{margin-right:.4rem}
+/* Escenarios (A.8) */
+.estado{display:inline-block;padding:0 .55rem;border-radius:999px;font-size:.8em;font-weight:500;border:1px solid var(--borde);background:var(--panel2);color:var(--texto2);vertical-align:middle}
+.estado.e-aplicado{border-color:var(--ok);color:var(--ok)}.estado.e-aprobado{border-color:var(--acento);color:var(--acento)}
+.estado.e-descartado{border-color:var(--mal);color:var(--mal)}.estado.e-simulado{border-color:var(--aviso);color:var(--aviso)}
+.resultado-escenario .tarjetas{margin-bottom:.6rem}.aviso ul{margin:.3rem 0 0;padding-left:1.2rem}

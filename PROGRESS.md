@@ -207,6 +207,28 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-02 — Fase A.8 de `plan_pyodide_v1.md` (escenarios: abrir y evaluar), sobre `main` en `566f4cd` (A.1–A.7 mergeadas, A.7 por PR #91)._
+
+### Current Focus
+A.8 entregada como diff: 3 funciones nuevas en `ui_web/bridge.py` (`escenarios_lista`, `escenario_ficha`, `escenario_evaluar`), pantalla `#/escenarios` (`app/escenarios.js`) con la lista y la ficha de cada escenario evaluada al abrir. Pendiente: smoke test en el navegador con el `db.db` real y commit. Siguiente: A.9 (búsqueda global).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 bridge · A.2 shell · A.3 árbol de equipos · A.4 fichas e imágenes · A.5 conexiones y cadena · A.6 rack / frame-slots / patcheras · A.7 análisis (mergeadas, A.7 por PR #91)
+- [x] Done — A.8 escenarios (diff presentado; `test_escenarios.py`, `test_i18n_web.py` y los 12 escenarios de `test_shell.mjs` OK; falta smoke en navegador real)
+- [ ] Todo — A.9 a A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Smoke a hacer con el `db.db` real: (1) `#/escenarios` — la cantidad y el orden de escenarios deben coincidir con la lista de Modo Escenario del desktop; (2) abrir uno con reconexión virtual y comparar el antes → después y los recuperados con el panel del desktop; (3) abrir uno `aplicado` y confirmar que el aviso tiene sentido con sus datos.
+- Solo lectura: `Modelo.asegurar_tablas_escenario()` escribe (CREATE TABLE IF NOT EXISTS), así que el bridge lee las tablas con `_rows_opt` y solo instancia `Escenario` cuando el escenario ya existe (ahí ese asegurar es un no-op). En una base que nunca creó las tablas, la lista sale vacía y no se crean. `test_escenarios.py` verifica ambas cosas y que equipo/cable/conexion/escenario quedan intactos tras evaluar.
+- `cables_impactados` del motor incluye los cables que tocan un equipo sin señal aunque el otro extremo sea el equipo caído (p. ej. el cable que sale de la cámara que falla). Es lo que devuelve `simular_escenario`; la pantalla lo muestra tal cual.
+- Los equipos que fallan en el escenario NO cuentan como "sin señal" (el motor los resta); la pantalla lo aclara. `fecha_ultima_edicion` tiene resolución de segundos: a igual fecha, la lista pone primero el id más nuevo (`Modelo` no desempata).
+- Un escenario `aplicado` se evalúa sobre la base actual, que ya incluye sus cambios: el resultado deja de ser "qué pasaría" (la pantalla avisa). `resumen_aplicar()` (vista previa de qué haría "Aplicar") y la capa de escenario sobre el diagrama quedan para B.11 y C.3.
+- `plan_pyodide_v1.md` no está en el repo: marcar A.1 y A.3 a A.8 como hechas ahí.
+- `test_shell.mjs`: el escenario `completo` usaba `#/escenarios` como ejemplo de pantalla marcador; pasó a `#/busqueda` (A.9).
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-02 — Fase A.7 de `plan_pyodide_v1.md` (impacto, IRF, diagnóstico de falla y linter de topología), sobre `main` en `96ad07d` (A.1–A.6 mergeadas, A.6 por PR #89)._
 
 ### Current Focus

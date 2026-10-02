@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios"];
 
 if (!escenario) {
   let mal = 0;
@@ -103,9 +103,9 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/escenarios");
-  ok($("#lateral a[data-id=escenarios]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.8 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/busqueda");                  // A.9 sigue siendo un marcador (A.8 ya es real)
+  ok($("#lateral a[data-id=busqueda]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
+  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.9 del plan."), "pantalla pendiente con su etapa");
   await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
   ok($("#contenido .arbol"), "Equipos muestra el árbol");
   const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
@@ -115,11 +115,11 @@ if (escenario === "completo") {
   ok($("#contenido h2").textContent === "Pantalla desconocida", "ruta desconocida");
   await ir("#/equipos/abc");
   ok($("#contenido h2").textContent === "Pantalla desconocida", "id no numérico → pantalla desconocida");
-  await ir("#/escenarios");
+  await ir("#/busqueda");
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.8 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido .pendiente").textContent.includes("Available in stage A.9 of the plan."), "pantalla pendiente en inglés (con {etapa})");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -797,6 +797,118 @@ c.commit(); c.close()`);
   ok(txt("#contenido h3") === "If “CAM X” fails completely" && txt(".pestanas a[aria-current=page]") === "Impact", "impacto en inglés: " + txt("#contenido h3"));
   await ir("#/analisis/diagnostico/14"); await tick(200);
   ok(boton(/Yes, there is signal/) && txt("#contenido .pregunta h3").startsWith("Is there signal at"), "diagnóstico en inglés");
+}
+
+if (escenario === "escenarios") {         // A.8: lista y evaluación de escenarios con el bridge REAL (Pyodide)
+  const E = await rpcPyodide();
+  instalarDom();
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  const txt = (s) => $(s)?.textContent;
+  const hrefs = (s) => [...document.querySelectorAll(s)].map((a) => a.getAttribute("href"));
+  const filas = (s) => [...document.querySelectorAll(s)].map((tr) => [...tr.children].map((td) => td.textContent));
+  const tarj = (et) => [...document.querySelectorAll("#contenido .tarjeta")].find((c) => c.querySelector(".et").textContent === et);
+
+  // base sin escenarios (la de prueba trae las tablas vacías)
+  await ir("#/escenarios"); await tick(100);
+  ok($("#lateral a[data-id=escenarios]").getAttribute("aria-current") === "page" && !txt("#contenido").includes("Disponible en la etapa"), "Escenarios ya no es un marcador");
+  ok(txt("#contenido h2") === "Escenarios" && txt("#contenido .aviso").includes("No hay escenarios guardados en esta base"), "sin escenarios: mensaje vacío");
+
+  // Red: CAM X -X-001-> DIST A -X-002-> MON 1 / -X-003-> MON 2, más CAM Y (fuente de reserva). Cinco escenarios armados con Modelo, como el desktop.
+  E.py.runPython(`
+from core.modelo import Modelo
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""
+INSERT INTO tipo_equipo(id_tipo_equipo,nombre,rol_senal) VALUES (2,'DISTRIBUIDOR','DISTRIBUIDOR'),(3,'MONITOR',NULL);
+INSERT INTO tipo_conector(id_tipo_conector,nombre) VALUES (2,'IN'),(3,'OUT');
+""")
+c.commit(); c.close()
+Modelo.asegurar_columnas_control_idioma()
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (10,1,'CAM X'),(11,2,'DIST A'),(12,3,'MON 1'),(13,3,'MON 2'),(14,1,'CAM Y');
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector) VALUES (10,'OUT',10,3),(11,'IN',11,2),(12,'OUT 1',11,3),(13,'OUT 2',11,3),(14,'IN',12,2),(15,'IN',13,2),(16,'OUT',14,3);
+INSERT INTO cable(id_cable,codigo,es_cable_conexion_interna) VALUES (10,'X-001',0),(11,'X-002',0),(12,'X-003',0);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES (10,10,10,0),(11,10,11,0),(12,11,12,0),(13,11,14,0),(14,12,13,0),(15,12,15,0);
+""")
+c.commit(); c.close()
+a = Modelo.crear_escenario("Falla CAM X", "Se cae la cámara X")
+Modelo.agregar_cambio_escenario(a, "falla_equipo", id_equipo="10")
+b = Modelo.crear_escenario("Falla CAM X con reserva")
+Modelo.agregar_cambio_escenario(b, "falla_equipo", id_equipo="10")
+Modelo.agregar_cambio_escenario(b, "conexion_virtual", id_conector_a="16", id_conector_b="11")
+k = Modelo.crear_escenario("Corte X-002")
+Modelo.agregar_cambio_escenario(k, "desconexion_cable", id_cable="11")
+Modelo.actualizar_estado_escenario(k, "aplicado")
+v = Modelo.crear_escenario("Vacío")
+Modelo.actualizar_estado_escenario(v, "descartado")
+i = Modelo.crear_escenario("Reserva rota")
+c = sqlite3.connect("/app/data/database/db.db")      # FK sin forzar: simula un conector borrado a mano
+c.execute("INSERT INTO escenario_cambio(id_escenario,tipo,id_conector_a,id_conector_b,orden) VALUES (?,?,?,?,0)", (i, "conexion_virtual", 16, 999))
+c.commit(); c.close()
+`);
+  E.rpc.cargarDb(new Uint8Array(E.py.FS.readFile("/app/data/database/db.db")).buffer); await tick(300);   // el shell repinta con la base ya completa
+  const ID = { A: 1, B: 2, K: 3, V: 4, I: 5 };
+
+  // lista
+  await ir("#/escenarios"); await tick(100);
+  const lista = [...document.querySelectorAll("#contenido tbody tr")].map((tr) => [tr.querySelector("a").textContent, ...[...tr.children].slice(1).map((td) => td.textContent)]);   // [nombre, estado, cambios, fecha]
+  const descripciones = [...document.querySelectorAll("#contenido tbody tr td:first-child")].map((td) => td.textContent);
+  ok(lista.length === 5 && txt("#contenido .sub[aria-live]") === "5 elementos", "lista: 5 escenarios, más nuevo primero");
+  ok(lista.map((f) => f[0]).join("|") === "Reserva rota|Vacío|Corte X-002|Falla CAM X con reserva|Falla CAM X", "lista: orden por fecha, a igual fecha el id más nuevo " + lista.map((f) => f[0]));
+  ok(hrefs("#contenido tbody a").join() === "#/escenarios/5,#/escenarios/4,#/escenarios/3,#/escenarios/2,#/escenarios/1", "lista: enlaces a cada escenario");
+  const fila = (n) => lista.find((f) => f[0] === n);
+  ok(fila("Falla CAM X con reserva")[1] === "Borrador" && fila("Falla CAM X con reserva")[2] === "Fallas: 1 · Reconexiones: 1", "lista: estado y resumen de cambios");
+  ok(fila("Corte X-002")[1] === "Aplicado" && fila("Corte X-002")[2] === "Cortes: 1" && fila("Vacío")[1] === "Descartado" && fila("Vacío")[2] === "Sin cambios", "lista: aplicado, descartado y sin cambios");
+  ok(descripciones.some((d) => d === "Falla CAM XSe cae la cámara X") && descripciones.filter((d) => d.includes("Se cae")).length === 1 && /^\d{4}-\d\d-\d\d /.test(fila("Vacío")[3]), "lista: descripción y fecha de última edición");
+
+  // ficha: falla simple
+  await ir("#/escenarios/" + ID.A); await tick(150);
+  ok(txt("#contenido .volver a") === "← Volver a Escenarios" && hrefs("#contenido .volver a")[0] === "#/escenarios", "ficha: enlace de vuelta");
+  ok(txt("#contenido h2") === "Falla CAM X Borrador" && txt("#contenido .datos").includes("Se cae la cámara X"), "ficha: título con estado y descripción");
+  ok(filas("#contenido tr[data-tipo]").join("|") === "🔺 Falla de equipo,CAM X" && hrefs("#contenido tr[data-tipo] a").join() === "#/equipos/10", "ficha: cambio con enlace al equipo");
+  ok(txt("#contenido .tarjeta .n") === "3" && tarj("Equipos sin señal").querySelector(".sub").textContent.endsWith(" de 7"), "falla: 3 equipos sin señal, " + tarj("Equipos sin señal").textContent);
+  ok(!tarj("Recuperados") && txt("#contenido .resultado-escenario > p.sub").includes("no se cuentan"), "falla: sin tarjeta de recuperados; aclara que el equipo caído no cuenta");
+  ok(filas("#contenido tr[data-estado]").map((f) => f[0].replace(/ 📉$/, "")).join() === "DIST A,MON 1,MON 2" && !document.querySelector("#contenido tr[data-estado]").closest("table").querySelector("thead").textContent.includes("reconexión"), "falla: equipos sin señal, sin columna de reconexión");
+  ok(hrefs("#contenido tr[data-estado] a").join() === "#/equipos/11,#/analisis/impacto/equipo/11,#/equipos/12,#/analisis/impacto/equipo/12,#/equipos/13,#/analisis/impacto/equipo/13", "falla: enlaces a la ficha y al impacto de cada equipo");
+  ok(txt("#contenido .cables-afectados") === "X-001 · X-002 · X-003" && hrefs(".cables-afectados a").join() === "#/cables/10,#/cables/11,#/cables/12", "falla: cables afectados enlazados");
+  ok(tarj("Puntos finales afectados").querySelector(".n").textContent === "2" && !document.querySelector("#contenido .aviso.ok"), "falla: 2 puntos finales; no es 'sin impacto'");
+  ok(/^Calculado en [\d.,]+ ms\./.test(txt("#contenido .bloque:last-child > .sub")), "falla: tiempo de cálculo");
+
+  // ficha: con reconexión
+  await ir("#/escenarios/" + ID.B); await tick(150);
+  ok(tarj("Equipos sin señal").querySelector(".n").textContent === "3 → 0" && tarj("Recuperados").querySelector(".n").textContent === "3", "reserva: 3 → 0 y 3 recuperados");
+  ok(filas("#contenido tr[data-tipo]").map((f) => f.join(" ")).join("|") === "🔺 Falla de equipo CAM X|🔗 Reconexión virtual CAM Y / OUT → DIST A / IN", "reserva: cambios con las dos puntas de la reconexión");
+  ok(hrefs("#contenido tr[data-tipo] a").join() === "#/equipos/10,#/equipos/14,#/conectores/16,#/equipos/11,#/conectores/11", "reserva: enlaces a equipos y conectores");
+  ok(txt("#contenido .aviso.ok").includes("pasan de 3 a 0 (3 recuperados)") && [...document.querySelectorAll("#contenido .aviso.ok")].some((a) => a.textContent.startsWith("✔ Sin impacto")), "reserva: resumen y 'sin impacto'");
+  ok(filas("#contenido tr[data-estado]").length === 3 && filas("#contenido tr[data-estado]").every((f) => f[2] === "✔ Recuperado") && document.querySelector("#contenido tr[data-estado]").closest("table").querySelector("thead").textContent.includes("Con la reconexión"), "reserva: los 3 equipos figuran como recuperados, con su columna");
+
+  // ficha: aplicado, descartado, conector inexistente
+  await ir("#/escenarios/" + ID.K); await tick(150);
+  ok(txt("#contenido h2") === "Corte X-002 Aplicado" && txt("#contenido .aviso").includes("ya se aplicó a la infraestructura"), "aplicado: aviso de que se evalúa sobre el estado actual");
+  ok(hrefs("#contenido tr[data-tipo] a").join() === "#/cables/11" && filas("#contenido tr[data-estado]").length === 1 && txt("#contenido tr[data-estado]").startsWith("MON 1"), "corte: sólo MON 1 sin señal");
+  await ir("#/escenarios/" + ID.V); await tick(150);
+  ok(txt("#contenido h2") === "Vacío Descartado" && txt("#contenido").includes("Este escenario está descartado.") && txt("#contenido").includes("Este escenario no tiene cambios.") && txt("#contenido").includes("Sin cambios no hay nada que evaluar."), "vacío: descartado y sin cambios");
+  ok(!document.querySelector("#contenido .tarjeta"), "vacío: sin tarjetas de resultado");
+  await ir("#/escenarios/" + ID.I); await tick(150);
+  ok(txt("#contenido tr[data-tipo]").includes("Conector 999 (ya no existe)") && !hrefs("#contenido tr[data-tipo] a").some((h) => h.endsWith("/999")), "conector inexistente: sin enlace a una ficha que no existe");
+  ok(txt("#contenido .aviso.error").includes("Hay reconexiones con un conector que ya no existe") && txt("#contenido .aviso.error li").includes("Conector 999 (ya no existe)"), "conector inexistente: se avisa y la evaluación sigue");
+
+  // errores de ruta
+  await ir("#/escenarios/999"); ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("999"), "id inexistente → panel de error");
+  await ir("#/escenarios/abc"); ok(txt("#contenido h2") === "Pantalla desconocida", "id no numérico → pantalla desconocida");
+
+  // idioma
+  await ir("#/escenarios"); await cambiar("#sel-idioma", "en"); await tick(150);
+  ok(txt("#contenido h2") === "Scenarios" && filas("#contenido tbody tr").some((f) => f[1] === "Applied" && f[2] === "Cuts: 1") && filas("#contenido tbody tr").some((f) => f[1] === "Draft" && f[2] === "Failures: 1 · Reconnections: 1"), "lista en inglés");
+  await ir("#/escenarios/" + ID.B); await tick(150);
+  ok(txt("#contenido .volver a") === "← Back to Scenarios" && txt("#contenido tr[data-tipo]").includes("Equipment failure") && tarj("Recovered") && txt("#contenido .aviso.ok").includes("goes from 3 to 0 (3 recovered)"), "ficha en inglés: " + txt("#contenido .aviso.ok"));
+  await cambiar("#sel-idioma", "pt"); await tick(150);
+  ok(txt("#contenido h2").startsWith("Falla CAM X") && tarj("Recuperados") && txt("#contenido .volver a") === "← Voltar a Cenários" && txt("#contenido .aviso.ok").includes("passam de 3 para 0"), "ficha en portugués");
+  await ir("#/escenarios/" + ID.V); await tick(150);
+  ok(txt("#contenido h2") === "Vacío Descartado" && txt("#contenido").includes("Este cenário está descartado."), "descartado en portugués");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);
