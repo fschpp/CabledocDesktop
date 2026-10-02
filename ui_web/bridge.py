@@ -1094,6 +1094,113 @@ def linter_topologia():
     return {"reglas": out, "con_riesgo": con_riesgo}
 
 
+# ── Escenarios (A.8): abrir y evaluar ────────────────────────────────────────
+# Solo lectura: no se crea, edita, aplica ni cambia de estado nada (eso es B.11). Las tablas `escenario` y
+# `escenario_cambio` se leen con _rows_opt: en una base que nunca las creó la lista sale vacía y NO se
+# crean (Modelo.asegurar_tablas_escenario escribiría en la base). La evaluación corre el motor real
+# (core/escenario_engine.Escenario.evaluar) sobre un escenario que ya existe, así que ese asegurar es un no-op.
+
+_ESCENARIO_COLS = ("id_escenario", "nombre", "descripcion", "estado", "fecha_creacion", "fecha_ultima_edicion")
+
+
+def _escenario_fila(id_escenario):
+    f = _rows_opt("SELECT id_escenario, nombre, COALESCE(descripcion,'') AS descripcion, estado, "
+                  "fecha_creacion, fecha_ultima_edicion FROM escenario WHERE id_escenario = ?", (id_escenario,))
+    if not f:
+        raise ValueError(f"No existe el escenario {id_escenario}")
+    return f[0]
+
+
+def _cambios_escenario(id_escenario):
+    """Cambios del escenario con los nombres ya resueltos (mismo orden que Modelo.devolver_cambios_de_escenario)."""
+    return _rows_opt("""
+        SELECT c.id_cambio, c.tipo,
+               c.id_equipo, e.nombre AS equipo,
+               c.id_cable, k.codigo AS cable,
+               c.id_conector_a, ca.nombre AS conector_a, ea.id_equipo AS id_equipo_a, ea.nombre AS equipo_a,
+               c.id_conector_b, cb.nombre AS conector_b, eb.id_equipo AS id_equipo_b, eb.nombre AS equipo_b
+        FROM escenario_cambio c
+        LEFT JOIN equipo e   ON e.id_equipo = c.id_equipo
+        LEFT JOIN cable k    ON k.id_cable = c.id_cable
+        LEFT JOIN conector ca ON ca.id_conector = c.id_conector_a
+        LEFT JOIN equipo ea  ON ea.id_equipo = ca.id_equipo
+        LEFT JOIN conector cb ON cb.id_conector = c.id_conector_b
+        LEFT JOIN equipo eb  ON eb.id_equipo = cb.id_equipo
+        WHERE c.id_escenario = ? ORDER BY c.orden, c.id_cambio""", (id_escenario,))
+
+
+def escenarios_lista():
+    """Escenarios guardados, el más reciente primero (como Modelo.devolver_todos_los_escenarios; la fecha llega al
+    segundo, así que a igual fecha va primero el id más nuevo), con la cantidad de cambios de cada tipo."""
+    return _rows_opt("""
+        SELECT e.id_escenario, e.nombre, COALESCE(e.descripcion,'') AS descripcion, e.estado,
+               COALESCE(e.fecha_ultima_edicion, e.fecha_creacion, '') AS fecha,
+               COUNT(c.id_cambio) AS n_cambios,
+               COALESCE(SUM(c.tipo = 'falla_equipo'), 0) AS n_fallas,
+               COALESCE(SUM(c.tipo = 'desconexion_cable'), 0) AS n_cortes,
+               COALESCE(SUM(c.tipo = 'conexion_virtual'), 0) AS n_reconexiones
+        FROM escenario e LEFT JOIN escenario_cambio c ON c.id_escenario = e.id_escenario
+        GROUP BY e.id_escenario
+        ORDER BY COALESCE(e.fecha_ultima_edicion, e.fecha_creacion) DESC, e.id_escenario DESC""")
+
+
+def escenario_ficha(id_escenario):
+    """Datos del escenario y su lista de cambios (sin evaluar)."""
+    f = _escenario_fila(id_escenario)
+    f["cambios"] = _cambios_escenario(id_escenario)
+    return f
+
+
+def escenario_evaluar(id_escenario):
+    """Evalúa TODOS los cambios juntos en un solo cálculo (Escenario.evaluar → GraphImpactAnalyzer.simular_escenario).
+    Devuelve el comparativo antes/después de la reconexión virtual: `antes` = solo las fallas y cortes,
+    `despues` = con las conexiones virtuales aplicadas. Los equipos que fallan no cuentan como impactados.
+    No guarda el resultado ni cambia el estado del escenario."""
+    from core.escenario_engine import Escenario
+    t0 = time.perf_counter()
+    ficha = escenario_ficha(id_escenario)
+    esc = Escenario(_db_path(), id_escenario=id_escenario)
+    res = esc.evaluar()
+    out = {"escenario": {k: ficha[k] for k in _ESCENARIO_COLS}, "cambios": ficha["cambios"],
+           "grafo_disponible": res is not None}
+    if res is None:                      # sin tablas de conexión, etc.: la UI avisa en vez de romper
+        out["calculo_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+        return out
+    g = esc.analyzer
+    total, total_finales = g.totales()
+    finales = g.puntos_finales()
+    n_antes, n_despues = len(res.equipos_impactados_sin_reconexion), len(res.equipos_impactados)
+    equipos = [{"id_equipo": _id(e), "nombre": g.nombre_equipo(e), "punto_final": e in finales,
+                "estado": "recuperado" if e in res.equipos_recuperados else "impactado"}
+               for e in (res.equipos_impactados_sin_reconexion | res.equipos_impactados)]
+    equipos.sort(key=lambda x: (x["estado"] != "impactado", x["nombre"].lower(), x["id_equipo"]))
+    por_par = {(str(c["id_conector_a"]), str(c["id_conector_b"])): c
+               for c in ficha["cambios"] if c["tipo"] == "conexion_virtual"}
+
+    def invalido(par):
+        c = por_par.get((str(par[0]), str(par[1])), {})
+        return {"id_conector_a": _id(par[0]), "id_conector_b": _id(par[1]),
+                "equipo_a": c.get("equipo_a"), "conector_a": c.get("conector_a"),
+                "equipo_b": c.get("equipo_b"), "conector_b": c.get("conector_b")}
+
+    out.update({
+        "total_equipos": total, "total_puntos_finales": total_finales,
+        "hay_reconexion": bool(res.conexiones_virtuales),
+        "n_fallados": len(res.equipos_fallados), "n_cortados": len(res.cables_cortados),
+        "n_antes": n_antes, "n_despues": n_despues, "n_recuperados": len(res.equipos_recuperados),
+        "n_puntos_finales": sum(1 for e in res.equipos_impactados if e in finales),
+        "porcentaje_antes": round(100.0 * n_antes / total, 1) if total else 0.0,
+        "porcentaje_despues": round(100.0 * n_despues / total, 1) if total else 0.0,
+        "equipos": equipos,
+        "cables_impactados": sorted(({"id_cable": _id(c), "codigo": g.nombre_cable(c)} for c in res.cables_impactados),
+                                    key=lambda x: (str(x["codigo"]).lower(), x["id_cable"])),
+        "causas_regla": sorted(({"id_equipo": _id(e), "nombre": g.nombre_equipo(e), "texto": txt}
+                                for e, txt in (res.causas_regla or {}).items()), key=lambda x: x["nombre"].lower()),
+        "conectores_invalidos": [invalido(p) for p in res.conectores_invalidos],
+        "calculo_ms": round((time.perf_counter() - t0) * 1000, 1),
+    })
+    return out
+
 
 def firmas():
     """Argumentos de cada función: {nombre: [{nombre, requerido, defecto}]}.
@@ -1116,6 +1223,7 @@ FUNCIONES = {f.__name__: f for f in (
     frames_lista, slots_lista, frame_ficha,
     ubicaciones, rack_vista, frame_vista, patcheras_global,
     impacto_cable, impacto_equipo, impacto_rack, riesgo_irf, conectores_de_equipo, diagnostico, linter_topologia,
+    escenarios_lista, escenario_ficha, escenario_evaluar,
 )}
 
 

@@ -331,3 +331,61 @@ _WEB_A7 = {
          "pt": "A base não tem risco calculado: os achados não estão priorizados. Calcule no desktop com “Recalcular risco”."},
 }
 _WEB.update(_WEB_A7)
+
+
+# ── Escenarios (A.8): se agrega acá, al final, para no pisar el bloque de otras etapas ────────────────
+_WEB_A8 = {
+    "Volver a Escenarios":  {"en": "Back to Scenarios",   "pt": "Voltar a Cenários"},
+    "Simulaciones de falla guardadas en la base: fallas de equipo, cables cortados y reconexiones de emergencia. Acá se abren y se evalúan; crearlas y editarlas llega con la Fase B.":
+        {"en": "Failure simulations saved in the database: equipment failures, cut cables and emergency reconnections. Here they can be opened and evaluated; creating and editing them comes with Phase B.",
+         "pt": "Simulações de falha salvas no banco: falhas de equipamento, cabos cortados e reconexões de emergência. Aqui podem ser abertas e avaliadas; criá-las e editá-las chega com a Fase B."},
+    "No hay escenarios guardados en esta base. Se crean en el escritorio (Modo Escenario).":
+        {"en": "There are no scenarios saved in this database. They are created on the desktop (Scenario Mode).",
+         "pt": "Não há cenários salvos neste banco. Eles são criados no desktop (Modo Cenário)."},
+    "Cambios":              {"en": "Changes",             "pt": "Alterações"},
+    "Sin cambios":          {"en": "No changes",          "pt": "Sem alterações"},
+    "Creado":               {"en": "Created",             "pt": "Criado"},
+    "Detalle":              {"en": "Detail",              "pt": "Detalhe"},
+    "Fallas":               {"en": "Failures",            "pt": "Falhas"},
+    "Cortes":               {"en": "Cuts",                "pt": "Cortes"},
+    "Reconexiones":         {"en": "Reconnections",       "pt": "Reconexões"},
+    "Borrador":             {"en": "Draft",               "pt": "Rascunho"},
+    "Simulado":             {"en": "Simulated",           "pt": "Simulado"},
+    "Aprobado":             {"en": "Approved",            "pt": "Aprovado"},
+    "Aplicado":             {"en": "Applied",             "pt": "Aplicado"},
+    "Descartado":           {"en": "Discarded",           "pt": "Descartado"},
+    "Falla de equipo":      {"en": "Equipment failure",   "pt": "Falha de equipamento"},
+    "Cable cortado":        {"en": "Cut cable",           "pt": "Cabo cortado"},
+    "Reconexión virtual":   {"en": "Virtual reconnection", "pt": "Reconexão virtual"},
+    "Equipo {id} (ya no existe)":   {"en": "Equipment {id} (no longer exists)", "pt": "Equipamento {id} (não existe mais)"},
+    "Cable {id} (ya no existe)":    {"en": "Cable {id} (no longer exists)",     "pt": "Cabo {id} (não existe mais)"},
+    "Conector {id} (ya no existe)": {"en": "Connector {id} (no longer exists)", "pt": "Conector {id} (não existe mais)"},
+    "Este escenario no tiene cambios.": {"en": "This scenario has no changes.", "pt": "Este cenário não tem alterações."},
+    "Este escenario ya se aplicó a la infraestructura: la evaluación se calcula sobre el estado actual de la base, que ya incluye esos cambios.":
+        {"en": "This scenario was already applied to the infrastructure: the evaluation is calculated on the current state of the database, which already includes those changes.",
+         "pt": "Este cenário já foi aplicado à infraestrutura: a avaliação é calculada sobre o estado atual do banco, que já inclui essas alterações."},
+    "Este escenario está descartado.": {"en": "This scenario is discarded.", "pt": "Este cenário está descartado."},
+    "Resultado de la evaluación": {"en": "Evaluation result", "pt": "Resultado da avaliação"},
+    "Sin cambios no hay nada que evaluar.": {"en": "With no changes there is nothing to evaluate.", "pt": "Sem alterações não há nada a avaliar."},
+    "No se pudo construir el grafo de conexiones, así que no hay evaluación. Revisá que la base tenga cables y conexiones cargados.":
+        {"en": "The connection graph could not be built, so there is no evaluation. Check that the database has cables and connections loaded.",
+         "pt": "Não foi possível construir o grafo de conexões, portanto não há avaliação. Verifique se o banco tem cabos e conexões carregados."},
+    "Recuperados":          {"en": "Recovered",           "pt": "Recuperados"},
+    "Recuperado":           {"en": "Recovered",           "pt": "Recuperado"},
+    "Sin señal":            {"en": "No signal",           "pt": "Sem sinal"},
+    "Con la reconexión":    {"en": "With the reconnection", "pt": "Com a reconexão"},
+    "por la reconexión virtual": {"en": "by the virtual reconnection", "pt": "pela reconexão virtual"},
+    "Los equipos que fallan en el escenario no se cuentan como equipos sin señal.":
+        {"en": "Equipment that fails in the scenario is not counted as equipment without signal.",
+         "pt": "Os equipamentos que falham no cenário não são contados como equipamentos sem sinal."},
+    "Con las reconexiones virtuales los equipos sin señal pasan de {a} a {b} ({r} recuperados).":
+        {"en": "With the virtual reconnections, equipment without signal goes from {a} to {b} ({r} recovered).",
+         "pt": "Com as reconexões virtuais, os equipamentos sem sinal passam de {a} para {b} ({r} recuperados)."},
+    "Hay reconexiones con un conector que ya no existe; se ignoraron en el cálculo:":
+        {"en": "Some reconnections use a connector that no longer exists; they were ignored in the calculation:",
+         "pt": "Há reconexões com um conector que não existe mais; foram ignoradas no cálculo:"},
+    "Calculado en {ms} ms. El resultado no se guarda ni cambia el estado del escenario.":
+        {"en": "Calculated in {ms} ms. The result is not saved and does not change the scenario status.",
+         "pt": "Calculado em {ms} ms. O resultado não é salvo nem altera o estado do cenário."},
+}
+_WEB.update(_WEB_A8)

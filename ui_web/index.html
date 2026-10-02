@@ -148,6 +148,8 @@ $("smoke").onclick = async () => {
   if (racks && racks[0]) await run("rack_vista", { id_rack: racks[0].id_rack });              // A.6
   if (frames && frames[0]) await run("frame_vista", { id_frame: frames[0].id_frame });        // A.6
   await run("patcheras_global");                                                               // A.6
+  const escs = await run("escenarios_lista");                                                  // A.8
+  if (escs && escs[0]) { await run("escenario_ficha", { id_escenario: escs[0].id_escenario }); await run("escenario_evaluar", { id_escenario: escs[0].id_escenario }); }
   busy = false; enable(true);
 };
 enable(false);
