@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos"];
 
 if (!escenario) {
   let mal = 0;
@@ -49,7 +49,7 @@ async function rpcPyodide() {              // rpc real: Pyodide + core.zip + bri
   const py = await loadPyodide();
   const zip = readFileSync(path.join(WEB, "core.zip"));   // ArrayBuffer propio (igual que fetch().arrayBuffer() en el worker)
   py.unpackArchive(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength), "zip", { extractDir: "/app" });
-  for (const f of ["bridge.py", "i18n_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
+  for (const f of ["bridge.py", "i18n_web.py", "datos_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
   py.runPython("import sys; sys.path.insert(0, '/app')");
   py.FS.mkdirTree("/app/data/database");
   const DB = "/app/data/database/db.db";
@@ -67,6 +67,23 @@ async function rpcPyodide() {              // rpc real: Pyodide + core.zip + bri
     },
     async diccionario(lang) { py.globals.set("_lang", lang); return JSON.parse(py.runPython("import i18n_web\ni18n_web.diccionario_json(_lang)")); },
     cargarDb(buf) { py.FS.writeFile(DB, new Uint8Array(buf)); estado(); },
+    // A.10: mismas órdenes que worker.js (datos_*), sobre datos_web.py real
+    async exportarDb() { return { ok: true, data: py.FS.readFile(DB) }; },
+    async importarDb(buf) {
+      py.FS.writeFile("/tmp/c.db", new Uint8Array(buf)); py.globals.set("_p", "/tmp/c.db");
+      const r = JSON.parse(py.runPython("import json, datos_web\njson.dumps(datos_web.validar_db(_p))"));
+      if (r.ok) py.FS.writeFile(DB, py.FS.readFile("/tmp/c.db"));
+      py.FS.unlink("/tmp/c.db"); estado(); return r;
+    },
+    async exportarCatalogo(tipo) {
+      py.globals.set("_t", tipo); py.globals.set("_o", "/tmp/c.zip");
+      const r = JSON.parse(py.runPython("import json, datos_web\ndatos_web.catalogo_exportar(_t, _o)"));
+      const data = py.FS.readFile("/tmp/c.zip"); py.FS.unlink("/tmp/c.zip"); return { ...r, data };
+    },
+    async importarCatalogo(buf) {
+      py.FS.writeFile("/tmp/c.in", new Uint8Array(buf)); py.globals.set("_i", "/tmp/c.in");
+      try { return JSON.parse(py.runPython("import json, datos_web\ndatos_web.catalogo_importar(_i)")); } finally { py.FS.unlink("/tmp/c.in"); }
+    },
   };
   const statSync = (p) => py.FS.stat(p);
   // "archivo" db.db de prueba: esquema + 2 equipos, hecho con sqlite3 dentro de Pyodide
@@ -103,9 +120,9 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/datos");                     // A.10 sigue siendo un marcador (A.9 ya es real)
+  await ir("#/datos");                     // A.10: pantalla real (el detalle está en el escenario "datos")
   ok($("#lateral a[data-id=datos]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.10 del plan."), "pantalla pendiente con su etapa");
+  ok($("#contenido h2").textContent === "Datos" && $("#contenido .datos-vista"), "Datos muestra su pantalla");
   await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
   ok($("#contenido .arbol"), "Equipos muestra el árbol");
   const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
@@ -119,7 +136,7 @@ if (escenario === "completo") {
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.10 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido h2").textContent === "Data" && $("#contenido .datos-vista h3").textContent === "Full database", "Datos en inglés");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -1092,6 +1109,72 @@ c.commit(); c.close()`);
   E.fallar("Boom del índice"); E.emitirEstado(); await tick(200);   // gen++ invalida la caché: el próximo pedido falla
   await ir("#/busqueda/mon"); await tick(100);
   ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("Boom del índice"), "si el bridge falla, panel de error con el detalle");
+}
+
+if (escenario === "datos") {                // A.10: pantalla Datos con datos_web.py REAL (Pyodide): exportar/importar .db y catálogos
+  const E = await rpcPyodide();
+  instalarDom();
+  const bajadas = []; globalThis.confirm = () => true;
+  window.HTMLAnchorElement.prototype.click = function () { bajadas.push(this.getAttribute("download")); };
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  const txt = (s) => $(s)?.textContent;
+  const botones = () => [...document.querySelectorAll("#contenido button")];
+  const boton = (re) => botones().find((b) => re.test(b.textContent));
+  const aviso = () => txt("#contenido [role=status]");
+  const subir = async (indice, nombre, bytes) => {           // elige un archivo en el <input type=file> número `indice`
+    const i = document.querySelectorAll("#contenido input[type=file]")[indice];
+    Object.defineProperty(i, "files", { value: [{ name: nombre, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) }], configurable: true });
+    i.dispatchEvent(new window.Event("change", { bubbles: true })); await tick(400);
+  };
+  const dbBytes = () => E.py.FS.stat("/app/data/database/db.db").size;
+
+  await ir("#/datos");
+  ok(txt("#contenido h2") === "Datos" && document.querySelectorAll("#contenido input[type=file]").length === 2, "pantalla: título y 2 selectores de archivo");
+  ok(boton(/Exportar la base/) && boton(/catálogo de equipos/) && boton(/catálogo de frames/), "botones de exportación");
+  // 1) exportar la base
+  boton(/Exportar la base/).click(); await tick(300);
+  ok(/^cabledoc_\d{8}\.db$/.test(bajadas.at(-1) || ""), "descarga cabledoc_AAAAMMDD.db: " + bajadas.at(-1));
+  ok(aviso().startsWith("Base exportada ("), "aviso de base exportada: " + aviso());
+  // 2) importar: un texto cualquiera se rechaza y la base queda como estaba
+  const antes = dbBytes();
+  await subir(0, "x.db", new TextEncoder().encode("esto no es una base sqlite, es solo texto de relleno"));
+  ok(aviso() === "El archivo no es una base SQLite." && dbBytes() === antes, "no-SQLite rechazado sin tocar la base: " + aviso());
+  ok($("#contenido [role=status]").classList.contains("error"), "el rechazo se marca como error");
+  // 3) importar una base buena (la del fixture): reemplaza y avisa con los conteos
+  await subir(0, "buena.db", E.fixture);
+  ok(aviso() === "Base importada: 2 equipos, 3 conectores, 1 cables.", "base importada: " + aviso());
+  // 4) catálogos: exportar sin catálogo (tablas presentes pero vacías) → 0 moldes
+  boton(/catálogo de equipos/).click(); await tick(400);
+  ok(bajadas.at(-1) === "catalogo_equipos.zip" && aviso() === "Catálogo exportado: 0 molde(s).", "export de catálogo vacío: " + aviso());
+  // 5) ida y vuelta: un molde con 1 conector → exportar → borrar → importar desde la pantalla
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""INSERT INTO marca(id_marca,nombre) VALUES (1,'Sony');
+INSERT INTO equipo_catalogo(id_equipo_catalogo,nombre_molde,id_tipo_equipo,id_marca,modelo) VALUES (1,'HDC-3500',1,1,'HDC-3500');
+INSERT INTO conector_catalogo(id_equipo_catalogo,nombre,id_tipo_conector) VALUES (1,'OUT 1',1);"""); c.commit(); c.close()`);
+  const zip = (await E.rpc.exportarCatalogo("equipos")).data;
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db"); c.executescript("DELETE FROM conector_catalogo; DELETE FROM equipo_catalogo;"); c.commit(); c.close()`);
+  await subir(1, "catalogo_equipos.zip", zip);
+  ok(aviso() === "Importados 1 molde(s) con 1 conector(es) o slot(s).", "catálogo importado: " + aviso());
+  ok(E.py.runPython(`import sqlite3\nsqlite3.connect("/app/data/database/db.db").execute("SELECT COUNT(*) FROM equipo_catalogo").fetchone()[0]`) === 1, "el molde volvió a la base");
+  // 6) archivo que no es un catálogo; y fallo del motor mostrado como mensaje
+  await subir(1, "otro.json", new TextEncoder().encode('{"tipo":"otra_cosa"}'));
+  ok(aviso() === "El archivo no es un catálogo de CableDoc válido.", "json ajeno rechazado: " + aviso());
+  E.rpc.exportarDb = async () => { throw new Error("worker caído"); };
+  boton(/Exportar la base/).click(); await tick(200);
+  ok(aviso() === "worker caído" && $("#contenido [role=status]").classList.contains("error"), "un fallo del worker sale como mensaje de error");
+  ok(!boton(/Exportar la base/).disabled, "los botones se rehabilitan tras el fallo");
+  // 7) idioma y confirmación cancelada
+  await cambiar("#sel-idioma", "pt");
+  ok(txt("#contenido h2") === "Dados" && boton(/Exportar a base/), "portugués");
+  globalThis.confirm = () => false; const previo = dbBytes();
+  await subir(0, "buena.db", E.fixture);
+  ok(dbBytes() === previo && aviso() === "", "si se cancela la confirmación no se importa nada");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

@@ -2,6 +2,7 @@
 //   llamar(fn, args)  → data del bridge, o lanza ErrorBridge si el bridge devolvió {ok:false}
 //   diccionario(lang) → {lang, idiomas, textos}  (no necesita db.db)
 //   cargarDb(buf)     → el worker responde con un mensaje "state"
+//   exportarDb() / importarDb(buf) / exportarCatalogo(tipo) / importarCatalogo(buf)  (A.10) → {ok, ..., data?: Uint8Array}
 import { ErrorBridge } from "./errores.js";
 
 export function crearRpc(url = "worker.js") {
@@ -19,12 +20,13 @@ export function crearRpc(url = "worker.js") {
     if (d.type === "ready") listoRes(d);
     else if (d.type === "fatal") { const err = new Error(d.msg); listoRej(err); rechazarTodo(err); }
     else if (d.type === "call" || d.type === "i18n") resolver(d, (p) => p.res(JSON.parse(d.result)));
+    else if (d.type === "datos") resolver(d, (p) => p.res({ ...JSON.parse(d.result), data: d.data }));
     else if (d.type === "fail") resolver(d, (p) => p.rej(new Error(d.error)));
     emitir(d.type, d);
   };
   w.onerror = (e) => { const err = new Error(e.message || "No se pudo cargar worker.js"); listoRej(err); emitir("error", err); };
 
-  const pedir = (cmd, extra) => new Promise((res, rej) => { const id = ++rid; pend.set(id, { res, rej }); w.postMessage({ cmd, id, ...extra }); });
+  const pedir = (cmd, extra, transfer = []) => new Promise((res, rej) => { const id = ++rid; pend.set(id, { res, rej }); w.postMessage({ cmd, id, ...extra }, transfer); });
   return {
     listo,
     on(tipo, f) { (oyentes[tipo] ||= []).push(f); },
@@ -34,6 +36,10 @@ export function crearRpc(url = "worker.js") {
       return r.data;
     },
     diccionario: (lang) => pedir("i18n", { lang }),
+    exportarDb: () => pedir("datos_exportar_db"),
+    importarDb: (buf) => pedir("datos_importar_db", { buf }, [buf]),
+    exportarCatalogo: (tipo) => pedir("datos_catalogo_exportar", { tipo }),
+    importarCatalogo: (buf) => pedir("datos_catalogo_importar", { buf }, [buf]),
     cargarDb(buf) { w.postMessage({ cmd: "load_db", buf }, [buf]); },
   };
 }

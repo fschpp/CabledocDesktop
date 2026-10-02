@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.9)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.10)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -105,3 +105,14 @@ Pantalla `#/busqueda` (ítem **Búsqueda** del menú) y una caja en la barra sup
 - Los nombres de la base se insertan como texto (nunca como HTML).
 - Pruebas: `python3 ui_web/tests/test_busqueda.py` (índice contra una base armada con `schema_db.sql`: tipos, exclusiones, extremos de cable, coherencia con `arbol_equipos`, solo lectura) y, en `node tests/test_shell.mjs`, los escenarios `busqueda_modelo` (filtro puro, 20.000 items) y `busqueda` (pantalla y caja de la barra con el bridge real: acentos, orden, chips, tope por grupo, ruta, tecla `/`, caché por carga de base, es/en/pt, error del bridge).
 - No incluido (queda para etapas siguientes): señales y escenarios como resultados, resaltado de las palabras encontradas, búsqueda en notas/observaciones.
+
+## Datos: respaldo y catálogos (Fase A.10)
+
+Pantalla `#/datos` (ítem **Datos** del menú). Todo ocurre en el navegador; nada se envía a ningún servidor.
+
+- **Base completa**: «Exportar la base (.db)» baja `cabledoc_AAAAMMDD.db` (el archivo del worker, tal cual). «Importar una base (.db)» **reemplaza** la base de este navegador, previa confirmación. Antes de reemplazar, el archivo se valida en un temporal (`datos_web.validar_db`): cabecera SQLite, `PRAGMA quick_check` y que existan las tablas `equipo`, `conector`, `cable` y `conexion`; si no pasa, la base actual no se toca. Tras importar se persiste en IndexedDB (`syncfs`) y la app se repinta.
+- **Catálogos** de equipos y de frames: mismo formato que el desktop (`.zip` con un único `.json`: `cabledoc_catalogo_equipos` v5 / `cabledoc_catalogo_frames`), así que un catálogo exportado por GTK se importa acá y al revés. Se importa con `Modelo.importar_catalogo_*` (acepta también el `.json` plano de versiones viejas). **Importar escribe en la base** (agrega moldes; con confirmación) y persiste. Los conflictos de rol/dirección de tipos que ya existían se cuentan en el aviso: como en el desktop, se conserva el valor local (no hay diálogo para elegir el importado; es B.2/B.6).
+- **Archivos nuevos**: `datos_web.py` (se monta en `/app` del worker, como `bridge.py`; archivo a archivo, el worker mueve los bytes), `app/datos.js`, órdenes `datos_*` en `worker.js` y 4 métodos en `app/rpc.js` (`exportarDb`, `importarDb`, `exportarCatalogo`, `importarCatalogo`).
+- **Exportar un catálogo no crea tablas**: en una base que nunca tuvo catálogo sale un `.zip` con 0 moldes. Con una base vieja, `Modelo.exportar_catalogo_*` migra el esquema al correr (igual que los motores de A.7); con el `db.db` al día del desktop es un no-op.
+- **Las imágenes NO viajan**: ni en el `.db` (guarda solo `imagen.path_archivo`) ni en los catálogos. Las imágenes viven en OPFS (A.4) y `Modelo` solo ve el FS virtual, donde no están, así que `_exportar_imagen` embebe `null` y al importar el catálogo las filas `imagen` se crean sin archivo. Respaldar `data/imagen/` y `data/picon/` (carpeta o zip) y repoblar OPFS queda pendiente.
+- Pruebas: `python3 ui_web/tests/test_datos.py` (17 chequeos: validación, formato del zip, exportar sin modificar datos ni crear tablas, importar zip y `.json`, rechazos) y el escenario `datos` de `node tests/test_shell.mjs` (15 chequeos con `datos_web.py` real sobre Pyodide).
