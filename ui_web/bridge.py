@@ -630,6 +630,295 @@ def frame_ficha(id_frame):
     f["slots"] = slots_lista(id_frame)
     return f
 
+# ── Ubicaciones: rack, frame/slots y patcheras (A.6) ─────────────────────────
+# Son las mismas vistas que VistaRack, VistaFrameSlots y PatcherasVista (modo global) del desktop. Los datos se
+# arman acá (la lógica de segmentos y de patchcords vive en la UI GTK, no en Modelo) y el JS solo dibuja en SVG.
+
+def _int(v, defecto=0):
+    """int tolerante: None, '' o basura → defecto (como los `int(x) if x else 0` de la UI GTK)."""
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return defecto
+
+
+def ubicaciones():
+    """Listado para la pantalla Ubicaciones: salas con sus racks, racks sin sala y frames (con su rack)."""
+    racks = _rows("""
+        SELECT r.id_rack, r.numero, r.nombre, r.cantidad_maxima,
+               (SELECT count(*) FROM posicion_en_rack p WHERE p.id_rack = r.id_rack) AS n_posiciones
+        FROM rack r ORDER BY r.numero, r.id_rack""")
+    por_id = {r["id_rack"]: r for r in racks}
+    salas = _rows("SELECT id_sala, nombre FROM sala ORDER BY lower(nombre), id_sala")
+    en_sala = set()
+    por_sala = {s["id_sala"]: [] for s in salas}
+    for rel in _rows("SELECT id_sala, id_rack FROM rack_por_sala ORDER BY id_rack_x_sala"):
+        if rel["id_sala"] in por_sala and rel["id_rack"] in por_id:
+            por_sala[rel["id_sala"]].append(por_id[rel["id_rack"]])
+            en_sala.add(rel["id_rack"])
+    for s in salas:
+        s["racks"] = por_sala[s["id_sala"]]
+    frames = frames_lista()
+    donde = {}
+    for p in _rows("""
+        SELECT p.id_frame, p.id_rack, r.nombre AS rack FROM posicion_en_rack p
+        LEFT JOIN rack r ON r.id_rack = p.id_rack WHERE p.id_frame IS NOT NULL
+        ORDER BY p.id_posicion_en_rack"""):
+        donde.setdefault(p["id_frame"], []).append({"id_rack": p["id_rack"], "rack": p["rack"]})
+    for f in frames:
+        f["racks"] = donde.get(f["id_frame"], [])
+    return {"salas": salas, "racks_sin_sala": [r for r in racks if r["id_rack"] not in en_sala], "frames": frames}
+
+
+def _segmentos_rack(devs, cap):
+    """Segmentos de un rack, igual que VistaRack._cargar: una fila por orificio (1 U = 3 orificios); varios
+    dispositivos en los mismos orificios se funden en una bandeja. `devs`: dicts con orificio, ur, inventario,
+    dispositivo, id_equipo, id_frame (las columnas de la vista 'RACKS CON EQUIPOS')."""
+    u_map = {u: [] for u in range(1, cap + 1)}
+    for d in devs:
+        u_ini = _int(d["orificio"], 0) if d["orificio"] else 0
+        u_count = (_int(d["ur"], 1) if d["ur"] else 1) * 3
+        if u_ini < 1 or u_count < 1:
+            continue
+        info = {"nombre": str(d["dispositivo"] or "").strip() or "?", "inv": str(d["inventario"] or "").strip(),
+                "tipo": "frame" if d["id_frame"] else "equipo", "u_ini": u_ini, "u_count": u_count,
+                "id_equipo": d["id_equipo"] or None, "id_frame": d["id_frame"] or None}
+        for u in range(u_ini, min(u_ini + u_count, cap + 1)):
+            u_map[u].append(info)
+
+    def estado(u):
+        n = len(u_map[u])
+        return "libre" if n == 0 else "single" if n == 1 else "bandeja"
+
+    segs, hechas, u = [], set(), 1
+    while u <= cap:
+        if u in hechas:
+            u += 1
+            continue
+        est = estado(u)
+        if est == "libre":
+            segs.append({"u_ini": u, "u_count": 1, "tipo": "libre", "nombre": "", "inv": ""})
+            hechas.add(u)
+            u += 1
+        elif est == "bandeja":
+            infos = u_map[u]
+            clave = frozenset(i["nombre"] for i in infos)
+            u_fin = u
+            while u_fin + 1 <= cap and len(u_map[u_fin + 1]) >= 2 and frozenset(i["nombre"] for i in u_map[u_fin + 1]) == clave:
+                u_fin += 1
+            items, vistos = [], set()
+            for i in infos:
+                if i["nombre"] in vistos:
+                    continue
+                vistos.add(i["nombre"])
+                items.append({"nombre": i["nombre"], "tipo": i["tipo"], "id": i["id_frame"] if i["tipo"] == "frame" else i["id_equipo"]})
+            segs.append({"u_ini": u, "u_count": u_fin - u + 1, "tipo": "bandeja", "nombre": [i["nombre"] for i in items], "inv": "", "items": items})
+            hechas.update(range(u, u_fin + 1))
+            u = u_fin + 1
+        else:
+            main = u_map[u][0]
+            fin_dispositivo = min(main["u_ini"] + main["u_count"] - 1, cap)
+            fin = u
+            for uu in range(u + 1, fin_dispositivo + 1):
+                if uu in hechas or estado(uu) != "single" or u_map[uu][0]["nombre"] != main["nombre"]:
+                    break
+                fin = uu
+            segs.append({"u_ini": u, "u_count": fin - u + 1, "tipo": main["tipo"], "nombre": main["nombre"], "inv": main["inv"],
+                         "id": main["id_frame"] if main["tipo"] == "frame" else main["id_equipo"]})
+            hechas.update(range(u, fin + 1))
+            u = fin + 1
+    segs.sort(key=lambda x: x["u_ini"])
+    return segs
+
+
+def rack_vista(id_rack):
+    """Rack listo para dibujar (equivale a VistaRack): segmentos por orificio y resumen. Lee las mismas filas que
+    Modelo.devolver_dispositivos_de_un_rack ('RACKS CON EQUIPOS')."""
+    r = _one("SELECT id_rack, numero, nombre, cantidad_maxima FROM rack WHERE id_rack = ?", (id_rack,))
+    if r is None:
+        raise ValueError(f"No existe el rack {id_rack}")
+    cap_u = max(1, _int(r["cantidad_maxima"], 42)) if r["cantidad_maxima"] not in (None, "") else 42
+    cap = cap_u * 3
+    devs = _rows("""
+        SELECT p.id_posicion_en_rack AS id, p.orificio_posicion_equipo_en_rack AS orificio,
+               p.unidades_de_rack_equipo AS ur,
+               COALESCE(e.num_inventario, f.num_inventario, 'SIN INVENTARIO') AS inventario,
+               COALESCE(e.nombre, f.nombre) AS dispositivo, e.id_equipo AS id_equipo, f.id_frame AS id_frame
+        FROM posicion_en_rack p
+        LEFT JOIN equipo e ON p.id_equipo = e.id_equipo AND p.id_frame IS NULL
+        LEFT JOIN frame f ON p.id_frame = f.id_frame AND p.id_equipo IS NULL
+        WHERE p.id_rack = ?
+        ORDER BY p.orificio_posicion_equipo_en_rack, p.id_posicion_en_rack""", (id_rack,))
+    segs = _segmentos_rack(devs, cap)
+    r["cap_u"], r["cap"] = cap_u, cap
+    r["salas"] = _rows("""
+        SELECT s.id_sala, s.nombre FROM rack_por_sala rs JOIN sala s ON s.id_sala = rs.id_sala
+        WHERE rs.id_rack = ? ORDER BY s.id_sala""", (id_rack,))
+    r["segmentos"] = segs
+    # Dispositivos que empiezan más allá del último orificio del rack: la vista del desktop los omite sin avisar.
+    r["fuera_de_rango"] = [str(d["dispositivo"] or "?") for d in devs if _int(d["orificio"], 0) > cap]
+    r["resumen"] = {
+        "asignaciones": len(devs),
+        "equipos": sum(1 for s in segs if s["tipo"] == "equipo"),
+        "frames": sum(1 for s in segs if s["tipo"] == "frame"),
+        "bandejas": sum(1 for s in segs if s["tipo"] == "bandeja"),
+        "libres": sum(s["u_count"] for s in segs if s["tipo"] == "libre"),
+    }
+    return r
+
+
+def frame_vista(id_frame):
+    """Frame listo para dibujar (equivale a VistaFrameSlots): imagen y rectángulos de slots en píxeles de la imagen,
+    numerados en el orden del desktop (por nombre de slot). `color` es el índice de paleta de los slots con equipo
+    (en orden de aparición); los vacíos van sin color. Rectángulo sin medida → 50×30, como en el desktop."""
+    f = _one("""
+        SELECT f.id_frame, f.nombre, f.num_inventario AS inventario, f.modelo, m.nombre AS marca,
+               i.path_archivo AS imagen_path, f.ancho_mm, f.alto_mm, f.profundidad_mm
+        FROM frame f LEFT JOIN marca m ON m.id_marca = f.id_marca LEFT JOIN imagen i ON i.id_imagen = f.id_imagen
+        WHERE f.id_frame = ?""", (id_frame,))
+    if f is None:
+        raise ValueError(f"No existe el frame {id_frame}")
+    filas = _rows("""
+        SELECT s.id_slot, s.nombre, s.id_equipo, COALESCE(e.nombre, '') AS equipo,
+               COALESCE(s.rectangulo_x_en_imagen, 0) AS x, COALESCE(s.rectangulo_y_en_imagen, 0) AS y,
+               COALESCE(s.rectangulo_ancho_pixeles, 50) AS ancho, COALESCE(s.rectangulo_alto_pixeles, 30) AS alto,
+               COALESCE(img_s.path_archivo, '') AS imagen_slot
+        FROM slot s LEFT JOIN equipo e ON e.id_equipo = s.id_equipo LEFT JOIN imagen img_s ON img_s.id_imagen = s.id_imagen
+        WHERE s.id_frame = ? ORDER BY s.nombre, s.id_slot""", (id_frame,))
+    # Una sola imagen, como en el desktop: la del frame o, si no tiene, la primera de un slot.
+    if not (f["imagen_path"] or "").strip():
+        f["imagen_path"] = next((r["imagen_slot"].strip() for r in filas if r["imagen_slot"].strip()), None)
+    slots, color = [], 0
+    for n, r in enumerate(filas, 1):
+        con_equipo = bool(r["id_equipo"])
+        slots.append({"num": n, "id_slot": r["id_slot"], "nombre": r["nombre"], "id_equipo": r["id_equipo"] or None,
+                      "equipo": r["equipo"], "x": _int(r["x"]), "y": _int(r["y"]),
+                      "ancho": _int(r["ancho"], 50) if _int(r["ancho"], 50) > 0 else 50,
+                      "alto": _int(r["alto"], 30) if _int(r["alto"], 30) > 0 else 30,
+                      "color": color if con_equipo else None})
+        color += 1 if con_equipo else 0
+    f["slots"] = slots
+    f["racks"] = _rows("""
+        SELECT p.id_rack, r.nombre AS rack, r.numero AS rack_numero,
+               p.orificio_posicion_equipo_en_rack AS orificio, p.unidades_de_rack_equipo AS unidades
+        FROM posicion_en_rack p LEFT JOIN rack r ON r.id_rack = p.id_rack
+        WHERE p.id_frame = ? ORDER BY p.id_posicion_en_rack""", (id_frame,))
+    return f
+
+
+def patcheras_global():
+    """Todas las patcheras del sistema (equivale a PatcherasVista en modo global): racks → frames → columnas.
+    Cada columna es un módulo (equipo con rol_senal PATCHERA) instalado en un slot cuyo nombre trae el número de
+    columna. Fila A = BACK_ENTRADA / FRONT_DERIVACION, fila B = BACK_SALIDA / FRONT_INSERCION (por función de
+    patchera, nunca por nombre). `color` es un índice de paleta por equipo conectado (None = fantasma o vacío);
+    `jumpers` son los patchcords del frente (tipo 'curva' si unen dos módulos del mismo rack, si no 'cabo')."""
+    import re
+
+    slots = _rows_opt("""
+        SELECT DISTINCT r.id_rack, r.nombre AS rack, f.id_frame, f.nombre AS frame,
+               s.id_slot, s.nombre AS slot, s.id_equipo, e.nombre AS modulo
+        FROM rack r
+        JOIN posicion_en_rack pr ON pr.id_rack = r.id_rack
+        JOIN frame f ON f.id_frame = pr.id_frame
+        JOIN slot s ON s.id_frame = f.id_frame
+        JOIN equipo e ON e.id_equipo = s.id_equipo
+        JOIN tipo_equipo te ON te.id_tipo_equipo = e.id_tipo_equipo
+        WHERE te.rol_senal = 'PATCHERA'
+        ORDER BY r.nombre, r.id_rack, f.nombre, f.id_frame, s.nombre, s.id_slot""")
+    racks, ubic = {}, {}                      # id_rack → {…, frames: {id_frame → {…, cols: {col → celda}}}} ; id_equipo → (rack, frame, col)
+
+    def vacio():
+        return {"estado": "vacio", "id_equipo": None, "nombre": None, "conector": None, "color": None}
+
+    for s in slots:
+        m = re.findall(r"\d+", str(s["slot"] or ""))
+        col = int(m[0]) if m else 0
+        if col == 0:
+            continue
+        ubic[s["id_equipo"]] = (s["id_rack"], s["id_frame"], col)
+        rk = racks.setdefault(s["id_rack"], {"id_rack": s["id_rack"], "rack": s["rack"], "frames": {}})
+        fr = rk["frames"].setdefault(s["id_frame"], {"id_frame": s["id_frame"], "frame": s["frame"], "cols": {}})
+        fr["cols"].setdefault(col, {"col": col, "id_equipo": s["id_equipo"], "modulo": s["modulo"], "A": vacio(), "B": vacio(),
+                                    "front": {"A": {**vacio(), "es_jumper": False, "destino": None},
+                                              "B": {**vacio(), "es_jumper": False, "destino": None}}})
+
+    conex = _rows_opt("""
+        SELECT c1.id_conector AS id_con1, c1.id_equipo AS id_modulo, e2.id_equipo AS id_eq2, e2.nombre AS eq2,
+               c2.nombre AS con2, te2.rol_senal AS rol2, fp1.clave AS clave1, fp2.clave AS clave2
+        FROM conector c1
+        JOIN equipo e1 ON e1.id_equipo = c1.id_equipo
+        JOIN tipo_equipo te1 ON te1.id_tipo_equipo = e1.id_tipo_equipo
+        JOIN conexion cx1 ON cx1.id_conector = c1.id_conector
+        JOIN conexion cx2 ON cx2.id_cable = cx1.id_cable AND cx2.id_conector != cx1.id_conector
+        JOIN conector c2 ON c2.id_conector = cx2.id_conector
+        JOIN equipo e2 ON e2.id_equipo = c2.id_equipo
+        JOIN tipo_equipo te2 ON te2.id_tipo_equipo = e2.id_tipo_equipo
+        LEFT JOIN funcion_patchera fp1 ON fp1.id_funcion_patchera = c1.id_funcion_patchera
+        LEFT JOIN funcion_patchera fp2 ON fp2.id_funcion_patchera = c2.id_funcion_patchera
+        WHERE te1.rol_senal = 'PATCHERA' AND c1.id_funcion_patchera IS NOT NULL
+        ORDER BY c1.id_equipo, c1.id_conector, cx2.id_conector""")
+    colores = {}                              # id_equipo conectado → índice de paleta, por orden de aparición
+
+    def color_de(id_eq):
+        return colores.setdefault(id_eq, len(colores))
+
+    for c in conex:
+        if c["id_modulo"] not in ubic or c["clave1"] is None:
+            continue                           # módulo fuera de un slot con número / conector sin función asignada
+        id_rack, id_frame, col = ubic[c["id_modulo"]]
+        celda = racks[id_rack]["frames"][id_frame]["cols"][col]
+        fila = "A" if c["clave1"] in ("BACK_ENTRADA", "FRONT_DERIVACION") else "B"
+        fantasma = str(c["rol2"] or "").upper() == "FANTASMA"
+        estado, color = ("fantasma", None) if fantasma else ("conectado", color_de(c["id_eq2"]))
+        dato = {"estado": estado, "id_equipo": c["id_eq2"], "nombre": c["eq2"], "conector": c["con2"], "color": color}
+        if c["clave1"] in ("BACK_ENTRADA", "BACK_SALIDA"):
+            celda[fila] = dato
+        elif c["clave1"] in ("FRONT_DERIVACION", "FRONT_INSERCION"):
+            es_jumper = (str(c["rol2"] or "").upper() == "PATCHERA" and c["clave2"] in ("FRONT_DERIVACION", "FRONT_INSERCION")
+                         and c["id_eq2"] in ubic)
+            destino = None
+            if es_jumper:
+                d_rack, d_frame, d_col = ubic[c["id_eq2"]]
+                destino = {"id_rack": d_rack, "id_frame": d_frame, "col": d_col,
+                           "row": "A" if c["clave2"] in ("BACK_ENTRADA", "FRONT_DERIVACION") else "B"}
+            celda["front"][fila] = {**dato, "es_jumper": es_jumper, "destino": destino}
+
+    jumpers, vistos = [], set()
+    for rk in racks.values():
+        for fr in rk["frames"].values():
+            for col, celda in fr["cols"].items():
+                for fila in ("A", "B"):
+                    fr_ = celda["front"][fila]
+                    if fr_["estado"] == "vacio":
+                        continue
+                    origen = (rk["id_rack"], fr["id_frame"], col, fila)
+                    p1 = {"id_rack": rk["id_rack"], "id_frame": fr["id_frame"], "col": col, "row": fila}
+                    if fr_["es_jumper"] and fr_["destino"]:
+                        d = fr_["destino"]
+                        par = frozenset({origen, (d["id_rack"], d["id_frame"], d["col"], d["row"])})
+                        if par in vistos:
+                            continue          # el otro extremo ya lo dibujó
+                        vistos.add(par)
+                        mismo = d["id_rack"] == rk["id_rack"]
+                        jumpers.append({"tipo": "curva" if mismo else "cabo", "cruza_rack": not mismo, "p1": p1, "p2": d, "color": fr_["color"],
+                                        "texto": f"{fr_['nombre']} ({fr_['conector']})"})
+                    else:
+                        jumpers.append({"tipo": "cabo", "cruza_rack": False, "p1": p1, "p2": None, "color": fr_["color"],
+                                        "fantasma": fr_["estado"] == "fantasma", "texto": f"{fr_['nombre']} ({fr_['conector']})"})
+
+    salida = []
+    for rk in sorted(racks.values(), key=lambda r: (str(r["rack"] or "").lower(), r["id_rack"])):
+        frames = [{"id_frame": f["id_frame"], "frame": f["frame"], "columnas": [f["cols"][c] for c in sorted(f["cols"])]}
+                  for f in sorted(rk["frames"].values(), key=lambda f: (str(f["frame"] or "").lower(), f["id_frame"]))]
+        salida.append({"id_rack": rk["id_rack"], "rack": rk["rack"], "frames": frames})
+    celdas = [c for rk in salida for f in rk["frames"] for c in f["columnas"]]
+    return {
+        "racks": salida, "jumpers": jumpers,
+        "max_col": max((c["col"] for c in celdas), default=24),
+        "resumen": {"racks": len(salida), "patcheras": sum(len(r["frames"]) for r in salida), "equipos": len(colores),
+                    "fantasma": sum(1 for c in celdas for f in ("A", "B") if c[f]["estado"] == "fantasma")},
+    }
+
 
 def firmas():
     """Argumentos de cada función: {nombre: [{nombre, requerido, defecto}]}.
@@ -650,6 +939,7 @@ FUNCIONES = {f.__name__: f for f in (
     cables_lista, cable_ficha, conexiones_lista, conexiones_equipo, cadena_extension,
     salas_lista, sala_ficha, racks_lista, rack_ficha,
     frames_lista, slots_lista, frame_ficha,
+    ubicaciones, rack_vista, frame_vista, patcheras_global,
 )}
 
 

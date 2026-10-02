@@ -201,6 +201,107 @@ check(ll("cadena_extension", id_cable=9) == [], "cadena: cable sin conexiones ->
 cc = sqlite3.connect(m.DB_PATH); cc.executescript("DROP TABLE extension_cable;"); cc.commit(); cc.close()
 check([x["tipo"] for x in ll("cadena_extension", id_cable=4)] == ["equipo", "cable", "suelto"], "cadena: sin tabla extension_cable -> solo el cable, sin error")
 
+
+# ── Ubicaciones: rack_vista, frame_vista, patcheras_global (A.6) ──
+m.Modelo.asegurar_columnas_control_idioma()          # funcion_patchera (1 BACK_ENTRADA, 2 BACK_SALIDA, 3 FRONT_DERIVACION, 4 FRONT_INSERCION) + conector.id_funcion_patchera
+c = sqlite3.connect(m.DB_PATH)
+c.executescript("""
+INSERT INTO tipo_equipo(id_tipo_equipo,nombre,rol_senal) VALUES (10,'MODULO PATCHERA','PATCHERA'),(11,'FANTASMA','FANTASMA');
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre,num_inventario) VALUES
+  (100,1,'RX A',1000),(101,1,'RX B',NULL),(102,1,'RX C',NULL),(103,1,'RX LEJOS',NULL),(104,1,'MON',NULL),
+  (110,10,'PATCH 1',NULL),(111,10,'PATCH 2',NULL),(112,10,'PATCH 3',NULL),(113,10,'PATCH SIN NUMERO',NULL),(120,11,'FANT',NULL);
+INSERT INTO rack(id_rack,numero,nombre,cantidad_maxima) VALUES (2,2,'Rack 2',4),(3,3,'Rack 3',NULL);
+INSERT INTO rack_por_sala(id_rack,id_sala) VALUES (2,1);
+INSERT INTO frame(id_frame,nombre) VALUES (2,'PPV 1'),(3,'PPV 2');
+INSERT INTO posicion_en_rack(id_posicion_en_rack,id_rack,id_equipo,orificio_posicion_equipo_en_rack,unidades_de_rack_equipo,id_frame) VALUES
+  (10,2,100,1,1,NULL),(11,2,101,1,1,NULL),(12,2,102,4,1,NULL),(13,2,103,20,1,NULL),(14,2,NULL,7,1,2),(15,3,NULL,1,1,3);
+INSERT INTO slot(id_slot,nombre,id_equipo,id_frame) VALUES
+  (10,'Slot 1',110,2),(11,'Slot 2',111,2),(12,'Slot 1',112,3),(13,'Sin numero',113,3);
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector,id_funcion_patchera) VALUES
+  (200,'A_BACK',110,1,1),(201,'B_BACK',110,1,2),(202,'A_FRONT',110,1,3),(203,'B_FRONT',110,1,4),
+  (210,'A_BACK',111,1,1),(211,'B_BACK',111,1,2),(212,'A_FRONT',111,1,3),(213,'B_FRONT',111,1,4),
+  (220,'A_BACK',112,1,1),(221,'B_BACK',112,1,2),(222,'A_FRONT',112,1,3),(223,'B_FRONT',112,1,4),
+  (230,'SIN',120,1,NULL),(240,'IN',104,1,NULL);
+INSERT INTO cable(id_cable,codigo,es_cable_conexion_interna) VALUES (100,'P-100',0),(101,'P-101',0),(102,'P-102',0),(103,'P-103',0),(104,'P-104',0),(105,'P-105',0);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES
+  (100,100,1,0),(101,100,200,0),          -- CAM 1 -> PATCH 1 A_BACK
+  (102,101,4,0),(103,101,201,0),          -- CAM 2 -> PATCH 1 B_BACK
+  (104,102,230,0),(105,102,210,0),        -- FANT -> PATCH 2 A_BACK
+  (106,103,202,0),(107,103,213,0),        -- jumper PATCH 1 A_FRONT <-> PATCH 2 B_FRONT (mismo rack)
+  (108,104,212,0),(109,104,222,0),        -- jumper PATCH 2 A_FRONT <-> PATCH 3 A_FRONT (otro rack)
+  (110,105,203,0),(111,105,240,0);        -- PATCH 1 B_FRONT -> MON (equipo final)
+""")
+c.commit(); c.close()
+
+ub = ll("ubicaciones")
+check([s["nombre"] for s in ub["salas"]] == ["Control Central"] and [r["nombre"] for r in ub["salas"][0]["racks"]] == ["Rack 1", "Rack 2"], "ubicaciones: sala con sus racks")
+check([r["nombre"] for r in ub["racks_sin_sala"]] == ["Rack 3"], "ubicaciones: racks sin sala")
+check({f["nombre"]: [x["rack"] for x in f["racks"]] for f in ub["frames"]} == {"Frame 1": ["Rack 1"], "PPV 1": ["Rack 2"], "PPV 2": ["Rack 3"]}, "ubicaciones: frames con su rack")
+
+rv = ll("rack_vista", id_rack=1)
+check(rv["cap_u"] == 42 and rv["cap"] == 126 and sum(s["u_count"] for s in rv["segmentos"]) == 126, "rack_vista: 42 U = 126 orificios, sin huecos ni solapes")
+sg = [(s["u_ini"], s["u_count"], s["tipo"]) for s in rv["segmentos"] if s["tipo"] != "libre"]
+check(sg == [(3, 3, "equipo"), (10, 12, "frame")], "rack_vista: equipo de 1 U = 3 orificios y frame de 4 U = 12")
+eq = next(s for s in rv["segmentos"] if s["tipo"] == "equipo")
+check(eq["nombre"] == "MATRIZ A" and eq["id"] == 2 and eq["inv"] == "101", "rack_vista: nombre, id e inventario del equipo")
+check(next(s for s in rv["segmentos"] if s["tipo"] == "frame")["inv"] == "500", "rack_vista: inventario del frame")
+check(rv["resumen"] == {"asignaciones": 2, "equipos": 1, "frames": 1, "bandejas": 0, "libres": 126 - 15} and rv["salas"][0]["nombre"] == "Control Central", "rack_vista: resumen y sala")
+
+rv2 = ll("rack_vista", id_rack=2)
+ban = [s for s in rv2["segmentos"] if s["tipo"] == "bandeja"]
+check(len(ban) == 1 and (ban[0]["u_ini"], ban[0]["u_count"]) == (1, 3) and ban[0]["nombre"] == ["RX A", "RX B"]
+      and [i["id"] for i in ban[0]["items"]] == [100, 101], "rack_vista: dos equipos en los mismos orificios = una bandeja con sus items")
+check(rv2["cap_u"] == 4 and rv2["cap"] == 12 and [(s["u_ini"], s["tipo"]) for s in rv2["segmentos"] if s["tipo"] != "libre"] == [(1, "bandeja"), (4, "equipo"), (7, "frame")],
+      "rack_vista: rack de 4 U; bandeja, equipo y frame en orden")
+check(rv2["fuera_de_rango"] == ["RX LEJOS"] and rv2["resumen"]["bandejas"] == 1, "rack_vista: el equipo más allá del último orificio se informa")
+rv3 = ll("rack_vista", id_rack=3)
+check(rv3["cap_u"] == 42 and rv3["segmentos"][0]["tipo"] == "frame" and rv3["resumen"]["frames"] == 1, "rack_vista: cantidad_maxima NULL -> 42 U (como el desktop)")
+for rk in (1, 2, 3):                                  # mismas filas que el desktop ('RACKS CON EQUIPOS' vía Modelo)
+    devs = [{"id": d[0], "orificio": d[2], "inventario": d[3], "dispositivo": d[4], "ur": d[5], "id_equipo": d[7], "id_frame": d[8]}
+            for d in m.Modelo.devolver_dispositivos_de_un_rack(rk)]
+    cap = ll("rack_vista", id_rack=rk)["cap"]
+    check(bridge._segmentos_rack(devs, cap) == ll("rack_vista", id_rack=rk)["segmentos"], f"rack_vista({rk}): segmentos idénticos a los de las filas de Modelo")
+e = json.loads(bridge.call("rack_vista", json.dumps({"id_rack": 999})))
+check(e["ok"] is False and "999" in e["error"], "rack_vista: id inexistente -> error JSON")
+
+fv = ll("frame_vista", id_frame=1)
+check(fv["nombre"] == "Frame 1" and fv["marca"] == "Blackmagic" and fv["racks"][0]["rack"] == "Rack 1" and fv["imagen_path"] is None, "frame_vista: datos, rack y sin imagen")
+check([(s["num"], s["nombre"], s["equipo"], s["x"], s["y"], s["ancho"], s["alto"], s["color"]) for s in fv["slots"]]
+      == [(1, "Slot 1", "CAM 2", 0, 0, 100, 20, 0), (2, "Slot 2", "", 0, 20, 100, 20, None)], "frame_vista: slots numerados; el vacío sin color")
+c = sqlite3.connect(m.DB_PATH)
+c.executescript("""INSERT INTO imagen(id_imagen,path_archivo) VALUES (50,'slot.png'),(51,'frame.png');
+  INSERT INTO slot(id_slot,nombre,id_equipo,id_frame,id_imagen) VALUES (90,'Slot 3',NULL,3,50),(91,'Slot 4',102,3,NULL);""")
+c.commit(); c.close()
+fv3 = ll("frame_vista", id_frame=3)
+check(fv3["imagen_path"] == "slot.png" and [(s["ancho"], s["alto"]) for s in fv3["slots"] if s["nombre"] == "Slot 4"] == [(50, 30)], "frame_vista: sin imagen de frame usa la del primer slot; rectángulo sin medida = 50×30")
+c = sqlite3.connect(m.DB_PATH); c.execute("UPDATE frame SET id_imagen=51 WHERE id_frame=3"); c.commit(); c.close()
+check(ll("frame_vista", id_frame=3)["imagen_path"] == "frame.png", "frame_vista: la imagen del frame tiene prioridad")
+check([(x["nombre"], x["color"]) for x in ll("frame_vista", id_frame=3)["slots"]] == [("Sin numero", 0), ("Slot 1", 1), ("Slot 3", None), ("Slot 4", 2)],
+      "frame_vista: orden por nombre de slot; colores por orden de aparición solo a los slots con equipo")
+nat = m.Modelo.devolver_slots_graficos_de_frame(1)
+check([(r[1], r[2], r[4], r[5], r[6], r[7]) for r in nat] == [(s["nombre"], s["id_equipo"], s["x"], s["y"], s["ancho"], s["alto"]) for s in fv["slots"]], "frame_vista: mismos slots que Modelo.devolver_slots_graficos_de_frame")
+e = json.loads(bridge.call("frame_vista", json.dumps({"id_frame": 999})))
+check(e["ok"] is False and "999" in e["error"], "frame_vista: id inexistente -> error JSON")
+
+pg = ll("patcheras_global")
+check([r["rack"] for r in pg["racks"]] == ["Rack 2", "Rack 3"] and [f["frame"] for f in pg["racks"][0]["frames"]] == ["PPV 1"], "patcheras: racks y frames con módulos de patchera")
+cols = pg["racks"][0]["frames"][0]["columnas"]
+check([(c_["col"], c_["modulo"]) for c_ in cols] == [(1, "PATCH 1"), (2, "PATCH 2")] and pg["max_col"] == 2, "patcheras: columnas por el número del slot (el slot sin número se ignora)")
+c1, c2 = cols
+check(c1["A"]["estado"] == "conectado" and c1["A"]["nombre"] == "CAM 1" and c1["A"]["conector"] == "OUT 1" and c1["B"]["nombre"] == "CAM 2"
+      and c1["A"]["color"] != c1["B"]["color"], "patcheras: BACK_ENTRADA = fila A y BACK_SALIDA = fila B, un color por equipo")
+check(c2["A"]["estado"] == "fantasma" and c2["A"]["color"] is None and c2["B"]["estado"] == "vacio", "patcheras: extremo FANTASMA y fila vacía")
+check(c1["front"]["B"]["estado"] == "conectado" and c1["front"]["B"]["nombre"] == "MON" and not c1["front"]["B"]["es_jumper"], "patcheras: frente a un equipo final (no es jumper)")
+check(c1["front"]["A"]["es_jumper"] and c1["front"]["A"]["destino"] == {"id_rack": 2, "id_frame": 2, "col": 2, "row": "B"}, "patcheras: frente a otra patchera = jumper con su destino")
+curvas = [j for j in pg["jumpers"] if j["tipo"] == "curva"]
+cruzan = [j for j in pg["jumpers"] if j["cruza_rack"]]
+check(len(curvas) == 1 and len(cruzan) == 1 and cruzan[0]["tipo"] == "cabo" and cruzan[0]["p2"]["id_rack"] == 3, "patcheras: un patchcord por par (curva en el mismo rack, cabo si cruza de rack)")
+check(len(pg["jumpers"]) == 3 and sum(1 for j in pg["jumpers"] if j["p2"] is None) == 1, "patcheras: 3 patchcords (curva, cruce y el cabo a MON)")
+check(pg["resumen"] == {"racks": 2, "patcheras": 2, "equipos": 6, "fantasma": 1}, "patcheras: resumen (equipos con color: los de atrás, los del frente y los módulos de los jumpers, como el desktop) " + str(pg["resumen"]))
+c = sqlite3.connect(m.DB_PATH); c.executescript("DROP TABLE funcion_patchera;"); c.commit(); c.close()
+check(ll("patcheras_global")["racks"] and all(x["A"]["estado"] == "vacio" for r in ll("patcheras_global")["racks"] for f in r["frames"] for x in f["columnas"]),
+      "patcheras: sin tabla funcion_patchera -> módulos sin conexiones, sin error")
+
 # Errores: siempre JSON, nunca excepción hacia JS
 e = json.loads(bridge.call("equipo_ficha", json.dumps({"id_equipo": 999})))
 check(e["ok"] is False and "999" in e["error"], "id inexistente -> error JSON")

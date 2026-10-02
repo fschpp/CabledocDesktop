@@ -207,6 +207,26 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-02 — Fase A.6 de `plan_pyodide_v1.md` (rack, frame/slots y patcheras en SVG, solo lectura), sobre `main` en `7714866` (A.5 ya mergeada)._
+
+### Current Focus
+A.6 entregada como diff: `bridge.py` (+`ubicaciones`, `rack_vista`, `frame_vista`, `patcheras_global`), `ui_web/app/ubicaciones.js` (listado, rack y frame/slots), `patcheras.js` (vista global) y `svg.js` (helpers y zoom). Pendiente: smoke test en el navegador real con el `db.db` y commit. Siguiente: A.7 (impacto, IRF, diagnóstico, linter).
+
+### Todo List
+- [x] Done — 0.1 a 0.8 (Fase 0, GO), A.1 a A.5 (mergeadas)
+- [x] Done — A.6 rack / frame-slots / patcheras (diff presentado; tests Python y Node OK; falta smoke en navegador real)
+- [ ] Todo — A.7 a A.11 (ver `plan_pyodide_v1.md`)
+
+### Latest Blockers/Discoveries
+- Smoke test a hacer: `app.html` → cargar el db.db → Ubicaciones. (1) Abrir un rack: 1 U = 3 orificios, los equipos/frames/bandejas coinciden con la vista de rack de GTK y el clic abre la ficha. (2) Abrir un frame con imagen (subir antes `data/imagen`): los rectángulos de los slots caen sobre la imagen. (3) Patcheras: mismos colores y patchcords que "Patcheras — Vista global" de GTK; probar "Cables entre racks" y el zoom.
+- `bridge.py` reimplementa en Python la lógica que en el desktop vive en la UI (segmentos de rack de `VistaRack._cargar`, columnas y patchcords de `PatcherasVista._cargar_global`); `test_bridge.py` compara los segmentos con las filas de `Modelo.devolver_dispositivos_de_un_rack` y los slots con `devolver_slots_graficos_de_frame`.
+- Diferencias con el desktop: la vista de rack avisa (`fuera_de_rango`) de los dispositivos más allá del último orificio, que GTK omite en silencio; el color de cada equipo en patcheras sale del orden de aparición del bridge (GTK, del orden de sus consultas), así que un mismo equipo puede tener otro color que en desktop.
+- No se portó el modo "por equipo" de patcheras ni "colorear por auditoría" (A.7+/C), ni el export PDF/SVG (C.6).
+- Rack: los segmentos de bandeja no enlazan en el SVG (hay varios equipos); se navegan desde la tabla de abajo.
+- `plan_pyodide_v1.md` no está en el repo: marcar A.1 a A.6 como hechas ahí.
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-01 — Fase A.4 de `plan_pyodide_v1.md` (fichas de equipo, cable y conector + imágenes en OPFS, camino 2), sobre `main` en `77727ae` (A.3 ya mergeada, PR #87)._
 
 ### Current Focus
