@@ -7,26 +7,26 @@ import { normalizar } from "./arbol.js";
 
 const vacio = (v) => v == null || v === "" || (typeof v === "number" && Number.isNaN(v));
 const ruta = (tipo, id) => `#/${tipo}/${encodeURIComponent(id)}`;
-const enlace = (tipo, id, texto) => (id == null ? String(texto ?? "") : h("a", { href: ruta(tipo, id) }, texto || "#" + id));
+export const enlace = (tipo, id, texto) => (id == null ? String(texto ?? "") : h("a", { href: ruta(tipo, id) }, texto || "#" + id));
 const num = (v) => Number(v).toLocaleString(idioma(), { maximumFractionDigits: 2 });
 
 // Argumento de ruta numérico ("12"); null si no lo es.
 export const idDeRuta = (args) => (/^\d+$/.test(args?.[0] ?? "") ? Number(args[0]) : null);
 
-function desconocida(id) {
+export function desconocida(id) {
   return h("section", { class: "pendiente" }, h("h2", {}, t("Pantalla desconocida")), h("p", { class: "sub" }, String(id ?? "")));
 }
-const volver = (tipo, texto) => h("p", { class: "volver" }, h("a", { href: "#/" + tipo }, "← " + t(texto)));
+export const volver = (tipo, texto) => h("p", { class: "volver" }, h("a", { href: "#/" + tipo }, "← " + t(texto)));
 
 // Lista de datos: pares [etiqueta, valor]; omite los vacíos. Un valor puede ser texto o Node.
-function datos(pares) {
+export function datos(pares) {
   const fil = pares.filter(([, v]) => !vacio(v));
   if (!fil.length) return null;
   return h("dl", { class: "datos" }, fil.map(([k, v]) => [h("dt", {}, t(k)), h("dd", {}, v)]));
 }
-const seccion = (titulo, ...hijos) => h("section", { class: "bloque" }, h("h3", {}, t(titulo)), ...hijos);
+export const seccion = (titulo, ...hijos) => h("section", { class: "bloque" }, h("h3", {}, t(titulo)), ...hijos);
 
-function tabla(cabeceras, filas, { clase = "" } = {}) {
+export function tabla(cabeceras, filas, { clase = "" } = {}) {
   return h("div", { class: "tabla-scroll" }, h("table", { class: "tabla " + clase },
     h("thead", {}, h("tr", {}, cabeceras.map((c) => h("th", {}, t(c))))),
     h("tbody", {}, filas)));
@@ -68,9 +68,10 @@ export async function fichaEquipo({ rpc, args }) {
 
     seccion("Ubicación", e.racks.length || e.slots.length
       ? h("ul", {}, [
-        ...e.racks.map((r) => h("li", {}, [r.sala, [t("Rack"), r.rack_numero ?? r.rack].filter(Boolean).join(" ") + (r.rack && r.rack_numero != null ? ` (${r.rack})` : ""),
-          vacio(r.orificio) ? null : `${t("Posición")} ${r.orificio}` + (vacio(r.unidades) ? "" : ` (${r.unidades} U)`)].filter(Boolean).join(" · "))),
-        ...e.slots.map((s) => h("li", {}, `${t("Frame")}: ${s.frame || "?"} · ${t("Slot")}: ${s.slot || "?"}`))])
+        ...e.racks.map((r) => h("li", {}, [r.sala,
+          [enlace("racks", r.id_rack, [t("Rack"), r.rack_numero ?? r.rack].filter(Boolean).join(" ") + (r.rack && r.rack_numero != null ? ` (${r.rack})` : ""))],
+          vacio(r.orificio) ? null : `${t("Posición")} ${r.orificio}` + (vacio(r.unidades) ? "" : ` (${r.unidades} U)`)].filter(Boolean).flatMap((x, i) => (i ? [" · ", x] : [x])))),
+        ...e.slots.map((s) => h("li", {}, `${t("Frame")}: `, enlace("frames", s.id_frame, s.frame || "?"), ` · ${t("Slot")}: ${s.slot || "?"}`))])
       : h("p", { class: "sub" }, t("Sin ubicación"))),
 
     e.riesgo ? seccion("Riesgo", datos([["Nivel", e.riesgo.nivel], ["Riesgo", vacio(e.riesgo.riesgo) ? null : num(e.riesgo.riesgo)],

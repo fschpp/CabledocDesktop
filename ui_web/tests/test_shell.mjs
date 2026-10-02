@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones"];
 
 if (!escenario) {
   let mal = 0;
@@ -103,9 +103,9 @@ if (escenario === "completo") {
   ok(num("Equipos") === "2", "Equipos = 2, vino " + num("Equipos"));
   ok($("#db-info").textContent.startsWith("Base cargada ("), "pie con tamaño de base");
   // 3) navegación
-  await ir("#/ubicaciones");
-  ok($("#lateral a[data-id=ubicaciones]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
-  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.6 del plan."), "pantalla pendiente con su etapa");
+  await ir("#/analisis");
+  ok($("#lateral a[data-id=analisis]").getAttribute("aria-current") === "page" && !$("#lateral a[data-id=inicio]").hasAttribute("aria-current"), "aria-current sigue la ruta");
+  ok($("#contenido .pendiente").textContent.includes("Disponible en la etapa A.7 del plan."), "pantalla pendiente con su etapa");
   await ir("#/equipos");                    // A.3 con el bridge real: árbol sobre la base de prueba (2 equipos sin ubicación)
   ok($("#contenido .arbol"), "Equipos muestra el árbol");
   const filasA3 = () => [...document.querySelectorAll("#contenido .arbol-fila")].map((f) => f.querySelector(".arbol-etiqueta").textContent);
@@ -115,11 +115,11 @@ if (escenario === "completo") {
   ok($("#contenido h2").textContent === "Pantalla desconocida", "ruta desconocida");
   await ir("#/equipos/abc");
   ok($("#contenido h2").textContent === "Pantalla desconocida", "id no numérico → pantalla desconocida");
-  await ir("#/ubicaciones");
+  await ir("#/analisis");
   // 4) idioma (diccionario desde Python: core + web) y persistencia
   await cambiar("#sel-idioma", "en");
   ok($("#lateral a[data-id=equipos]").textContent.includes("Equipment"), "nav en inglés");
-  ok($("#contenido .pendiente").textContent.includes("Available in stage A.6 of the plan."), "pantalla pendiente en inglés (con {etapa})");
+  ok($("#contenido .pendiente").textContent.includes("Available in stage A.7 of the plan."), "pantalla pendiente en inglés (con {etapa})");
   ok(localStorage.getItem("cabledoc.lang") === "en" && document.documentElement.lang === "en", "idioma persistido y <html lang>");
   ok($("#sel-idioma").value === "en", "el selector conserva el idioma");
   await ir("#/inicio");
@@ -144,7 +144,7 @@ if (escenario === "completo") {
   $("#toasts .toast button").click(); ok(!$("#toasts .toast"), "toast se cierra");
   // 8) menú móvil
   $("#btn-menu").click(); ok(document.body.classList.contains("menu-abierto") && $("#btn-menu").getAttribute("aria-expanded") === "true", "abre el menú");
-  await ir("#/ubicaciones"); ok(!document.body.classList.contains("menu-abierto"), "navegar cierra el menú");
+  await ir("#/analisis"); ok(!document.body.classList.contains("menu-abierto"), "navegar cierra el menú");
 }
 
 if (escenario === "motor_caido") {
@@ -532,6 +532,127 @@ INSERT INTO extension_cable(id_extension,id_conexion_a,id_conexion_b,posicion_li
   ok(txt(".cadena h2").includes("Full chain") && txt(".cd-extension").includes("INCORRECTLY ASSEMBLED") && txt(".cd-lista").includes("cable"), "cadena en inglés");
   await ir("#/conexiones/1"); await tick(150);
   ok(txt("#cx-expandir") === "Expand all" && txt("#contenido .sub[aria-live]") === "«CAM 1» — 3 connections", "árbol en inglés");
+}
+
+if (escenario === "ubicaciones") {          // A.6: listado, rack, frame/slots y patcheras en SVG con el bridge REAL (Pyodide)
+  const E = await rpcPyodide();
+  instalarDom();
+  const IM = await import(pathToFileURL(path.join(WEB, "app/imagenes.js")).href);
+  IM.configurar({ almacen: IM.almacenMemoria(), crearUrl: (b) => "blob:test/" + b.name, revocar() {} });
+  const UB = await import(pathToFileURL(path.join(WEB, "app/ubicaciones.js")).href);
+  UB.configurarMedidor(async (url) => (url.endsWith("frame.png") ? { w: 1000, h: 200 } : null));   // jsdom no carga imágenes
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  // datos de ubicación sobre la base ya cargada (la base de prueba solo trae 2 equipos)
+  E.py.runPython(`
+import sqlite3
+from core.modelo import Modelo
+Modelo.asegurar_columnas_control_idioma()
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""
+INSERT INTO tipo_equipo(id_tipo_equipo,nombre,rol_senal) VALUES (10,'MODULO PATCHERA','PATCHERA'),(11,'FANTASMA','FANTASMA');
+INSERT INTO imagen(id_imagen,path_archivo) VALUES (2,'frame.png');
+INSERT INTO equipo(id_equipo,id_tipo_equipo,nombre) VALUES (110,10,'PATCH 1'),(111,10,'PATCH 2'),(112,10,'PATCH 3'),(120,1,'CAM 3'),(130,11,'FANT');
+INSERT INTO sala(id_sala,nombre) VALUES (1,'Sala A');
+INSERT INTO rack(id_rack,numero,nombre,cantidad_maxima) VALUES (1,1,'Rack 1',4),(2,2,'Rack 2',2);
+INSERT INTO rack_por_sala(id_rack,id_sala) VALUES (1,1);
+INSERT INTO frame(id_frame,nombre,id_imagen,modelo) VALUES (1,'PPV 1',2,'PP-24'),(2,'Sin slots',NULL,NULL),(3,'Sin imagen',NULL,NULL),(4,'PPV 2',NULL,NULL);
+INSERT INTO posicion_en_rack(id_posicion_en_rack,id_rack,id_equipo,orificio_posicion_equipo_en_rack,unidades_de_rack_equipo,id_frame) VALUES
+  (1,1,1,1,1,NULL),(2,1,2,1,1,NULL),(3,1,NULL,4,1,1),(4,1,NULL,7,1,3),(5,2,NULL,1,1,2),(6,2,NULL,4,1,4);
+INSERT INTO slot(id_slot,nombre,id_equipo,id_frame,rectangulo_x_en_imagen,rectangulo_y_en_imagen,rectangulo_ancho_pixeles,rectangulo_alto_pixeles) VALUES
+  (1,'Slot 1',110,1,10,10,100,40),(2,'Slot 2',111,1,120,10,100,40),(3,'Slot A',1,3,10,10,100,40),(4,'Slot B',NULL,3,120,10,100,40),(5,'Slot 1',112,4,NULL,NULL,NULL,NULL);
+INSERT INTO conector(id_conector,nombre,id_equipo,id_tipo_conector,id_funcion_patchera) VALUES
+  (200,'A_BACK',110,1,1),(201,'B_BACK',110,1,2),(202,'A_FRONT',110,1,3),(203,'B_FRONT',110,1,4),
+  (210,'A_BACK',111,1,1),(211,'B_BACK',111,1,2),(212,'A_FRONT',111,1,3),(213,'B_FRONT',111,1,4),
+  (220,'A_BACK',112,1,1),(221,'B_BACK',112,1,2),(222,'A_FRONT',112,1,3),(223,'B_FRONT',112,1,4),
+  (300,'OUT',120,1,NULL),(310,'X',130,1,NULL);
+INSERT INTO cable(id_cable,codigo,es_cable_conexion_interna) VALUES (10,'P-10',0),(11,'P-11',0),(12,'P-12',0),(13,'P-13',0);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES
+  (10,10,300,0),(11,10,200,0),(12,11,310,0),(13,11,210,0),(14,12,202,0),(15,12,213,0),(16,13,212,0),(17,13,222,0);
+""")
+c.commit(); c.close()`);
+
+  const txt = (sel) => $(sel)?.textContent;
+  const hrefs = (sel) => [...document.querySelectorAll(sel)].map((a) => a.getAttribute("href"));
+  const N = (sel) => document.querySelectorAll(sel).length;
+  const nav = () => $("#lateral a[data-id=ubicaciones]").getAttribute("aria-current") === "page";
+
+  // listado
+  await ir("#/ubicaciones");
+  ok(txt("#contenido h2") === "Ubicaciones" && nav(), "listado: título y menú");
+  ok(["#/racks/1", "#/racks/2", "#/frames/1", "#/frames/2", "#/frames/3", "#/frames/4"].every((x) => hrefs(".ubic-lista a").includes(x)), "listado: enlaces a racks y frames");
+  ok(txt(".ubic-sala h4") === "Sala A" && hrefs(".ubic-sala a").join() === "#/racks/1", "listado: la sala con su rack");
+  ok(hrefs(".ficha-ubicaciones a").includes("#/patcheras") && hrefs(".ficha-ubicaciones a").includes("#/racks/2"), "listado: enlace a patcheras y rack sin sala");
+  ok(txt(".ficha-ubicaciones").includes("Racks sin sala") && txt(".ficha-ubicaciones").includes("4 U"), "listado: racks sin sala y su capacidad");
+  ok(N(".ubic-lista a[href^='#/frames/']") === 4, "listado: los 4 frames");
+
+  // rack 1 (4 U = 12 orificios): bandeja 1-3 (2 equipos), frames 4-6 y 7-9, libres 10-12
+  await ir("#/racks/1");
+  ok(txt("#contenido h2") === "Rack 1" && nav(), "rack: título y el menú resalta Ubicaciones");
+  const svg = $(".rack-svg");
+  ok(svg && svg.getAttribute("viewBox") === "0 0 350 364" && svg.getAttribute("width") === "350", "rack: SVG de 350 × (28 + 12 × 28)");
+  ok(N(".rk-num") === 12 && N(".rk-seg") === 6 && N(".rk-bandeja") === 1 && N(".rk-frame") === 2 && N(".rk-libre") === 3, "rack: 12 orificios; bandeja + 2 frames + 3 libres");
+  ok(hrefs(".rack-svg a").join() === "#/frames/1,#/frames/3", "rack: los frames enlazan a su vista");
+  ok(txt(".rack-svg .rk-bandeja .rk-txt") === "Bandeja: CAM 1, CAM 2" && txt(".rack-svg .rk-bandeja title").includes("[Bandeja compartida]"), "rack: etiqueta y tooltip de la bandeja");
+  ok(txt(".rack-resumen") === "0 equipos · 2 frames · 1 bandejas · 3 orificios libres", "rack: resumen " + txt(".rack-resumen"));
+  const filasR = [...document.querySelectorAll(".ficha-rack tbody tr")];
+  ok(filasR.length === 3 && filasR[0].textContent.startsWith("1–3Bandeja") && hrefs(".ficha-rack tbody tr:first-child a").join() === "#/equipos/1,#/equipos/2", "rack: tabla con la bandeja y un enlace por equipo");
+  document.querySelector("[data-zoom=mas]").click();
+  ok($(".rack-svg").getAttribute("width") === "437.5" && txt(".zoom-valor") === "125 %", "rack: zoom + agranda el SVG");
+  document.querySelector("[data-zoom=reset]").click();
+  ok($(".rack-svg").getAttribute("width") === "350" && txt(".zoom-valor") === "100 %", "rack: 100 % restaura");
+  await ir("#/racks/2");
+  ok($(".rack-svg").getAttribute("viewBox") === "0 0 350 196" && N(".rk-frame") === 2 && txt(".ficha-rack .sub").includes("2 U"), "rack 2: 2 U = 6 orificios, dos frames");
+  await ir("#/racks/abc"); ok(txt("#contenido h2") === "Pantalla desconocida", "rack con id mal formado");
+  await ir("#/racks/999"); ok($("#contenido .error-panel") && txt("#contenido .error-panel pre").includes("999"), "rack inexistente → panel de error");
+
+  // frame 1: slots sobre la imagen (no cargada todavía)
+  await ir("#/frames/1");
+  ok(txt("#contenido h2") === "PPV 1" && nav() && txt(".ficha-frame .datos").includes("PP-24"), "frame: título, datos y menú");
+  ok(txt(".img-falta").includes("Imagen no cargada en este navegador: frame.png") && N(".frame-svg image") === 0 && N(".fr-slot") === 2, "frame: sin imagen cargada → aviso y solo los rectángulos");
+  const filasF = [...document.querySelectorAll(".ficha-frame tbody tr")];
+  ok(filasF.length === 2 && filasF[0].textContent.includes("Slot 1") && hrefs(".ficha-frame tbody a").join() === "#/equipos/110,#/equipos/111", "frame: tabla de slots con enlaces a sus equipos");
+  await IM.guardarArchivos([{ name: "frame.png", webkitRelativePath: "imagen/frame.png", type: "image/png", size: 4 }]); await tick(80);
+  const im = $(".frame-svg image");
+  ok(im && im.getAttribute("href") === "blob:test/frame.png" && $(".frame-svg").getAttribute("viewBox") === "0 0 1000 200", "frame: al cargar la imagen se dibuja y el SVG toma su tamaño (1000 × 200)");
+  ok(!$(".img-falta") && N(".fr-slot") === 2, "frame: desaparece el aviso");
+  const r1 = $(".fr-slot rect"); ok(r1.getAttribute("x") === "10" && r1.getAttribute("width") === "100" && r1.getAttribute("height") === "40" && r1.getAttribute("stroke") === "#D82626", "frame: el rectángulo va en píxeles de la imagen con el primer color de la paleta");
+  filasF[1].dispatchEvent(new window.Event("mouseenter")); ok($(".fr-slot[data-slot='2']").classList.contains("resaltado"), "frame: pasar el mouse por la fila resalta el slot");
+  filasF[1].dispatchEvent(new window.Event("mouseleave")); ok(!$(".fr-slot.resaltado"), "…y lo quita");
+  await ir("#/frames/2"); ok(txt(".ficha-frame .sub") === "Frame sin slots registrados" && !$(".frame-svg"), "frame sin slots");
+  await ir("#/frames/3");
+  ok(txt(".frame-lienzo .sub").startsWith("Este frame no tiene imagen") && N(".fr-slot") === 2 && N(".frame-svg image") === 0, "frame sin imagen: nota y rectángulos sobre fondo liso");
+  const rects = [...document.querySelectorAll(".fr-slot > rect:first-child")];
+  ok(rects[0].getAttribute("stroke") === "#D82626" && rects[1].getAttribute("stroke") === "#8C8C94" && [...document.querySelectorAll(".fr-nombre")].map((x) => x.textContent).join() === "CAM 1,(vacío)", "frame: slot con equipo color de paleta; el vacío en gris");
+  ok(txt(".ficha-frame tbody").includes("(vacío)") && hrefs(".ficha-frame tbody a").join() === "#/equipos/1", "frame: el slot vacío dice (vacío)");
+  await ir("#/frames/4"); ok($(".frame-svg") && [...document.querySelectorAll(".fr-slot > rect:first-child")][0].getAttribute("width") === "50", "frame: slot sin medida = 50 × 30");
+  await ir("#/frames/x"); ok(txt("#contenido h2") === "Pantalla desconocida", "frame con id mal formado");
+
+  // patcheras: 2 racks × 1 franja × 2 columnas × 2 filas = 8 orificios
+  await ir("#/patcheras");
+  ok(txt("#contenido h2") === "Patcheras" && nav(), "patcheras: título y menú");
+  ok(txt(".pat-resumen") === "2 racks · 2 patcheras  ·  🎨 4 equipos conectados  ·  ✖ 1 fantasma", "patcheras: resumen " + txt(".pat-resumen"));
+  ok(N(".pt-punto") === 8 && N(".pt-conectado") === 1 && N(".pt-fantasma") === 1 && N(".pt-vacio") === 6 && N(".pt-x") === 1, "patcheras: 8 orificios (1 conectado, 1 fantasma con ✖, 6 libres)");
+  const conectado = $(".pt-conectado");
+  ok(conectado.querySelector("title").textContent === "Rack 1 · PPV 1 · 01A: CAM 3 (OUT)" && conectado.parentNode.getAttribute("href") === "#/equipos/120", "patcheras: tooltip y enlace al equipo conectado");
+  ok($(".pt-conectado .pt-orificio").getAttribute("fill") === "#D82626" && $(".pt-fantasma").querySelector("title").textContent.includes("✖ FANTASMA"), "patcheras: color de paleta por equipo; fantasma marcado");
+  ok(hrefs(".pat-svg a").includes("#/equipos/110") && hrefs(".pat-svg a").includes("#/equipos/112"), "patcheras: el número de columna enlaza al módulo");
+  ok(N(".pt-curva") === 1 && N(".pt-cabo") === 2, "patcheras: una curva (mismo rack) y el cruce de rack como dos cabos");
+  ok(!!$("#pat-cruces"), "patcheras: aparece el control para ver los cables entre racks");
+  const cr = $("#pat-cruces"); cr.checked = true; cr.dispatchEvent(new window.Event("change"));
+  ok(N(".pt-curva") === 2 && N(".pt-cabo") === 0, "patcheras: 'Cables entre racks' dibuja la curva real");
+  document.querySelector("[data-zoom=mas]").click(); ok($(".pat-svg").getAttribute("width") === String(Number($(".pat-svg").getAttribute("viewBox").split(" ")[2]) * 1.25), "patcheras: zoom");
+
+  // ficha de equipo → rack y frame
+  await ir("#/equipos/1"); ok(hrefs(".ficha-equipo ul a").includes("#/racks/1"), "ficha de equipo: el rack enlaza a su vista");
+  await ir("#/equipos/110"); ok(hrefs(".ficha-equipo ul a").includes("#/frames/1"), "ficha de equipo: el frame enlaza a su vista");
+
+  // idioma
+  await ir("#/racks/1"); await cambiar("#sel-idioma", "en");
+  ok(txt(".volver").includes("Back to Locations") && txt(".rack-svg .rk-bandeja .rk-txt") === "Tray: CAM 1, CAM 2" && txt(".rack-svg .rk-cabecera + .rk-titulo") === "Rack 1", "rack en inglés");
+  await ir("#/patcheras"); ok(txt(".pat-resumen").includes("4 connected devices") && txt(".ficha-patcheras h2") === "Patchbays", "patcheras en inglés");
+  await ir("#/frames/2"); ok(txt(".ficha-frame .sub") === "Frame with no slots recorded", "frame en inglés");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

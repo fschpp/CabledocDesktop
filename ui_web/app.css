@@ -130,3 +130,30 @@ h2{margin:.1rem 0 1rem;font-size:1.25rem}
 .cx-cadena{margin-left:.3rem;text-decoration:none}
 .cd-lista{list-style:none;margin:.5rem 0;padding:0}.cd-lista li{padding:.3rem .5rem;border-left:3px solid var(--borde);margin:0 0 .15rem}
 .cd-lista li.cd-equipo{border-left-color:var(--ok)}.cd-lista li.foco{background:var(--panel2);border-left-color:#4a90d9}.cd-lista li.cd-aviso{border-left-color:var(--mal)}
+
+/* Ubicaciones (A.6): rack, frame/slots y patcheras en SVG. Los colores del dibujo son fijos (igual que el desktop), no siguen el tema. */
+.ubic-lista{list-style:none;margin:.3rem 0;padding:0}.ubic-lista li{padding:.2rem 0;border-bottom:1px solid var(--borde)}
+.ubic-sala h4{margin:.8rem 0 .2rem}
+.zoom-barra{display:inline-flex;align-items:center;gap:.4rem;margin:.3rem 0}.zoom-valor{min-width:3.2rem;text-align:center}
+.svg-scroll{overflow:auto;max-width:100%;border:1px solid var(--borde);border-radius:8px;background:var(--panel);padding:.5rem;margin:.4rem 0 1rem}
+.rack-svg,.pat-svg{display:block;max-width:none;font-family:system-ui,sans-serif}.rack-svg a,.pat-svg a{cursor:pointer}
+.rk-cabecera{fill:#263352}.rk-titulo{fill:#fff;font:700 13px system-ui,sans-serif}.rk-frente{fill:#fff;fill-opacity:.5;font-size:8px}
+.rk-num{fill:#d1d1d1;stroke:#8c8c8c;stroke-width:.5}.rk-oreja{fill:#8c8c99}.rk-num-txt{fill:#333;font-size:10px}
+.rk-cuerpo{stroke-width:1.5}.rk-guia{stroke:#000;stroke-opacity:.07;stroke-width:.5}.rk-txt{font-family:system-ui,sans-serif}
+.rk-equipo .rk-cuerpo{fill:#c7e6fa;stroke:#4d8cbf}.rk-equipo .rk-txt{fill:#0d2e6b}
+.rk-frame .rk-cuerpo{fill:#ffe0ad;stroke:#a67a1a}.rk-frame .rk-txt{fill:#5a2e00}
+.rk-bandeja .rk-cuerpo{fill:#adebad;stroke:#269926;stroke-width:2}.rk-bandeja .rk-txt{fill:#146114}
+.rk-libre .rk-cuerpo{fill:#ededed;stroke:#8c8c8c}.rk-libre .rk-txt{fill:#808080}
+.rk-inv{font-weight:400;fill-opacity:.75}
+.rk-seg:hover .rk-cuerpo,a:focus-visible .rk-cuerpo{stroke-width:3}
+.rk-marco{fill:none;stroke:#262e38;stroke-width:3}.rk-marco2{stroke:#4d4d59;stroke-width:1.5}
+.frame-lienzo{margin:.5rem 0}.frame-svg{display:block;max-width:100%;height:auto;border:1px solid var(--borde);background:var(--panel)}
+.fr-fondo{fill:#f4f4f6}.fr-borde{fill:none;stroke:#000;stroke-width:1}.fr-slot{outline:none}
+.fr-slot.resaltado rect:first-child,.fr-slot:focus-visible rect:first-child{fill-opacity:.5;stroke-width:5}
+.swatch{display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:middle;border:1px solid var(--borde)}
+tr[data-slot]:hover{background:var(--panel2)}
+.pat-scroll{background:#0f0f0f}.pat-barra{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+.pt-fondo{fill:#0f0f0f}.pt-rack-cab{fill:#26334d}.pt-rack-txt{fill:#d1d1d9}.pt-franja{fill:#1a1a1f;stroke:#2e3342}
+.pt-frame{fill:#d1d1d9}.pt-num{fill:#61616e}.pt-fila{fill:#8c8c9e}.pt-sep{stroke:#2e3342;stroke-width:.8}
+.pt-vacio .pt-orificio,.pt-fantasma .pt-orificio{fill:#2e2e33}.pt-brillo{fill:#fff}.pt-x{stroke:#e0e0e6;stroke-width:1.3;fill:none}.pt-cable path,.pt-cable circle{pointer-events:stroke}
+.pt-punto:hover .pt-orificio{stroke:#fff;stroke-width:1}
