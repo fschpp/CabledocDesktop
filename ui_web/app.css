@@ -175,3 +175,13 @@ dialog.form-dialogo h3{margin:0 0 .6rem}
 .form-botones{display:flex;justify-content:flex-end;gap:.5rem;margin-top:.3rem}
 .form-mensaje{overflow-wrap:anywhere}
 .form-demo-salida{background:var(--panel2);border:1px solid var(--borde);border-radius:8px;padding:.6rem;overflow:auto;max-height:20rem}
+/* B.2 — catálogos básicos */
+.catalogos-nav{display:flex;flex-wrap:wrap;gap:.35rem;margin:.6rem 0 1rem}
+.catalogos-nav a{padding:.3rem .75rem;border:1px solid var(--borde);border-radius:999px;background:var(--panel);color:var(--texto);text-decoration:none}
+.catalogos-nav a:hover{background:var(--panel2)}
+.catalogos-nav a[aria-current="page"]{background:var(--acento);color:var(--acento-t);border-color:var(--acento)}
+.catalogos-barra{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:.6rem 0}
+.catalogos-barra input[type=search]{flex:1;min-width:12rem;max-width:26rem;background:var(--panel2);border:1px solid var(--borde);border-radius:6px;padding:.4rem .5rem;color:var(--texto)}
+.tabla td.acciones{white-space:nowrap;text-align:right}
+.tabla td.acciones button{padding:.15rem .55rem}
+.catalogos-usos{margin:.3rem 0 0;padding-left:1.2rem}

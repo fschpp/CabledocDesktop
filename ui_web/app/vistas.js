@@ -1,5 +1,5 @@
 // Pantallas del shell. Cada vista es (ctx) → Node | Promise<Node>, con ctx = { rpc, args, gen } (gen cambia cada vez que se carga/cambia la base).
-// "Inicio", "Equipos" (A.3), fichas (A.4), "Conexiones" (A.5), "Ubicaciones" (A.6), "Análisis" (A.7), "Escenarios" (A.8), "Búsqueda" (A.9), "Datos" (A.10) y la carga de base son reales. `pendiente` queda para marcar etapas futuras (NAV.etapa != null).
+// "Inicio", "Equipos" (A.3), fichas (A.4), "Conexiones" (A.5), "Ubicaciones" (A.6), "Análisis" (A.7), "Escenarios" (A.8), "Búsqueda" (A.9), "Datos" (A.10), "Catálogos" (B.2, el primer ABM) y la carga de base son reales. `pendiente` queda para marcar etapas futuras (NAV.etapa != null).
 import { h } from "./dom.js";
 import { t, idioma } from "./i18n.js";
 import { vistaEquipos } from "./equipos_arbol.js";
@@ -11,6 +11,7 @@ import { vistaAnalisis } from "./analisis.js";
 import { vistaEscenarios } from "./escenarios.js";
 import { vistaBusqueda } from "./busqueda.js";
 import { vistaDatos } from "./datos.js";
+import { vistaCatalogos } from "./catalogos.js";
 import { vistaDemoFormulario } from "./formulario_demo.js";
 
 // Navegación: `etapa` es la tarea del plan que la implementa (null = ya disponible).
@@ -23,6 +24,7 @@ export const NAV = [
   { id: "analisis",    clave: "Análisis",    icono: "📈", etapa: null },
   { id: "escenarios",  clave: "Escenarios",  icono: "🧪", etapa: null },
   { id: "busqueda",    clave: "Búsqueda",    icono: "🔍", etapa: null },
+  { id: "catalogos",   clave: "Catálogos",   icono: "🗂️", etapa: null },
   { id: "datos",       clave: "Datos",       icono: "💾", etapa: null },
 ];
 
@@ -71,6 +73,7 @@ export const VISTAS = { inicio, equipos: (ctx) => (ctx.args?.length ? fichaEquip
 VISTAS.analisis = vistaAnalisis;       // A.7: #/analisis/impacto|riesgo|diagnostico|topologia
 VISTAS.escenarios = vistaEscenarios;   // A.8: #/escenarios (lista) y #/escenarios/<id> (cambios + evaluación)
 VISTAS.datos = vistaDatos;             // A.10: #/datos (respaldo del .db y catálogos)
+VISTAS.catalogos = vistaCatalogos;     // B.2: #/catalogos y #/catalogos/<marcas|tipos-equipo|tipos-conector|tipos-cable|tipos-ficha|senales|formatos-senal|imagenes>
 VISTAS["demo-formulario"] = vistaDemoFormulario;   // B.1: página de prueba del patrón de formularios (sin ítem en el menú)
 VISTAS.busqueda = vistaBusqueda;       // A.9: #/busqueda, #/busqueda/<texto> y #/busqueda/<texto>/<tipo>
 

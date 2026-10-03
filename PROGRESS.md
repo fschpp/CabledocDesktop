@@ -207,6 +207,29 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-03 — Fase B.2 de `plan_pyodide_v1.md` (catálogos básicos), sobre `main` en `91152bd` (A.1–A.11 y B.1 mergeadas, PR #96)._
+
+### Current Focus
+B.2 entregada como diff: primer ABM real y primeras funciones de escritura del bridge. `ui_web/catalogos_web.py` (nuevo: `catalogo_lista/alta/modificar/baja/restaurar`, un `_CATALOGOS` que describe cada catálogo), `bridge.py` (registra las escrituras y marca las respuestas con `"escribio"`), `worker.js` (`syncfs` antes de contestar una escritura), `app/catalogos.js` + `app/catalogos_modelo.js` (pantalla `#/catalogos`, 8 pestañas). Pendiente: smoke test en navegador real (lo hace Fede) y commit. Siguiente: B.3 (cables y conexiones).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 a A.11 (Fase A cerrada)
+- [x] Done — B.1 formulario/diálogo genérico
+- [x] Done — B.2 catálogos básicos (diff presentado; `test_catalogos.py` 95, escenarios `catalogos_modelo` 18 y `catalogos` 49, `test_sw` 84, los 18 escenarios de `test_shell.mjs` y los demás tests Python OK; falta smoke en navegador real)
+- [ ] Todo — B.3 a B.12, luego C
+
+### Latest Blockers/Discoveries
+- Smoke a hacer (`python3 -m http.server 8000` en `ui_web/`, `http://127.0.0.1:8000/app.html#/catalogos` con el db.db real; **hacer Ctrl+F5 o "Update on reload" del service worker** porque `sw.js` cambió): (1) las 8 pestañas listan sus filas y «En uso» coincide con lo que se espera (ej. una marca con equipos); (2) alta de marca repetida (`sony` con `Sony` existente) marca el campo y no cierra; (3) alta correcta → fila resaltada + aviso con «Deshacer»; (4) **recargar con F5 y ver que el alta sigue** (es lo único que Node no prueba: el `syncfs` del worker; en la consola del worker debe verse «catalogo_alta: base persistida en N ms»); (5) editar un tipo de equipo FANTASMA (solo el nombre) y comprobar que conserva el rol; (6) eliminar un tipo de equipo con equipos/reglas: el diálogo debe decir cuántos quedan sin tipo y cuántas reglas se borran, con el foco en Cancelar; (7) deshacer una baja sin uso la reinserta; con uso no se ofrece deshacer; (8) tema oscuro e inglés/portugués; (9) Exportar la base desde Datos y abrirla en el desktop: las marcas/tipos nuevos tienen que verse allí.
+- **Diferencias con el desktop (decisiones a confirmar)**: (a) la web rechaza nombres repetidos en cada catálogo (el desktop los permite) — si en la base real ya hay duplicados, se pueden seguir editando pero no renombrar a otro existente; (b) el rol FANTASMA se ofrece en tipos de equipo (el desktop muestra 9 roles, sin FANTASMA); (c) imágenes: solo se edita el registro, sin copiar el archivo ni avisar si falta; (d) los tipos de contenido de señal se eligen de una lista (VIDEO/AUDIO/DATOS/EMBEBIDO + el valor actual) en vez de combo editable.
+- Cambio de estructura de tablas: **ninguno**. Las escrituras usan solo columnas existentes; `asegurar_*` de `Modelo` pueden agregar columnas/tablas de riesgo y señal a una base vieja, igual que en el desktop (con el db.db al día es un no-op).
+- Un borrado con uso **no es reversible**: las FK dejan `NULL` (o borran en cascada) lo que usaba el valor y eso no se reconstruye; por eso el diálogo lo detalla y no ofrece «Deshacer» en ese caso.
+- Contrato nuevo del bridge para B.3+: toda función de escritura se agrega a `ESCRITURAS` (vía el módulo que la define) y `bridge.call` la marca con `"escribio": true` como PRIMERA clave; el worker lo detecta con `startsWith`. Los errores que ocurren antes de tocar la base deben llevar `sin_cambios = True` (como `ErrorSinCambios`/`ErrorCampos`) para no pedir persistencia de balde.
+- `sw.js`: agregados `catalogos_web.py`, `app/catalogos.js` y `app/catalogos_modelo.js` a `ARCHIVOS` (`test_sw.mjs` lo verifica). `core.zip` no cambia.
+- Los 4 tests Python que copian `bridge.py` ahora copian también `catalogos_web.py` (bridge lo importa); un test nuevo que use `bridge.py` debe hacer lo mismo. Pendientes de etapas anteriores (sin tocar): marcar A.3–A.11 como hechas en `plan_pyodide_v1.md` (el repo las tiene sin tildar salvo B.1 y B.2).
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-03 — Fase B.1 de `plan_pyodide_v1.md` (patrón de formulario/diálogo genérico), sobre `main` en `b0deb89` (A.1–A.11 mergeadas)._
 
 ### Current Focus

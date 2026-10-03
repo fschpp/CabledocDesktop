@@ -1,4 +1,4 @@
-// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 + bridge de lectura A.1 + i18n A.2 + datos A.10 (plan_pyodide_v1.md).
+// Web Worker (tipo módulo): corre Pyodide + core/ de CableDoc. Fase 0 + bridge de lectura A.1 + i18n A.2 + datos A.10 + escritura B.2 (plan_pyodide_v1.md).
 const VERSION = "314.0.7";
 // Orden: copia local (ui_web/pyodide/) → jsDelivr npm → jsDelivr oficial.
 const BASES = ["pyodide/", `https://cdn.jsdelivr.net/npm/pyodide@${VERSION}/`, `https://cdn.jsdelivr.net/pyodide/v${VERSION}/full/`];
@@ -45,6 +45,7 @@ async function init() {
   py.FS.writeFile("/app/bridge.py", await (await fetch("bridge.py")).text());
   py.FS.writeFile("/app/i18n_web.py", await (await fetch("i18n_web.py")).text());
   py.FS.writeFile("/app/datos_web.py", await (await fetch("datos_web.py")).text());
+  py.FS.writeFile("/app/catalogos_web.py", await (await fetch("catalogos_web.py")).text());   // B.2: bridge.py lo importa al cargarse
   py.runPython("import sys; sys.path.insert(0, '/app')");
   log(`core.zip (${Math.round(zip.byteLength / 1024)} KB) montado en ${((performance.now() - t1) / 1000).toFixed(2)} s`);
   py.FS.mkdirTree(DBDIR);
@@ -69,7 +70,12 @@ const handlers = {
     py.globals.set("_fn", fn);
     py.globals.set("_args", JSON.stringify(args || {}));
     const result = py.runPython("import bridge\nbridge.call(_fn, _args)");
+    // B.2: las funciones de escritura abren su respuesta con {"escribio": true (también si fallan: pudo quedar a medias).
+    // Se persiste (syncfs) ANTES de contestar, así la UI sabe que lo que acaba de guardar ya está en IndexedDB (D4).
+    const escribio = result.startsWith('{"escribio": true');
+    if (escribio) { const t = performance.now(); await sync(false); log(`${fn}: base persistida en ${(performance.now() - t).toFixed(0)} ms`); }
     postMessage({ type: "call", id, result });
+    if (escribio) await estado();            // el shell cuenta un "state" como cambio de la base (invalida cachés de las pantallas)
   },
   // Fase A.2: diccionario de traducciones (core.i18n + cadenas web). No necesita db.db.
   async i18n({ id, lang }) {

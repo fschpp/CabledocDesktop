@@ -481,3 +481,113 @@ _WEB_B1 = {
     "No se pudo deshacer": {"en": "Could not undo", "pt": "Não foi possível desfazer"},
 }
 _WEB.update(_WEB_B1)
+
+# Fase B.2 — catálogos básicos (app/catalogos*.js; las reglas de validación vienen de catalogos_web.py)
+_WEB_B2 = {
+    "Catálogos": {"en": "Catalogs", "pt": "Catálogos"},
+    "Catálogo desconocido": {"en": "Unknown catalog", "pt": "Catálogo desconhecido"},
+    # Catálogos (título de la pestaña y nombre en singular)
+    "Marcas": {"en": "Brands", "pt": "Marcas"},
+    "Tipos de equipo": {"en": "Equipment types", "pt": "Tipos de equipamento"},
+    "Tipos de conector": {"en": "Connector types", "pt": "Tipos de conector"},
+    "Tipos de cable": {"en": "Cable types", "pt": "Tipos de cabo"},
+    "Tipos de ficha": {"en": "Plug types", "pt": "Tipos de ficha"},
+    "Señales": {"en": "Signals", "pt": "Sinais"},
+    "Formatos de señal": {"en": "Signal formats", "pt": "Formatos de sinal"},
+    "Imágenes": {"en": "Images", "pt": "Imagens"},
+    "marca": {"en": "brand", "pt": "marca"},
+    "tipo de equipo": {"en": "equipment type", "pt": "tipo de equipamento"},
+    "tipo de conector": {"en": "connector type", "pt": "tipo de conector"},
+    "tipo de cable": {"en": "cable type", "pt": "tipo de cabo"},
+    "tipo de ficha": {"en": "plug type", "pt": "tipo de ficha"},
+    "señal": {"en": "signal", "pt": "sinal"},
+    "formato de señal": {"en": "signal format", "pt": "formato de sinal"},
+    "imagen": {"en": "image", "pt": "imagem"},
+    # Lista, filtro y acciones
+    "Alta de {x}": {"en": "Add {x}", "pt": "Cadastrar {x}"},
+    "Editar {x}": {"en": "Edit {x}", "pt": "Editar {x}"},
+    "Eliminar {x}": {"en": "Delete {x}", "pt": "Excluir {x}"},
+    "Editar": {"en": "Edit", "pt": "Editar"},
+    "Eliminar": {"en": "Delete", "pt": "Excluir"},
+    "Filtrar": {"en": "Filter", "pt": "Filtrar"},
+    "{n} de {total}": {"en": "{n} of {total}", "pt": "{n} de {total}"},
+    "{total} registro(s)": {"en": "{total} record(s)", "pt": "{total} registro(s)"},
+    "Ningún registro coincide con el filtro.": {"en": "No records match the filter.", "pt": "Nenhum registro corresponde ao filtro."},
+    "Todavía no hay registros.": {"en": "There are no records yet.", "pt": "Ainda não há registros."},
+    "ID": {"en": "ID", "pt": "ID"},
+    "En uso": {"en": "In use", "pt": "Em uso"},
+    "Se agregó «{nombre}»": {"en": "Added «{nombre}»", "pt": "«{nombre}» adicionado"},
+    "Se modificó «{nombre}»": {"en": "Modified «{nombre}»", "pt": "«{nombre}» modificado"},
+    "Se eliminó «{nombre}»": {"en": "Deleted «{nombre}»", "pt": "«{nombre}» excluído"},
+    "No se pudo completar la acción": {"en": "The action could not be completed", "pt": "Não foi possível concluir a ação"},
+    # Confirmación de baja
+    "¿Eliminar «{nombre}»?": {"en": "Delete «{nombre}»?", "pt": "Excluir «{nombre}»?"},
+    "Está en uso. Al eliminarlo:": {"en": "It is in use. If you delete it:", "pt": "Está em uso. Ao excluí-lo:"},
+    "No está en uso.": {"en": "It is not in use.", "pt": "Não está em uso."},
+    "también se eliminarán": {"en": "will also be deleted", "pt": "também serão excluídos"},
+    "quedarán sin este valor": {"en": "will be left without this value", "pt": "ficarão sem este valor"},
+    # Dónde se usa un valor
+    "Moldes de equipo": {"en": "Equipment templates", "pt": "Modelos de equipamento"},
+    "Moldes de frame": {"en": "Frame templates", "pt": "Modelos de frame"},
+    "Moldes de conector": {"en": "Connector templates", "pt": "Modelos de conector"},
+    "Slots": {"en": "Slots", "pt": "Slots"},
+    "Plantillas de conectores": {"en": "Connector presets", "pt": "Predefinições de conectores"},
+    "Reglas lógicas": {"en": "Logic rules", "pt": "Regras lógicas"},
+    "Estrategias visuales": {"en": "Visual strategies", "pt": "Estratégias visuais"},
+    "Símbolos de conector": {"en": "Connector symbols", "pt": "Símbolos de conector"},
+    "Señales asignadas a conectores": {"en": "Signals assigned to connectors", "pt": "Sinais atribuídos a conectores"},
+    "Relaciones de linaje de señal": {"en": "Signal lineage links", "pt": "Relações de linhagem de sinal"},
+    "Imágenes de señal de conector": {"en": "Connector signal images", "pt": "Imagens de sinal de conector"},
+    # Campos del formulario
+    "Nombre": {"en": "Name", "pt": "Nome"},
+    "Rol frente a la señal": {"en": "Role in the signal path", "pt": "Papel no caminho do sinal"},
+    "Es referencia generada (fuente incondicional de sync, ej. SPG/wordclock)":
+        {"en": "Is a generated reference (unconditional sync source, e.g. SPG/wordclock)", "pt": "É uma referência gerada (fonte incondicional de sync, ex.: SPG/wordclock)"},
+    "Naturaleza de la señal": {"en": "Signal nature", "pt": "Natureza do sinal"},
+    "Long. máx. recomendada — balanceado (m)": {"en": "Max. recommended length — balanced (m)", "pt": "Comp. máx. recomendado — balanceado (m)"},
+    "Long. máx. recomendada — desbalanceado (m)": {"en": "Max. recommended length — unbalanced (m)", "pt": "Comp. máx. recomendado — desbalanceado (m)"},
+    "Ancho de banda (MHz)": {"en": "Bandwidth (MHz)", "pt": "Largura de banda (MHz)"},
+    "Cantidad de conductores": {"en": "Number of conductors", "pt": "Número de condutores"},
+    "Balance por defecto": {"en": "Default balance", "pt": "Balanceamento padrão"},
+    "Canal por defecto": {"en": "Default channel", "pt": "Canal padrão"},
+    "Tipo de contenido": {"en": "Content type", "pt": "Tipo de conteúdo"},
+    "Descripción": {"en": "Description", "pt": "Descrição"},
+    "Archivo de imagen": {"en": "Image file", "pt": "Arquivo de imagem"},
+    "El análisis de impacto trata cualquier conector de este tipo como fuente de señal, aunque no tenga entradas cableadas.":
+        {"en": "Impact analysis treats any connector of this type as a signal source, even if it has no wired inputs.", "pt": "A análise de impacto trata qualquer conector deste tipo como fonte de sinal, mesmo sem entradas cabeadas."},
+    "Nombre del archivo en la carpeta de imágenes (ej. camara.png). Desde acá solo se edita el registro: los archivos se cargan desde las fichas.":
+        {"en": "File name in the images folder (e.g. camera.png). Only the record is edited here: files are loaded from the detail pages.", "pt": "Nome do arquivo na pasta de imagens (ex.: camera.png). Aqui só se edita o registro: os arquivos são carregados nas fichas."},
+    "Para fichas ambiguas (ej. TRS) estos valores son solo el default: cada conector puede tener su propio ajuste.":
+        {"en": "For ambiguous plugs (e.g. TRS) these values are only the default: each connector can have its own setting.", "pt": "Para fichas ambíguas (ex.: TRS) estes valores são apenas o padrão: cada conector pode ter seu próprio ajuste."},
+    # Roles de señal
+    "Distribuidor (repite la señal en sus salidas)": {"en": "Distributor (repeats the signal on its outputs)", "pt": "Distribuidor (repete o sinal nas saídas)"},
+    "Fuente (genera la señal)": {"en": "Source (generates the signal)", "pt": "Fonte (gera o sinal)"},
+    "Enrutador (según ruteo de matriz)": {"en": "Router (per matrix routing)", "pt": "Roteador (conforme o roteamento da matriz)"},
+    "Procesador (combina/transforma → señal nueva)": {"en": "Processor (combines/transforms → new signal)", "pt": "Processador (combina/transforma → sinal novo)"},
+    "Consumidor (no tiene salidas de señal)": {"en": "Consumer (no signal outputs)", "pt": "Consumidor (sem saídas de sinal)"},
+    "Patchera (bypass físico A/B, no usa ruteo de matriz)": {"en": "Patch panel (physical A/B bypass, no matrix routing)", "pt": "Patch panel (bypass físico A/B, sem roteamento de matriz)"},
+    "Conversor de balance (DI box, transformador — punto de conversión legítimo)":
+        {"en": "Balance converter (DI box, transformer — legitimate conversion point)", "pt": "Conversor de balanceamento (DI box, transformador — ponto de conversão legítimo)"},
+    "Sumador/divisor de canal (mono↔estéreo — punto de conversión legítimo)":
+        {"en": "Channel summer/splitter (mono↔stereo — legitimate conversion point)", "pt": "Somador/divisor de canal (mono↔estéreo — ponto de conversão legítimo)"},
+    "Distribuidor de referencia de frame (reparte REF1/REF2 externo a los demás slots del frame)":
+        {"en": "Frame reference distributor (shares external REF1/REF2 with the other slots of the frame)", "pt": "Distribuidor de referência de frame (reparte REF1/REF2 externo aos demais slots do frame)"},
+    "Fantasma (extremo desconectado confirmado)": {"en": "Ghost (confirmed disconnected end)", "pt": "Fantasma (extremo desconectado confirmado)"},
+    # Columnas de la lista
+    "Rol señal": {"en": "Signal role", "pt": "Papel do sinal"},
+    "Referencia generada": {"en": "Generated reference", "pt": "Referência gerada"},
+    "Naturaleza": {"en": "Nature", "pt": "Natureza"},
+    "Máx. balanceado (m)": {"en": "Max. balanced (m)", "pt": "Máx. balanceado (m)"},
+    "Máx. desbalanceado (m)": {"en": "Max. unbalanced (m)", "pt": "Máx. desbalanceado (m)"},
+    "Conductores": {"en": "Conductors", "pt": "Condutores"},
+    "Balance": {"en": "Balance", "pt": "Balanceamento"},
+    "Canal": {"en": "Channel", "pt": "Canal"},
+    "Contenido": {"en": "Content", "pt": "Conteúdo"},
+    "Archivo": {"en": "File", "pt": "Arquivo"},
+    # Motivos que devuelve el bridge (catalogos_web.py)
+    "Ya existe uno con ese nombre": {"en": "One with that name already exists", "pt": "Já existe um com esse nome"},
+    "Texto demasiado largo": {"en": "Text is too long", "pt": "Texto longo demais"},
+    "No puede ser negativo": {"en": "Cannot be negative", "pt": "Não pode ser negativo"},
+    "Debe ser mayor que cero": {"en": "Must be greater than zero", "pt": "Deve ser maior que zero"},
+}
+_WEB.update(_WEB_B2)

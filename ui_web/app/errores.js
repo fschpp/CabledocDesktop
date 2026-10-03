@@ -2,8 +2,8 @@
 import { h, $ } from "./dom.js";
 import { t } from "./i18n.js";
 
-export class ErrorBridge extends Error {          // el bridge respondió {ok:false}
-  constructor(fn, mensaje) { super(mensaje); this.name = "ErrorBridge"; this.fn = fn; }
+export class ErrorBridge extends Error {          // el bridge respondió {ok:false}; `campos` = {campo: motivo} si fue un error de validación (B.2)
+  constructor(fn, mensaje, campos = null) { super(mensaje); this.name = "ErrorBridge"; this.fn = fn; this.campos = campos; }
 }
 const registro = [];                               // últimos errores (para soporte / diagnóstico)
 export const ultimosErrores = () => registro.slice();
