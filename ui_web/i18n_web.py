@@ -456,3 +456,28 @@ _WEB_A11 = {
     "Listo para usar sin conexión": {"en": "Ready to use offline", "pt": "Pronto para usar offline"},
 }
 _WEB.update(_WEB_A11)
+
+# Fase B.1 — formularios y diálogos genéricos (app/formulario*.js)
+_WEB_B1 = {
+    "Obligatorio": {"en": "Required", "pt": "Obrigatório"},
+    "Debe ser un número": {"en": "Must be a number", "pt": "Deve ser um número"},
+    "Debe ser un número entero": {"en": "Must be a whole number", "pt": "Deve ser um número inteiro"},
+    "Debe ser una fecha válida (AAAA-MM-DD)": {"en": "Must be a valid date (YYYY-MM-DD)", "pt": "Deve ser uma data válida (AAAA-MM-DD)"},
+    "Mínimo {min}": {"en": "Minimum {min}", "pt": "Mínimo {min}"},
+    "Máximo {max}": {"en": "Maximum {max}", "pt": "Máximo {max}"},
+    "Máximo {n} caracteres": {"en": "Maximum {n} characters", "pt": "Máximo de {n} caracteres"},
+    "Formato no válido": {"en": "Invalid format", "pt": "Formato inválido"},
+    "Elegí una opción válida": {"en": "Choose a valid option", "pt": "Escolha uma opção válida"},
+    "— Elegí —": {"en": "— Choose —", "pt": "— Escolha —"},
+    "Los campos con * son obligatorios.": {"en": "Fields marked * are required.", "pt": "Os campos com * são obrigatórios."},
+    "Hay {n} campo(s) con errores. Revisalos y volvé a intentar.":
+        {"en": "{n} field(s) have errors. Review them and try again.", "pt": "{n} campo(s) com erros. Revise-os e tente de novo."},
+    "No se pudo guardar: {error}": {"en": "Could not save: {error}", "pt": "Não foi possível salvar: {error}"},
+    "No se pudo guardar": {"en": "Could not save", "pt": "Não foi possível salvar"},
+    "Guardando…": {"en": "Saving…", "pt": "Salvando…"},
+    "¿Descartar los cambios sin guardar?": {"en": "Discard the unsaved changes?", "pt": "Descartar as alterações não salvas?"},
+    "Confirmar": {"en": "Confirm", "pt": "Confirmar"},
+    "Deshecho: {texto}": {"en": "Undone: {texto}", "pt": "Desfeito: {texto}"},
+    "No se pudo deshacer": {"en": "Could not undo", "pt": "Não foi possível desfazer"},
+}
+_WEB.update(_WEB_B1)
