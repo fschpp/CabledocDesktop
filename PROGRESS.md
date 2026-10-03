@@ -207,6 +207,25 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-03 — Fase B.1 de `plan_pyodide_v1.md` (patrón de formulario/diálogo genérico), sobre `main` en `b0deb89` (A.1–A.11 mergeadas)._
+
+### Current Focus
+B.1 entregada como diff: `ui_web/app/formulario_modelo.js` (validación, normalización y pila de deshacer, sin DOM), `app/formulario.js` (`abrirFormulario`, `confirmar`, `ofrecerDeshacer` sobre `<dialog>`) y `app/formulario_demo.js` (página de prueba `#/demo-formulario`, sin ítem en el menú). No hay escritura en el bridge todavía. Pendiente: smoke test en navegador real y commit. Siguiente: B.2 (catálogos básicos) — requiere definir las primeras funciones de escritura del bridge (con `syncfs` tras cada commit, D4) y avisar si hay cambios de estructura de tablas.
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 a A.11 (Fase A cerrada)
+- [x] Done — B.1 formulario/diálogo genérico (diff presentado; escenario `formulario` 46 chequeos y los 15 escenarios de `test_shell.mjs`, `test_sw.mjs` 81 y los tests Python OK; falta smoke en navegador real)
+- [ ] Todo — B.2 a B.12, luego C
+
+### Latest Blockers/Discoveries
+- Smoke a hacer (`python3 -m http.server 8000` en `ui_web/`, abrir `http://127.0.0.1:8000/app.html#/demo-formulario` con un `db.db` cargado): (1) «Abrir formulario» → Guardar vacío: errores en «Nombre», «Cantidad ok», «Tipo» y foco al primero; (2) cantidad `0`/`2,5`/`100`, código `x`, fecha `2027-01-01` → mensajes de rango/formato; (3) modo «Error de campo» con nombre `repetido` → marca el campo y no cierra; modo «Error general» → banner; modo «tras 2 s» + doble clic en Guardar → un solo guardado y botón «Guardando…»; (4) Esc o Cancelar con cambios pregunta; (5) «Probar confirmación» deja el foco en Cancelar; (6) tras guardar bien aparece el aviso con «Deshacer»; (7) tema oscuro e inglés/portugués (menú superior); (8) Tab recorre el diálogo sin salir de él (nativo de `showModal`).
+- Diferencia jsdom vs navegador: jsdom no trae `showModal()`, el módulo cae a `open` sin modalidad; la modalidad real (fondo, foco atrapado, Esc nativo) solo se comprueba en el smoke.
+- `core.zip` no cambia (no se tocó `core/`); `sw.js` suma los 3 archivos nuevos en `ARCHIVOS` (subir `CACHE_APP` no hace falta: red primero).
+- Pendiente de etapas anteriores (sin tocar): marcar A.3–A.11 como hechas en `plan_pyodide_v1.md` (solo se marcó B.1); imágenes que no viajan en export/import (A.10); etiquetas `t("sala")`/`t("rack")`/`t("frame")` sin traducir en el árbol de A.3.
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-03 — Fase A.11 de `plan_pyodide_v1.md` (service worker para uso offline), sobre `main` en `250e2ff` (A.1–A.10 mergeadas, A.10 por PR #94). **Cierra la Fase A.**_
 
 ### Current Focus

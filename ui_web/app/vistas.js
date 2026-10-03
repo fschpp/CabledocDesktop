@@ -11,6 +11,7 @@ import { vistaAnalisis } from "./analisis.js";
 import { vistaEscenarios } from "./escenarios.js";
 import { vistaBusqueda } from "./busqueda.js";
 import { vistaDatos } from "./datos.js";
+import { vistaDemoFormulario } from "./formulario_demo.js";
 
 // Navegación: `etapa` es la tarea del plan que la implementa (null = ya disponible).
 export const NAV = [
@@ -70,6 +71,7 @@ export const VISTAS = { inicio, equipos: (ctx) => (ctx.args?.length ? fichaEquip
 VISTAS.analisis = vistaAnalisis;       // A.7: #/analisis/impacto|riesgo|diagnostico|topologia
 VISTAS.escenarios = vistaEscenarios;   // A.8: #/escenarios (lista) y #/escenarios/<id> (cambios + evaluación)
 VISTAS.datos = vistaDatos;             // A.10: #/datos (respaldo del .db y catálogos)
+VISTAS["demo-formulario"] = vistaDemoFormulario;   // B.1: página de prueba del patrón de formularios (sin ítem en el menú)
 VISTAS.busqueda = vistaBusqueda;       // A.9: #/busqueda, #/busqueda/<texto> y #/busqueda/<texto>/<tipo>
 
 export function resolverVista(id, ctx) {

@@ -98,7 +98,7 @@ Criterio: consulta completa de la instalación desde el navegador.
 
 Criterio: todo lo que hoy se edita por diálogos GTK (~82 diálogos) se edita en web.
 
-- [ ] **B.1** Patrón de formulario/diálogo genérico reutilizable (validación, errores, deshacer simple).
+- [x] **B.1** Patrón de formulario/diálogo genérico reutilizable (validación, errores, deshacer simple).
 - [ ] **B.2** Catálogos básicos (marcas, tipos de equipo/conector/cable/ficha, señales, imágenes).
 - [ ] **B.3** Cables (alta/edición/fusión) y conexiones.
 - [ ] **B.4** Equipos (ABM, alta rápida con plantilla de conectores) y conectores.

@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos", "formulario"];
 
 if (!escenario) {
   let mal = 0;
@@ -1182,6 +1182,134 @@ c = sqlite3.connect("/app/data/database/db.db"); c.executescript("DELETE FROM co
   globalThis.confirm = () => false; const previo = dbBytes();
   await subir(0, "buena.db", E.fixture);
   ok(dbBytes() === previo && aviso() === "", "si se cancela la confirmación no se importa nada");
+}
+
+if (escenario === "formulario") {           // B.1: modelo puro + diálogo genérico con jsdom (sin Pyodide)
+  instalarDom();
+  const M = await import(pathToFileURL(path.join(WEB, "app/formulario_modelo.js")).href);
+  const F = await import(pathToFileURL(path.join(WEB, "app/formulario.js")).href);
+  const { aplicar } = await import(pathToFileURL(path.join(WEB, "app/i18n.js")).href);
+  aplicar("es", {}, { persistir: false });
+
+  // 1) modelo: normalizar y validar
+  const campos = [
+    { nombre: "nombre", tipo: "texto", requerido: true, largoMax: 5 },
+    { nombre: "n", tipo: "entero", min: 1, max: 9 },
+    { nombre: "x", tipo: "numero" },
+    { nombre: "f", tipo: "fecha", max: "2026-12-31" },
+    { nombre: "tipo", tipo: "select", opciones: [{ valor: 1, etiqueta: "A" }, { valor: 2, etiqueta: "B" }] },
+    { nombre: "cod", tipo: "texto", patron: "^[A-Z]-\\d$", patronMensaje: "Formato esperado" },
+    { nombre: "ok", tipo: "checkbox" },
+    { nombre: "ro", tipo: "entero", soloLectura: true, requerido: true },
+  ];
+  const base = { nombre: " ab ", n: "5", x: "1,5", f: "2026-02-28", tipo: "2", cod: "", ok: true, ro: "" };
+  let r = M.validar(campos, base);
+  ok(r.ok && r.valores.nombre === "ab" && r.valores.n === 5 && r.valores.x === 1.5 && r.valores.tipo === 2 && r.valores.cod === null && r.valores.ok === true, "normaliza: trim, número, coma decimal, select con su tipo, vacío→null");
+  ok(!("ro" in r.errores), "solo lectura no se valida");
+  const err = (cambio) => M.validar(campos, { ...base, ...cambio }).errores;
+  ok(err({ nombre: "  " }).nombre.clave === "Obligatorio", "obligatorio (solo espacios = vacío)");
+  ok(err({ nombre: "abcdef" }).nombre.clave === "Máximo {n} caracteres" && err({ nombre: "abcdef" }).nombre.vars.n === 5, "largo máximo con vars");
+  ok(err({ n: "0" }).n.clave === "Mínimo {min}" && err({ n: "10" }).n.clave === "Máximo {max}", "rango entero");
+  ok(err({ n: "2.5" }).n.clave === "Debe ser un número entero" && err({ n: "abc" }).n.clave === "Debe ser un número entero", "entero rechaza decimales y texto");
+  ok(err({ x: "1e3" }).x.clave === "Debe ser un número" && !err({ x: "-2" }).x, "número: sin notación científica, negativos ok");
+  ok(err({ f: "2026-02-30" }).f.clave === "Debe ser una fecha válida (AAAA-MM-DD)" && err({ f: "2027-01-01" }).f.clave === "Máximo {max}" && !err({ f: "" }).f, "fecha: calendario real y rango");
+  ok(err({ tipo: "9" }).tipo.clave === "Elegí una opción válida" && !err({ tipo: "" }).tipo, "select: opción fuera de la lista");
+  ok(err({ cod: "zz" }).cod.clave === "Formato esperado" && !err({ cod: "A-1" }).cod, "patrón con mensaje propio");
+  const conRegla = [{ nombre: "a", tipo: "texto", validar: (v, todos) => (v === todos.b ? "Debe ser distinto de B" : null) }, { nombre: "b", tipo: "texto" }];
+  ok(M.validar(conRegla, { a: "x", b: "x" }).errores.a.clave === "Debe ser distinto de B" && M.validar(conRegla, { a: "x", b: "y" }).ok, "regla propia ve los demás valores");
+  ok(M.validar([{ nombre: "c", tipo: "checkbox", requerido: true }], { c: false }).errores.c && M.validar([{ nombre: "c", tipo: "checkbox", requerido: true }], { c: true }).ok, "checkbox obligatorio");
+  ok(M.hayCambios(campos, base, { ...base }) === false && M.hayCambios(campos, base, { ...base, n: "6" }) && !M.hayCambios(campos, { ...base, n: "5" }, { ...base, n: " 5 " }), "hayCambios compara normalizado");
+  const vi = M.valoresIniciales([{ nombre: "a", tipo: "texto", valorInicial: "z" }, { nombre: "b", tipo: "texto", valorInicial: "z" }, { nombre: "c", tipo: "checkbox" }], { b: null });
+  ok(vi.a === "z" && vi.b === "" && vi.c === false, "valoresIniciales: dado (aunque null) pisa valorInicial");
+
+  // 2) pila de deshacer
+  const pila = M.crearPilaDeshacer(2); const log = [];
+  pila.registrar("uno", async () => log.push("u1")); pila.registrar("dos", async () => log.push("u2")); pila.registrar("tres", async () => log.push("u3"));
+  ok(pila.largo === 2 && pila.ultimo() === "tres", "la pila descarta lo más viejo");
+  ok((await pila.deshacer()) === "tres" && log.join() === "u3" && pila.ultimo() === "dos", "deshace el último");
+  let falla = true; pila.registrar("malo", async () => { if (falla) throw new Error("no se pudo"); log.push("malo"); });
+  let cayo = false; try { await pila.deshacer(); } catch { cayo = true; }
+  ok(cayo && pila.ultimo() === "malo", "si falla, la entrada se conserva");
+  falla = false; ok((await pila.deshacer()) === "malo" && log.at(-1) === "malo", "y se puede reintentar");
+  await pila.deshacer(); ok((await pila.deshacer()) === null && !pila.hay(), "pila vacía → null");
+
+  // 3) diálogo
+  const dlg = () => document.querySelector("dialog.form-dialogo");
+  const form = () => dlg().querySelector("form");
+  const poner = (nombre, v) => { const el = dlg().querySelector(`[name=${nombre}]`); el.value = v; };
+  const enviarForm = async () => { form().dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); await tick(20); };
+  const CAMPOS = [{ nombre: "nombre", etiqueta: "Nombre", tipo: "texto", requerido: true }, { nombre: "n", etiqueta: "N", tipo: "entero", min: 1 },
+    { nombre: "tipo", etiqueta: "Tipo", tipo: "select", opciones: [{ valor: 1, etiqueta: "A" }] }];
+  const errCampo = (c) => dlg().querySelector(`[data-campo=${c}] .form-error`).textContent;
+  let recibido = null, comportamiento = "ok", llamadas = 0;
+  const enviar = async (v) => { llamadas++; await tick(40); if (comportamiento === "campo") throw new F.ErrorFormulario("x", { nombre: "Ya existe" }); if (comportamiento === "general") throw new Error("motor caído"); recibido = v; return { id: 7 }; };
+
+  let p = F.abrirFormulario({ titulo: "Alta", campos: CAMPOS, enviar, valores: { n: 2 } });
+  ok(dlg() && dlg().hasAttribute("open") && dlg().querySelector("h3").textContent === "Alta" && dlg().getAttribute("aria-labelledby") === dlg().querySelector("h3").id, "abre el diálogo con título accesible");
+  ok(document.activeElement === dlg().querySelector("[name=nombre]"), "el foco va al primer campo");
+  ok(dlg().querySelector("[name=nombre]").getAttribute("aria-required") === "true" && dlg().querySelector(".form-req"), "marca obligatorio");
+  ok(dlg().querySelector("[name=n]").value === "2", "valores iniciales");
+  await enviarForm();
+  ok(llamadas === 0 && errCampo("nombre") === "Obligatorio" && dlg().querySelector("[name=nombre]").getAttribute("aria-invalid") === "true", "no envía con errores y marca el campo");
+  ok(dlg().querySelector(".form-general").textContent === "Hay 1 campo(s) con errores. Revisalos y volvé a intentar.", "resumen de errores: " + dlg().querySelector(".form-general").textContent);
+  ok(document.activeElement === dlg().querySelector("[name=nombre]"), "foco al primer campo con error");
+  poner("nombre", "Cam 1"); poner("n", "0"); await enviarForm();
+  ok(errCampo("nombre") === "" && !dlg().querySelector("[name=nombre]").hasAttribute("aria-invalid") && errCampo("n") === "Mínimo 1", "los errores se actualizan en cada intento");
+  poner("n", "3"); comportamiento = "campo"; await enviarForm(); await tick(60);
+  ok(dlg() && errCampo("nombre") === "Ya existe" && dlg().querySelector(".form-general").textContent.startsWith("No se pudo guardar:"), "ErrorFormulario marca el campo y el diálogo sigue abierto");
+  ok(!dlg().querySelector("button[type=submit]").disabled && dlg().getAttribute("aria-busy") !== "true" && form().getAttribute("aria-busy") === "false", "botones habilitados tras el error");
+  comportamiento = "general"; await enviarForm(); await tick(60);
+  ok(dlg() && errCampo("nombre") === "" && dlg().querySelector(".form-general").textContent === "No se pudo guardar: motor caído", "error general en el banner: " + dlg().querySelector(".form-general").textContent);
+  comportamiento = "ok"; llamadas = 0;
+  form().dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); form().dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+  ok(dlg().querySelector("button[type=submit]").disabled && dlg().querySelector("button[type=submit]").textContent === "Guardando…", "mientras guarda, botón bloqueado");
+  await tick(80);
+  const res = await p;
+  ok(llamadas === 1, "doble envío: una sola llamada, hubo " + llamadas);
+  ok(res.resultado.id === 7 && recibido.nombre === "Cam 1" && recibido.n === 3 && recibido.tipo === null && !dlg(), "devuelve el resultado, envía valores normalizados y cierra");
+
+  // cancelar
+  globalThis.confirm = () => { throw new Error("no debía preguntar"); };
+  p = F.abrirFormulario({ titulo: "X", campos: CAMPOS, enviar }); dlg().querySelectorAll("button")[0].click();
+  ok((await p) === null && !dlg(), "cancelar sin cambios cierra sin preguntar");
+  let pregunto = 0, respuesta = false; globalThis.confirm = () => { pregunto++; return respuesta; };
+  p = F.abrirFormulario({ titulo: "X", campos: CAMPOS, enviar }); poner("nombre", "algo");
+  dlg().dispatchEvent(new window.Event("cancel", { cancelable: true }));      // Esc
+  ok(pregunto === 1 && dlg(), "Esc con cambios pregunta y, si se dice que no, sigue abierto");
+  respuesta = true; dlg().querySelectorAll("button")[0].click();
+  ok((await p) === null && pregunto === 2 && !dlg(), "confirmando el descarte cierra con null");
+  const volver = document.createElement("button"); document.body.append(volver); volver.focus();
+  p = F.abrirFormulario({ titulo: "X", campos: CAMPOS, enviar }); dlg().querySelectorAll("button")[0].click(); await p;
+  ok(document.activeElement === volver, "al cerrar devuelve el foco a quien abrió");
+
+  // 4) confirmar
+  p = F.confirmar({ mensaje: "¿Seguro?", textoOk: "Eliminar", peligro: true });
+  ok(dlg().querySelector(".form-mensaje").textContent === "¿Seguro?" && dlg().querySelector("button.peligro").textContent === "Eliminar" && document.activeElement.textContent === "Cancelar", "peligro: el foco queda en Cancelar");
+  dlg().querySelector("button.peligro").click(); ok((await p) === true && !dlg(), "confirmar → true");
+  p = F.confirmar({ mensaje: h2("b", "resumen") }); dlg().dispatchEvent(new window.Event("cancel", { cancelable: true }));
+  ok((await p) === false && !dlg(), "Esc en confirmar → false (acepta un Node como mensaje)");
+  function h2(tag, txt) { const e = document.createElement(tag); e.textContent = txt; return e; }
+
+  // 5) deshacer con aviso
+  const pila2 = M.crearPilaDeshacer(); let revertido = 0, rompe = true;
+  F.ofrecerDeshacer(pila2, "Cable eliminado", async () => { if (rompe) throw new Error("falló"); revertido++; });
+  const aviso = $("#toasts .toast.ok"); ok(aviso && aviso.querySelector("span").textContent === "Cable eliminado", "aviso con el texto de la acción");
+  const btnDes = [...aviso.querySelectorAll("button")].find((b) => b.textContent === "Deshacer");
+  btnDes.click(); await tick(30);
+  ok(revertido === 0 && pila2.hay() && !btnDes.disabled && $("#toasts .toast:not(.ok)"), "si revertir falla: sigue disponible y se avisa del error");
+  rompe = false; btnDes.click(); await tick(30);
+  ok(revertido === 1 && !pila2.hay() && aviso.querySelector("span").textContent === "Deshecho: Cable eliminado" && ![...aviso.querySelectorAll("button")].some((b) => b.textContent === "Deshacer"), "deshacer correcto: texto actualizado y botón fuera");
+
+  // 6) inglés y pantalla de prueba
+  aplicar("en", { Obligatorio: "Required", "Guardar": "Save", "Hay {n} campo(s) con errores. Revisalos y volvé a intentar.": "{n} field(s) have errors. Review them and try again." }, { persistir: false });
+  p = F.abrirFormulario({ titulo: "X", campos: CAMPOS, enviar }); await enviarForm();
+  ok(errCampo("nombre") === "Required" && dlg().querySelector("button[type=submit]").textContent === "Save" && dlg().querySelector(".form-general").textContent.startsWith("1 field(s)"), "los mensajes salen traducidos");
+  globalThis.confirm = () => true; dlg().querySelectorAll("button")[0].click(); await p;
+  const { vistaDemoFormulario } = await import(pathToFileURL(path.join(WEB, "app/formulario_demo.js")).href);
+  const demo = vistaDemoFormulario(); document.body.append(demo);
+  ok(demo.querySelector("h2").textContent.includes("B.1") && demo.querySelectorAll("button").length === 4, "la pantalla de prueba se dibuja");
+  const { VISTAS } = await import(pathToFileURL(path.join(WEB, "app/vistas.js")).href);
+  ok(typeof VISTAS["demo-formulario"] === "function", "ruta #/demo-formulario registrada");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

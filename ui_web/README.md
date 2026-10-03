@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.11)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.11 + B.1)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -129,3 +129,14 @@ Pantalla `#/datos` (ítem **Datos** del menú). Todo ocurre en el navegador; nad
 - **Al sumar o quitar un archivo de `app/` o un `.py` del worker hay que tocar `ARCHIVOS` en `sw.js`**; `tests/test_sw.mjs` lo verifica contra el disco. Si se cambia la versión de Pyodide hay que cambiarla en `worker.js` y en `sw.js` (también verificado). Para descartar todas las copias viejas, subir `CACHE_APP`.
 - Durante el desarrollo: con DevTools → Application → Service Workers → «Update on reload» / «Bypass for network», o simplemente trabajar con conexión (red primero ya trae lo nuevo).
 - Pruebas: `node ui_web/tests/test_sw.mjs` (78 chequeos con `caches`/`fetch`/`clients` simulados, sin npm) y, en `node tests/test_shell.mjs`, el pie de estado del menú (escenario `completo`).
+
+## Formularios y diálogos genéricos (Fase B.1)
+
+Base de todos los ABM de la Fase B. Todavía no escribe en la base (no hay funciones de escritura en el bridge): fija el patrón con el que se van a construir B.2 en adelante. Para probarlo a mano: `#/demo-formulario` (sin ítem en el menú; `app/formulario_demo.js` simula el motor y se puede borrar cuando exista el primer ABM real).
+
+- **`app/formulario_modelo.js`** (sin DOM ni i18n): descripción de campos, `valoresIniciales`, `normalizarCampo`/`validar` y `crearPilaDeshacer`. Tipos: `texto`, `texto_largo`, `numero` (acepta coma), `entero`, `fecha` (AAAA-MM-DD, calendario real), `select` (conserva el tipo del valor de la opción) y `checkbox`. Reglas: `requerido`, `min`/`max`, `largoMax`, `patron` (+ `patronMensaje`), `validar(valor, valores)` propia. **Vacío se envía como `null`** (también el texto), para no mezclar `""` con NULL en la base. Los errores salen como `{clave, vars}`; la traducción la hace la UI.
+- **`app/formulario.js`**: `abrirFormulario({titulo, campos, valores, enviar})` → `<dialog>` modal que resuelve `{resultado}` si se guardó o `null` si se canceló. Validación por campo (`aria-invalid`, `aria-describedby`, foco al primero con error); `enviar(valores)` recibe los valores ya normalizados y bloquea los botones mientras corre (sin doble envío). Si `enviar` lanza `ErrorFormulario(mensaje, {campo: texto})` se marca el campo; cualquier otro error sale en un banner dentro del diálogo, que **no se cierra**. Cancelar o Esc con cambios pregunta antes de descartar. Al cerrar devuelve el foco a quien lo abrió.
+- **`confirmar({mensaje, textoOk, peligro})`** → `true`/`false`; `mensaje` puede ser un Node (para el resumen de B.11). Con `peligro` el foco inicial queda en «Cancelar».
+- **Deshacer simple**: `crearPilaDeshacer(max)` + `ofrecerDeshacer(pila, texto, async () => revertir)` registra la acción y muestra un aviso con «Deshacer» (8 s). Es en memoria (no sobrevive a recargar) y, si revertir falla, la entrada se conserva para reintentar. Cada ABM define qué significa revertir su acción (p. ej. volver a dar de alta lo borrado).
+- Sin `si:`/campos condicionales ni subformularios todavía: se agregan cuando un ABM real los pida.
+- Pruebas: escenario `formulario` de `node tests/test_shell.mjs` (46 chequeos, solo jsdom: modelo, pila, diálogo, confirmación, deshacer, inglés).
