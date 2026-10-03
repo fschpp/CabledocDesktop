@@ -1,5 +1,5 @@
 // Cliente del Web Worker (Pyodide). Una sola instancia por pestaña.
-//   llamar(fn, args)  → data del bridge, o lanza ErrorBridge si el bridge devolvió {ok:false}
+//   llamar(fn, args)  → data del bridge, o lanza ErrorBridge (con .campos si es de validación) si el bridge devolvió {ok:false}
 //   diccionario(lang) → {lang, idiomas, textos}  (no necesita db.db)
 //   cargarDb(buf)     → el worker responde con un mensaje "state"
 //   exportarDb() / importarDb(buf) / exportarCatalogo(tipo) / importarCatalogo(buf)  (A.10) → {ok, ..., data?: Uint8Array}
@@ -32,7 +32,7 @@ export function crearRpc(url = "worker.js") {
     on(tipo, f) { (oyentes[tipo] ||= []).push(f); },
     async llamar(fn, args = {}) {
       const r = await pedir("call", { fn, args });
-      if (!r.ok) throw new ErrorBridge(fn, r.error);
+      if (!r.ok) throw new ErrorBridge(fn, r.error, r.campos || null);
       return r.data;
     },
     diccionario: (lang) => pedir("i18n", { lang }),

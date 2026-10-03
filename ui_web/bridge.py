@@ -6,7 +6,9 @@ y se invocan desde JS a través de `call(nombre, args_json)`, que siempre
 devuelve un string JSON `{"ok": true, "data": ..., "ms": n}` o
 `{"ok": false, "error": "..."}` — nunca levanta excepciones hacia JS.
 
-Solo lectura: no hay INSERT/UPDATE/DELETE acá (la escritura es Fase B).
+Este archivo es de solo lectura: no hay INSERT/UPDATE/DELETE acá. La escritura (Fase B) vive en módulos
+aparte que se registran al final (B.2: `catalogos_web.py`) y marcan sus respuestas con `"escribio": true`
+para que el worker persista la base (syncfs) antes de contestar.
 
 Notas de diseño:
   - `core.modelo` se importa de forma diferida (`_M()`): al importarse crea una
@@ -1331,9 +1333,25 @@ FUNCIONES = {f.__name__: f for f in (
 FUNCIONES["firmas"] = firmas
 
 
+# ── Escritura (Fase B): módulos aparte que se registran acá ──────────────────
+# Se importan al final porque usan helpers de este módulo (de forma diferida, vía `import bridge`).
+import catalogos_web  # noqa: E402
+
+ESCRITURAS = {f.__name__ for f in catalogos_web.ESCRITURAS}      # nombres de las funciones que modifican la base
+FUNCIONES.update({f.__name__: f for f in catalogos_web.LECTURAS + catalogos_web.ESCRITURAS})
+
+
 def call(fn, args_json="{}"):
-    """Punto de entrada único desde JS. Nunca levanta: devuelve siempre un JSON."""
+    """Punto de entrada único desde JS. Nunca levanta: devuelve siempre un JSON.
+
+    Respuestas: {"ok": true, "data": ..., "ms": n} o {"ok": false, "error": "...", "ms": n}. Las funciones de
+    ESCRITURA agregan `"escribio": true` como PRIMERA clave (el worker lo detecta con un `startsWith`, sin parsear
+    respuestas grandes) para persistir la base antes de contestar; también lo agregan al fallar, porque una
+    escritura de varios pasos pudo quedar a medias. No lo agregan cuando el error ocurrió ANTES de tocar la base
+    (excepciones con `sin_cambios`, p. ej. un campo inválido). Un error con `campos` ({campo: motivo}) los devuelve
+    en `"campos"` y su mensaje va sin el nombre de la clase (es texto para el usuario)."""
     t = time.perf_counter()
+    ms = lambda: round((time.perf_counter() - t) * 1000, 1)  # noqa: E731
     try:
         if fn not in FUNCIONES:
             raise KeyError(f"Función desconocida: {fn}")
@@ -1351,10 +1369,13 @@ def call(fn, args_json="{}"):
                              + (f"falta {faltan}; " if faltan else "")
                              + f"argumentos válidos: {validos}")
         data = FUNCIONES[fn](**args)
-        return json.dumps({"ok": True, "data": data,
-                           "ms": round((time.perf_counter() - t) * 1000, 1)},
-                          ensure_ascii=False, default=str)
+        out = {"escribio": True} if fn in ESCRITURAS else {}
+        out.update({"ok": True, "data": data, "ms": ms()})
+        return json.dumps(out, ensure_ascii=False, default=str)
     except Exception as ex:  # noqa: BLE001 — se informa a la UI, no se oculta
-        return json.dumps({"ok": False, "error": f"{type(ex).__name__}: {ex}",
-                           "ms": round((time.perf_counter() - t) * 1000, 1)},
-                          ensure_ascii=False)
+        sin_cambios = getattr(ex, "sin_cambios", False)
+        out = {"escribio": True} if (fn in ESCRITURAS and not sin_cambios) else {}
+        out.update({"ok": False, "error": str(ex) if sin_cambios else f"{type(ex).__name__}: {ex}", "ms": ms()})
+        if getattr(ex, "campos", None):
+            out["campos"] = ex.campos
+        return json.dumps(out, ensure_ascii=False, default=str)

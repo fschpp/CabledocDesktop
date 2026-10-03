@@ -1,4 +1,4 @@
-# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.11 + B.1)
+# ui_web — CableDoc en el navegador (Fase 0 + A.1 a A.11 + B.1 + B.2)
 
 1. Desde la raíz del repo: `python3 ui_web/build_core_zip.py`
 2. (Solo si falta `ui_web/pyodide/`) `python3 ui_web/fetch_pyodide.py` — baja Pyodide del registro npm, no requiere npm.
@@ -140,3 +140,18 @@ Base de todos los ABM de la Fase B. Todavía no escribe en la base (no hay funci
 - **Deshacer simple**: `crearPilaDeshacer(max)` + `ofrecerDeshacer(pila, texto, async () => revertir)` registra la acción y muestra un aviso con «Deshacer» (8 s). Es en memoria (no sobrevive a recargar) y, si revertir falla, la entrada se conserva para reintentar. Cada ABM define qué significa revertir su acción (p. ej. volver a dar de alta lo borrado).
 - Sin `si:`/campos condicionales ni subformularios todavía: se agregan cuando un ABM real los pida.
 - Pruebas: escenario `formulario` de `node tests/test_shell.mjs` (46 chequeos, solo jsdom: modelo, pila, diálogo, confirmación, deshacer, inglés).
+
+## Catálogos básicos y primeras escrituras (Fase B.2)
+
+Pantalla `#/catalogos` (ítem **Catálogos** del menú) con una pestaña por catálogo: marcas, tipos de equipo, tipos de conector, tipos de cable, tipos de ficha, señales, formatos de señal e imágenes (`#/catalogos/marcas|tipos-equipo|tipos-conector|tipos-cable|tipos-ficha|senales|formatos-senal|imagenes`). Es el primer ABM real: alta, edición y baja con los diálogos de B.1.
+
+- **Escritura en el bridge**: `catalogos_web.py` (archivo nuevo, se monta en `/app` del worker y `bridge.py` lo importa al final) agrega `catalogo_lista` (lectura) y `catalogo_alta`, `catalogo_modificar`, `catalogo_baja`, `catalogo_restaurar`. Cada catálogo se describe una sola vez en `_CATALOGOS` (campos, validación, tablas que lo usan y qué les pasa al borrarlo); la UI arma el formulario con el `esquema` que devuelve `catalogo_lista`, así que **las reglas viven solo en Python**. Las escrituras llaman a los mismos métodos de `Modelo` que el desktop (ej. `establecer_rol_senal_tipo_equipo` recalcula la referencia virtual de los frames); la única excepción es `catalogo_restaurar`, que necesita fijar el id.
+- **Persistencia (D4)**: `bridge.call` abre la respuesta de una escritura con `{"escribio": true` y `worker.js` hace `syncfs` a IndexedDB **antes** de contestar, y después emite un `state` (el shell lo toma como cambio de la base e invalida cachés). También se persiste si la escritura falla de forma inesperada (pudo quedar a medias); no se persiste cuando el error es de validación o un id inexistente (`sin_cambios`).
+- **Errores por campo**: el bridge devuelve `{ok:false, error, campos:{campo: motivo}}`; `rpc.llamar` lo lanza como `ErrorBridge` con `.campos` y la pantalla lo convierte en `ErrorFormulario`, que marca el campo sin cerrar el diálogo. Las claves de los motivos están en `i18n_web.py` (`_WEB_B2`).
+- **Nombres repetidos**: se rechazan (sin distinguir mayúsculas ni espacios de más) en todos los catálogos salvo imágenes. **Diferencia con el desktop**, que sí los permite. Una fila que ya está duplicada se puede seguir editando mientras no se le cambie el nombre.
+- **Baja**: no hay baja lógica; las FK de la base anulan (`SET NULL`) o arrastran (`CASCADE`) lo que usaba el valor. Antes de confirmar, el diálogo dice cuántos registros de qué tabla quedan sin el valor y cuáles se eliminan con él (ej. borrar un tipo de equipo borra sus reglas lógicas y plantillas de conectores). La columna «En uso» de la lista muestra el total, con el detalle en el tooltip.
+- **Deshacer** (pila en memoria de B.1): alta → baja del registro, solo si sigue sin uso; edición → vuelve a los valores anteriores; baja → reinserta con el mismo id **solo si no estaba en uso** (lo que lo usaba ya no se puede reconstruir, así que ahí no se ofrece).
+- **Tipos de equipo**: el rol frente a la señal ofrece los 10 roles de `Modelo.ROLES_SENAL` (el desktop muestra 9: no ofrece FANTASMA). Al editar solo se llama a `establecer_rol_senal_tipo_equipo` si el rol cambió. No incluye `vida_util_anios` ni `es_distribuidor_sync`: el desktop tampoco los edita desde este diálogo.
+- **Tipos de contenido de señal**: es texto libre en la base; la UI ofrece VIDEO/AUDIO/DATOS/EMBEBIDO y, al editar, conserva un valor distinto que ya exista.
+- **Imágenes**: solo se edita el registro (`path_archivo`, `descripcion`). No sube archivos ni avisa si el archivo falta (el desktop sí): los archivos se cargan desde las fichas (A.4); la subida y el selector de coordenadas son B.8.
+- Pruebas: `python3 ui_web/tests/test_catalogos.py` (95 chequeos: paridad con `Modelo`, FK, validación, contrato de `bridge.call`, base vieja sin tablas de señal, `integrity_check`) y, en `node tests/test_shell.mjs`, los escenarios `catalogos_modelo` (puro, 18) y `catalogos` (pantalla con el bridge real sobre Pyodide, 49). El `syncfs` del worker no se prueba en Node: va en el smoke del navegador.

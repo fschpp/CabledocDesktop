@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos", "formulario"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos", "formulario", "catalogos_modelo", "catalogos"];
 
 if (!escenario) {
   let mal = 0;
@@ -49,7 +49,7 @@ async function rpcPyodide() {              // rpc real: Pyodide + core.zip + bri
   const py = await loadPyodide();
   const zip = readFileSync(path.join(WEB, "core.zip"));   // ArrayBuffer propio (igual que fetch().arrayBuffer() en el worker)
   py.unpackArchive(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength), "zip", { extractDir: "/app" });
-  for (const f of ["bridge.py", "i18n_web.py", "datos_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
+  for (const f of ["bridge.py", "i18n_web.py", "datos_web.py", "catalogos_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
   py.runPython("import sys; sys.path.insert(0, '/app')");
   py.FS.mkdirTree("/app/data/database");
   const DB = "/app/data/database/db.db";
@@ -60,9 +60,9 @@ async function rpcPyodide() {              // rpc real: Pyodide + core.zip + bri
     async llamar(fn, args = {}) {
       py.globals.set("_fn", fn); py.globals.set("_args", JSON.stringify(args));
       let r;
-      try { statSync(DB); r = JSON.parse(py.runPython("import bridge\nbridge.call(_fn, _args)")); }
+      try { statSync(DB); r = JSON.parse(py.runPython("import bridge\nbridge.call(_fn, _args)")); if (r.escribio) rpc.escrituras = (rpc.escrituras || 0) + 1; }   // B.2: el worker real persiste aquí (syncfs)
       catch { r = { ok: false, error: "Primero cargá un db.db" }; }
-      if (!r.ok) { const { ErrorBridge } = await import(pathToFileURL(path.join(WEB, "app/errores.js")).href); throw new ErrorBridge(fn, r.error); }
+      if (!r.ok) { const { ErrorBridge } = await import(pathToFileURL(path.join(WEB, "app/errores.js")).href); throw new ErrorBridge(fn, r.error, r.campos || null); }
       return r.data;
     },
     async diccionario(lang) { py.globals.set("_lang", lang); return JSON.parse(py.runPython("import i18n_web\ni18n_web.diccionario_json(_lang)")); },
@@ -1310,6 +1310,190 @@ if (escenario === "formulario") {           // B.1: modelo puro + diálogo gené
   ok(demo.querySelector("h2").textContent.includes("B.1") && demo.querySelectorAll("button").length === 4, "la pantalla de prueba se dibuja");
   const { VISTAS } = await import(pathToFileURL(path.join(WEB, "app/vistas.js")).href);
   ok(typeof VISTAS["demo-formulario"] === "function", "ruta #/demo-formulario registrada");
+}
+
+if (escenario === "catalogos_modelo") {      // B.2: catalogos_modelo.js puro, sin DOM
+  const C = await import(pathToFileURL(path.join(WEB, "app/catalogos_modelo.js")).href);
+  ok(C.CATALOGOS.length === 8 && new Set(C.CATALOGOS.map((c) => c.ruta)).size === 8 && new Set(C.CATALOGOS.map((c) => c.cat)).size === 8, "8 catálogos, rutas y claves únicas");
+  ok(C.porRuta("marcas").cat === "marca" && C.porRuta("nada") === null && C.RUTA_INICIAL === "marcas", "porRuta / ruta inicial");
+  ok(C.CATALOGOS.every((c) => c.columnas.every((k) => C.TITULO_COLUMNA[k])), "toda columna listada tiene título");
+  const esq = [
+    { nombre: "nombre", tipo: "texto", requerido: true, largo: 120 },
+    { nombre: "rol_senal", tipo: "select", requerido: true, opciones: ["DISTRIBUIDOR", "FUENTE", "FANTASMA", "NUEVO_ROL"] },
+    { nombre: "es_referencia_generada", tipo: "bool", requerido: false },
+    { nombre: "ancho_banda_mhz", tipo: "numero", requerido: false, minimo: 0 },
+    { nombre: "n_conductores", tipo: "entero", requerido: false, minimo: 1 },
+    { nombre: "tipo_contenido", tipo: "texto", requerido: false, largo: 40, sugeridos: ["VIDEO", "AUDIO"] },
+    { nombre: "descripcion", tipo: "texto_largo", requerido: false, largo: 500 },
+  ];
+  const tr = (x) => "«" + x + "»";
+  const cs = Object.fromEntries(C.camposFormulario(esq, tr).map((c) => [c.nombre, c]));
+  ok(cs.nombre.tipo === "texto" && cs.nombre.requerido && cs.nombre.largoMax === 120 && cs.nombre.etiqueta === "«Nombre»", "texto: largo, requerido y etiqueta traducida");
+  ok(cs.rol_senal.tipo === "select" && cs.rol_senal.valorInicial === "DISTRIBUIDOR" && cs.rol_senal.opciones.length === 4, "rol: select con valor inicial en el alta");
+  ok(cs.rol_senal.opciones[1].etiqueta === "«Fuente (genera la señal)»" && cs.rol_senal.opciones[3].etiqueta === "«NUEVO_ROL»", "rol: etiquetas traducidas; un rol sin etiqueta se muestra con su código");
+  ok(cs.es_referencia_generada.tipo === "checkbox" && cs.es_referencia_generada.ayuda === "«El análisis de impacto trata cualquier conector de este tipo como fuente de señal, aunque no tenga entradas cableadas.»", "bool → checkbox con ayuda");
+  ok(cs.ancho_banda_mhz.tipo === "numero" && cs.ancho_banda_mhz.min === 0 && cs.n_conductores.tipo === "entero" && cs.n_conductores.min === 1, "números con su mínimo");
+  ok(cs.descripcion.tipo === "texto_largo" && cs.descripcion.largoMax === 500, "texto largo");
+  ok(JSON.stringify(cs.tipo_contenido.opciones.map((o) => o.valor)) === '["VIDEO","AUDIO"]', "texto con sugeridos → select con esos valores");
+  const ed = Object.fromEntries(C.camposFormulario(esq, tr, { tipo_contenido: "CUSTOM", rol_senal: "FUENTE" }).map((c) => [c.nombre, c]));
+  ok(ed.tipo_contenido.opciones.at(-1).valor === "CUSTOM" && !("valorInicial" in ed.rol_senal && ed.rol_senal.valorInicial), "al editar, un valor libre existente sigue siendo elegible y no se pisa con el inicial");
+  const def = C.porRuta("tipos-cable"), filas = [
+    { id: 1, nombre: "RG59", naturaleza_senal: "ANALOGICA", ancho_banda_mhz: 50 }, { id: 2, nombre: "Cat6", naturaleza_senal: "DATOS", ancho_banda_mhz: null }, { id: 3, nombre: "Cámara", naturaleza_senal: null, ancho_banda_mhz: null }];
+  ok(C.filtrarFilas(filas, "", def).length === 3 && C.filtrarFilas(filas, "r", def).length === 3, "sin texto o con 1 carácter no se filtra");
+  ok(C.filtrarFilas(filas, "camara", def).map((f) => f.id).join() === "3", "sin acentos ni mayúsculas");
+  ok(C.filtrarFilas(filas, "datos cat", def).map((f) => f.id).join() === "2", "todas las palabras, en cualquier orden, sobre las columnas visibles");
+  ok(C.filtrarFilas(filas, "zzz", def).length === 0, "sin coincidencias");
+  ok(C.textoCelda("x", true) === "✓" && C.textoCelda("x", false) === "" && C.textoCelda("x", null) === "" && C.textoCelda("x", 0) === "0" && C.textoCelda("x", 10.5) === "10.5", "celdas: bool, vacío y números (el 0 se muestra)");
+  ok(C.etiquetaFila(def, filas[0]) === "RG59" && C.etiquetaFila(C.porRuta("marcas"), { id: 9, nombre: null }) === "#9", "etiqueta del registro (con respaldo al id)");
+  const d = C.detalleUsos([{ tabla: "equipo", n: 2, efecto: "anula" }, { tabla: "tabla_nueva", n: 1, efecto: "borra" }], tr);
+  ok(d[0].tabla === "«Equipos»" && d[1].tabla === "«tabla_nueva»" && C.detalleUsos(null).length === 0, "detalle de usos: tabla traducida; una desconocida se muestra tal cual");
+}
+
+if (escenario === "catalogos") {             // B.2: pantalla Catálogos con el bridge REAL (Pyodide): lista, alta, edición, baja y deshacer
+  const E = await rpcPyodide();
+  instalarDom();
+  globalThis.confirm = () => true;
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""INSERT INTO marca(id_marca,nombre) VALUES (1,'Sony'),(2,'Grass Valley'),(3,'Sin uso');
+UPDATE equipo SET id_marca=1 WHERE id_equipo IN (1,2);"""); c.commit(); c.close()`);
+  const sql = (q) => E.py.runPython(`import sqlite3\nc = sqlite3.connect("/app/data/database/db.db"); r = c.execute(${JSON.stringify(q)}).fetchall(); c.close(); r`).toJs();
+  const txt = (s) => $(s)?.textContent;
+  const dlg = () => document.querySelector("dialog.form-dialogo");
+  const filas = () => [...document.querySelectorAll("#contenido tbody tr")];
+  const nombres = () => filas().map((f) => f.children[1].textContent);
+  const boton = (re, raiz = document) => [...raiz.querySelectorAll("button")].find((b) => re.test(b.textContent));
+  const poner = (n, v) => { dlg().querySelector(`[name=${n}]`).value = v; };
+  const enviar = async (ms = 400) => { dlg().querySelector("form").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); await tick(ms); };
+  const aviso = () => txt("#contenido [role=status]");
+  const toast = () => [...document.querySelectorAll("#toasts .toast.ok")].at(-1);   // el más reciente
+
+  // 1) menú, ruta y lista inicial
+  await ir("#/catalogos"); await tick(150);
+  ok(document.querySelector("#lateral a[data-id=catalogos]").getAttribute("aria-current") === "page" && txt("#contenido h2") === "Catálogos" && txt("#contenido h3") === "Marcas", "ítem Catálogos en el menú; abre en Marcas");
+  ok(document.querySelectorAll(".catalogos-nav a").length === 8 && document.querySelector(".catalogos-nav a[aria-current=page]").textContent === "Marcas", "8 pestañas, la actual marcada");
+  ok(nombres().join("|") === "Grass Valley|Sin uso|Sony", "lista ordenada: " + nombres());
+  ok(filas()[2].children[2].textContent === "2" && filas()[0].children[2].textContent === "" && filas()[2].children[2].title === "2 Equipos", "columna «En uso» con su detalle en el tooltip: " + filas()[2].children[2].title);
+  ok(txt(".catalogos-barra .sub") === "3 registro(s)", "contador");
+
+  // 2) filtro
+  const caja = $(".catalogos-barra input[type=search]");
+  caja.value = "gras"; caja.dispatchEvent(new window.Event("input", { bubbles: true }));
+  ok(nombres().join() === "Grass Valley" && txt(".catalogos-barra .sub") === "1 de 3", "filtro en memoria");
+  caja.value = "zzz"; caja.dispatchEvent(new window.Event("input", { bubbles: true }));
+  ok(txt("#contenido .tabla-scroll") === "Ningún registro coincide con el filtro.", "sin coincidencias");
+  caja.value = ""; caja.dispatchEvent(new window.Event("input", { bubbles: true }));
+
+  // 3) alta con error de validación del bridge (nombre repetido) y luego correcta
+  boton(/Alta de marca/).click(); await tick();
+  ok(dlg() && dlg().querySelector("h3").textContent === "Alta de marca", "abre el alta");
+  await enviar(50);
+  ok(dlg().querySelector("[data-campo=nombre] .form-error").textContent === "Obligatorio", "obligatorio, validado en el navegador (no llega al bridge)");
+  ok(E.rpc.escrituras === undefined, "no hubo escritura");
+  poner("nombre", " sony "); await enviar();
+  ok(dlg() && dlg().querySelector("[data-campo=nombre] .form-error").textContent === "Ya existe uno con ese nombre", "el bridge marca el campo (ErrorFormulario) y el diálogo sigue abierto");
+  ok(sql("SELECT COUNT(*) FROM marca")[0][0] === 3, "nada se guardó");
+  poner("nombre", "Panasonic"); await enviar(500);
+  ok(!dlg() && nombres().join("|") === "Grass Valley|Panasonic|SIN USO".replace("SIN USO", "Sin uso") + "|Sony", "alta: el diálogo se cierra y la lista se recarga: " + nombres());
+  ok(aviso() === "Se agregó «Panasonic»." || aviso() === "Se agregó «Panasonic»", "aviso: " + aviso());
+  ok(filas().find((f) => f.children[1].textContent === "Panasonic").classList.contains("resaltada"), "el registro nuevo queda resaltado");
+  ok(E.rpc.escrituras === 1, "una escritura (el worker persiste tras cada una)");
+  ok(toast() && /Se agregó «Panasonic»/.test(toast().textContent) && boton(/Deshacer/, toast()), "aviso con Deshacer");
+
+  // 4) deshacer el alta → se borra (estaba sin uso)
+  boton(/Deshacer/, toast()).click(); await tick(500);
+  ok(nombres().join("|") === "Grass Valley|Sin uso|Sony" && sql("SELECT COUNT(*) FROM marca WHERE nombre='Panasonic'")[0][0] === 0, "deshacer alta: la marca desaparece");
+
+  // 5) edición + deshacer
+  const fila = (nom) => filas().find((f) => f.children[1].textContent === nom);
+  boton(/^Editar$/, fila("Sin uso")).click(); await tick();
+  ok(dlg().querySelector("h3").textContent === "Editar marca" && dlg().querySelector("[name=nombre]").value === "Sin uso", "edición precargada");
+  poner("nombre", "Ahora con otro nombre"); await enviar(500);
+  ok(nombres().includes("Ahora con otro nombre") && !nombres().includes("Sin uso") && sql("SELECT nombre FROM marca WHERE id_marca=3")[0][0] === "Ahora con otro nombre", "editar guarda");
+  boton(/Deshacer/, toast()).click(); await tick(500);
+  ok(sql("SELECT nombre FROM marca WHERE id_marca=3")[0][0] === "Sin uso", "deshacer edición: vuelve el nombre anterior");
+  // cancelar sin cambios no pregunta ni escribe
+  const antes = E.rpc.escrituras; boton(/^Editar$/, fila("Sony")).click(); await tick(); boton(/Cancelar/, dlg()).click(); await tick();
+  ok(!dlg() && E.rpc.escrituras === antes, "cancelar no escribe");
+
+  // 6) baja de una marca EN USO: el diálogo informa el efecto; Cancelar no borra; Eliminar anula las FK y NO ofrece deshacer
+  boton(/^Eliminar$/, fila("Sony")).click(); await tick();
+  ok(dlg().classList.contains("confirmacion") && /¿Eliminar «Sony»\?/.test(dlg().textContent) && /2 Equipos — quedarán sin este valor/.test(dlg().textContent), "la confirmación dice a cuántos afecta: " + dlg().textContent.replace(/\s+/g, " "));
+  ok(document.activeElement === boton(/Cancelar/, dlg()), "foco en Cancelar (acción destructiva)");
+  boton(/Cancelar/, dlg()).click(); await tick();
+  ok(sql("SELECT COUNT(*) FROM marca WHERE id_marca=1")[0][0] === 1, "cancelar no borra");
+  document.querySelectorAll("#toasts .toast").forEach((e) => e.remove());
+  boton(/^Eliminar$/, fila("Sony")).click(); await tick(); boton(/Eliminar$/, dlg()).click(); await tick(500);
+  ok(!nombres().includes("Sony") && sql("SELECT COUNT(*) FROM equipo WHERE id_marca IS NULL")[0][0] === 2 && sql("SELECT COUNT(*) FROM equipo")[0][0] === 2, "se borró la marca; los equipos siguen, sin marca");
+  ok(!toast(), "con uso no se ofrece Deshacer (lo anulado no se puede reconstruir)");
+  ok(aviso().startsWith("Se eliminó «Sony»"), "aviso de baja: " + aviso());
+
+  // 7) baja de una marca SIN uso → se puede deshacer y vuelve con el mismo id
+  boton(/^Eliminar$/, fila("Sin uso")).click(); await tick();
+  ok(/No está en uso\./.test(dlg().textContent), "confirmación sin uso");
+  boton(/Eliminar$/, dlg()).click(); await tick(500);
+  ok(!nombres().includes("Sin uso") && toast() && boton(/Deshacer/, toast()), "borrada, con Deshacer");
+  boton(/Deshacer/, toast()).click(); await tick(500);
+  ok(sql("SELECT nombre FROM marca WHERE id_marca=3")[0][0] === "Sin uso" && nombres().includes("Sin uso"), "deshacer baja: reinsertada con su id");
+
+  // 8) tipo de equipo: rol de señal; la baja arrastra reglas lógicas (CASCADE) y lo avisa
+  await ir("#/catalogos/tipos-equipo"); await tick(150);
+  ok(txt("#contenido h3") === "Tipos de equipo" && [...document.querySelectorAll("#contenido thead th")].map((x) => x.textContent).join("|") === "ID|Nombre|Rol señal|En uso|", "columnas de tipos de equipo");
+  ok(filas()[0].children[2].textContent === "FUENTE", "rol en la lista");
+  boton(/Alta de tipo de equipo/).click(); await tick();
+  ok(dlg().querySelector("[name=rol_senal]").value === "DISTRIBUIDOR" && dlg().querySelectorAll("[name=rol_senal] option").length === 10, "el rol arranca en DISTRIBUIDOR; 10 roles (los de Modelo)");
+  ok(dlg().querySelector("[name=rol_senal] option[value=FANTASMA]").textContent === "Fantasma (extremo desconectado confirmado)", "etiqueta del rol");
+  poner("nombre", "MATRIZ"); poner("rol_senal", "ENRUTADOR"); await enviar(500);
+  ok(sql("SELECT rol_senal FROM tipo_equipo WHERE nombre='MATRIZ'")[0][0] === "ENRUTADOR", "alta con rol");
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db"); c.execute("INSERT INTO regla_logica(id_tipo_equipo,nombre,operador) VALUES (1,'R1','AND')"); c.commit(); c.close()`);
+  await ir("#/catalogos/marcas"); await ir("#/catalogos/tipos-equipo"); await tick(150);   // otra ruta en el medio: misma ruta no repinta
+  boton(/^Eliminar$/, filas().find((f) => f.children[1].textContent === "CAMARA")).click(); await tick();
+  ok(/2 Equipos — quedarán sin este valor/.test(dlg().textContent) && /1 Reglas lógicas — también se eliminarán/.test(dlg().textContent), "avisa qué se anula y qué se borra: " + dlg().textContent.replace(/\s+/g, " "));
+  boton(/Cancelar/, dlg()).click(); await tick();
+
+  // 9) tipo de cable: campos numéricos y errores a la vez
+  await ir("#/catalogos/tipos-cable"); await tick(150);
+  boton(/Alta de tipo de cable/).click(); await tick();
+  poner("nombre", "Belden"); poner("long_max_balanceado_m", "-3"); poner("ancho_banda_mhz", "abc"); await enviar(100);
+  const err = (c) => dlg().querySelector(`[data-campo=${c}] .form-error`).textContent;
+  ok(err("long_max_balanceado_m") === "Mínimo 0" && err("ancho_banda_mhz") === "Debe ser un número", "validación local de números: " + err("long_max_balanceado_m") + " / " + err("ancho_banda_mhz"));
+  poner("long_max_balanceado_m", "10,5"); poner("ancho_banda_mhz", "150"); poner("naturaleza_senal", "DIGITAL"); await enviar(500);
+  ok(JSON.stringify(sql("SELECT naturaleza_senal, longitud_maxima_recomendada_balanceado_m, ancho_banda_mhz FROM tipo_cable WHERE nombre='Belden'")[0]) === '["DIGITAL",10.5,150]', "números con coma decimal guardados");
+  ok(nombres().includes("Belden") && filas().find((f) => f.children[1].textContent === "Belden").children[3].textContent === "10.5", "la lista muestra los valores");
+
+  // 10) tipo de conector con checkbox; señales con tipo de contenido
+  await ir("#/catalogos/tipos-conector"); await tick(150);
+  boton(/Alta de tipo de conector/).click(); await tick();
+  poner("nombre", "REFOUT"); dlg().querySelector("[name=es_referencia_generada]").checked = true; await enviar(500);
+  ok(filas().find((f) => f.children[1].textContent === "REFOUT").children[2].textContent === "✓", "checkbox guardado y mostrado como ✓");
+  await ir("#/catalogos/senales"); await tick(150);
+  boton(/Alta de señal/).click(); await tick();
+  ok(dlg().querySelectorAll("[name=tipo_contenido] option").length === 5, "tipo de contenido: vacío + 4 sugeridos");
+  poner("nombre", "PGM"); poner("tipo_contenido", "VIDEO"); await enviar(500);
+  ok(nombres().includes("PGM"), "señal creada (el bridge asegura las tablas de señal)");
+  await ir("#/catalogos/imagenes"); await tick(150);
+  ok(nombres().join() === "cam.png", "imágenes: la del fixture");
+
+  // 11) ruta desconocida; idioma; error del bridge
+  await ir("#/catalogos/nada"); await tick(100);
+  ok(/Catálogo desconocido: nada/.test(txt("#contenido")), "catálogo desconocido");
+  await ir("#/catalogos/marcas"); await tick(150);
+  await cambiar("#sel-idioma", "en");
+  ok(txt("#contenido h2") === "Catalogs" && txt("#contenido h3") === "Brands" && boton(/Add brand/) && document.querySelector("#lateral a[data-id=catalogos]").textContent.includes("Catalogs"), "inglés");
+  await cambiar("#sel-idioma", "pt");
+  ok(boton(/Cadastrar marca/) && boton(/^Excluir$/, filas()[0]), "portugués");
+  boton(/Cadastrar marca/).click(); await tick();
+  ok(dlg().querySelector("h3").textContent === "Cadastrar marca", "diálogo en portugués");
+  boton(/Cancelar/, dlg()).click(); await tick();
+  await cambiar("#sel-idioma", "es");
+  E.fallar("el motor no respondió"); await ir("#/catalogos/tipos-ficha"); await tick(100);
+  ok(document.querySelector("#contenido .error-panel"), "si el bridge falla al cargar, panel de error con reintento");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);
