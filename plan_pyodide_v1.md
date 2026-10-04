@@ -100,7 +100,7 @@ Criterio: todo lo que hoy se edita por diálogos GTK (~82 diálogos) se edita en
 
 - [x] **B.1** Patrón de formulario/diálogo genérico reutilizable (validación, errores, deshacer simple).
 - [x] **B.2** Catálogos básicos (marcas, tipos de equipo/conector/cable/ficha, señales, imágenes).
-- [ ] **B.3** Cables (alta/edición/fusión) y conexiones.
+- [x] **B.3** Cables (alta/edición/fusión) y conexiones. Hecho (2026-10-03): `ui_web/cables_web.py` + `app/cables_abm.js`/`cables_modelo.js`, acciones en las fichas de cable y conector y en la lista de cables; detalle en `ui_web/README.md`.
 - [ ] **B.4** Equipos (ABM, alta rápida con plantilla de conectores) y conectores.
 - [ ] **B.5** Racks, salas, frames, slots y posición en rack.
 - [ ] **B.6** Catálogo de equipos y alta rápida de catálogo.

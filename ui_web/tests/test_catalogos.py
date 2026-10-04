@@ -17,7 +17,7 @@ app = os.path.join(tmp, "app")
 shutil.copytree(os.path.join(RAIZ, "core"), os.path.join(app, "core"), ignore=shutil.ignore_patterns("__pycache__", "log.txt"))
 os.makedirs(os.path.join(app, "data"))
 shutil.copy(os.path.join(RAIZ, "data", "schema_db.sql"), os.path.join(app, "data", "schema_db.sql"))
-for f in ("bridge.py", "catalogos_web.py"):
+for f in ("bridge.py", "catalogos_web.py", "cables_web.py"):
     shutil.copy(os.path.join(RAIZ, "ui_web", f), os.path.join(app, f))
 sys.path.insert(0, app)
 
@@ -91,7 +91,7 @@ con.commit(); con.close()
 
 # 0) las funciones están registradas y las de escritura se distinguen de las de lectura
 ok({"catalogo_lista", "catalogo_alta", "catalogo_modificar", "catalogo_baja", "catalogo_restaurar"} <= set(b.FUNCIONES), "registradas en el bridge")
-ok(b.ESCRITURAS == {"catalogo_alta", "catalogo_modificar", "catalogo_baja", "catalogo_restaurar"}, "ESCRITURAS = las 4 de escritura")
+ok({"catalogo_alta", "catalogo_modificar", "catalogo_baja", "catalogo_restaurar"} <= b.ESCRITURAS and "catalogo_lista" not in b.ESCRITURAS, "ESCRITURAS incluye las 4 de escritura (y no la lectura)")
 ok(set(data("firmas")["catalogo_baja"][i]["nombre"] for i in range(3)) == {"catalogo", "id", "solo_si_sin_uso"}, "firmas")
 
 # 1) lista: filas, esquema y usos
