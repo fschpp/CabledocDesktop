@@ -14,10 +14,10 @@ const BASE = self.registration.scope;            // siempre termina en "/"
 // Todo lo que la app pide al arrancar o al navegar. tests/test_sw.mjs verifica que coincida con lo que hay en disco.
 const ARCHIVOS = [
   "app.html", "app.css", "index.html", "worker.js", "core.zip",
-  "bridge.py", "i18n_web.py", "datos_web.py", "catalogos_web.py", "cables_web.py", "bench_web.py",
+  "bridge.py", "i18n_web.py", "datos_web.py", "catalogos_web.py", "cables_web.py", "equipos_web.py", "bench_web.py",
   "app/analisis.css", "app/busqueda.css",
   "app/analisis.js", "app/arbol.js", "app/busqueda.js", "app/busqueda_modelo.js", "app/cables_abm.js", "app/cables_modelo.js", "app/catalogos.js", "app/catalogos_modelo.js", "app/conexiones.js", "app/datos.js",
-  "app/dom.js", "app/equipos_arbol.js", "app/errores.js", "app/escenarios.js", "app/fichas.js", "app/formulario.js", "app/formulario_demo.js",
+  "app/dom.js", "app/equipos_abm.js", "app/equipos_arbol.js", "app/equipos_modelo.js", "app/errores.js", "app/escenarios.js", "app/fichas.js", "app/formulario.js", "app/formulario_demo.js",
   "app/formulario_modelo.js", "app/i18n.js",
   "app/imagen_conectores.js", "app/imagenes.js", "app/main.js", "app/offline.js", "app/patcheras.js", "app/rpc.js",
   "app/shell.js", "app/svg.js", "app/tema.js", "app/ubicaciones.js", "app/vistas.js",

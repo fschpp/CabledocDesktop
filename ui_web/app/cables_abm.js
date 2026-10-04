@@ -15,16 +15,16 @@ const pila = crearPilaDeshacer(10);
 
 // El shell repinta solo si cambió el tamaño de la base: una escritura que no lo cambia no se vería. Repintar a mano = reenviar hashchange.
 export const repintar = () => window.dispatchEvent(new window.Event("hashchange"));
-const irA = (hash) => { if (location.hash === hash) repintar(); else location.hash = hash; };
+export const irA = (hash) => { if (location.hash === hash) repintar(); else location.hash = hash; };
 
 // El bridge devuelve los errores de validación como ErrorBridge con `campos`; el formulario espera ErrorFormulario.
-const conCampos = (rpc) => async (fn, a) => {
+export const conCampos = (rpc) => async (fn, a) => {
   try { return await rpc.llamar(fn, a); }
   catch (e) { if (e instanceof ErrorBridge && e.campos && Object.keys(e.campos).length) throw new ErrorFormulario(e.message, e.campos); throw e; }
 };
 
 // Aviso informativo que no bloquea (p. ej. «el conector ya tenía otra conexión»).
-function avisar(texto) {
+export function avisar(texto) {
   const cont = $("toasts"); if (!cont) return;
   const el = h("div", { class: "toast aviso", role: "status" }, h("span", {}, texto), h("button", { type: "button", "aria-label": t("Cerrar"), onclick: () => el.remove() }, "✕"));
   cont.append(el); setTimeout(() => el.remove(), 10000);

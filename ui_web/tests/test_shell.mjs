@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos", "formulario", "catalogos_modelo", "catalogos", "cables_modelo", "cables"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos", "formulario", "catalogos_modelo", "catalogos", "cables_modelo", "cables", "equipos_modelo", "equipos"];
 
 if (!escenario) {
   let mal = 0;
@@ -49,7 +49,7 @@ async function rpcPyodide() {              // rpc real: Pyodide + core.zip + bri
   const py = await loadPyodide();
   const zip = readFileSync(path.join(WEB, "core.zip"));   // ArrayBuffer propio (igual que fetch().arrayBuffer() en el worker)
   py.unpackArchive(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength), "zip", { extractDir: "/app" });
-  for (const f of ["bridge.py", "i18n_web.py", "datos_web.py", "catalogos_web.py", "cables_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
+  for (const f of ["bridge.py", "i18n_web.py", "datos_web.py", "catalogos_web.py", "cables_web.py", "equipos_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
   py.runPython("import sys; sys.path.insert(0, '/app')");
   py.FS.mkdirTree("/app/data/database");
   const DB = "/app/data/database/db.db";
@@ -1730,6 +1730,198 @@ INSERT INTO conexion(id_conexion,id_cable,id_conector) VALUES (1,1,1),(2,1,2);""
   await cambiar("#sel-idioma", "es");
   await ir("#/cables/999"); await tick(150);
   ok(document.querySelector("#contenido .error-panel"), "cable inexistente: panel de error con reintento");
+}
+
+if (escenario === "equipos_modelo") {        // B.4: lógica pura de los formularios de equipos y conectores (sin DOM)
+  const M = await import(pathToFileURL(path.join(WEB, "app/equipos_modelo.js")).href);
+  const esq = [
+    { nombre: "nombre", tipo: "texto", requerido: true, largo: 200 },
+    { nombre: "id_tipo_equipo", tipo: "select", requerido: false, opciones: [{ valor: 1, etiqueta: "CAMARA" }] },
+    { nombre: "es_equipo_usado", tipo: "bool", requerido: false },
+    { nombre: "ancho_mm", tipo: "numero", requerido: false, minimo: 0 },
+    { nombre: "configuraciones", tipo: "texto_largo", requerido: false, largo: 50000 },
+    { nombre: "modelo", tipo: "texto", requerido: false, largo: 200 }];
+  const tr = (x) => "«" + x + "»";
+  let c = M.camposDesdeEsquema(esq, tr);
+  ok(c.map((x) => x.nombre).join() === "nombre,id_tipo_equipo,es_equipo_usado,ancho_mm,configuraciones,modelo", "un campo por entrada del esquema, en orden");
+  ok(c[0].etiqueta === "«Nombre»" && c[0].requerido === true && c[0].largoMax === 200 && c[0].tipo === "texto", "texto: etiqueta traducida, obligatorio, largo");
+  ok(c[1].tipo === "select" && c[1].opciones[0].etiqueta === "CAMARA", "los catálogos se muestran tal cual");
+  ok(c[2].tipo === "checkbox" && c[2].etiqueta === "«Equipo usado»", "bool → casilla");
+  ok(c[3].tipo === "numero" && c[3].min === 0 && c[4].tipo === "texto_largo" && c[4].filas === 6, "número con mínimo; texto largo con filas");
+  c = M.camposDesdeEsquema(esq, tr, { solo: M.CAMPOS_ALTA_RAPIDA });
+  ok(c.map((x) => x.nombre).join() === "nombre,id_tipo_equipo,modelo", "alta rápida: solo sus campos");
+  ok(M.camposDesdeEsquema([{ nombre: "critico", tipo: "bool", requerido: false }], tr)[0].ayuda.startsWith("«Con al menos"), "ayuda de equipo crítico");
+
+  const filas = [{ id_tipo_conector: 1, tipo_conector: "BNC", direccion: "IN", cantidad: 3 }, { id_tipo_conector: 1, tipo_conector: "BNC", direccion: "OUT", cantidad: 0 }];
+  const cp = M.camposPlantilla(filas);
+  ok(cp.map((x) => x.nombre).join() === "q_1_IN,q_1_OUT" && cp[0].etiqueta === "IN · BNC" && cp[0].valorInicial === 3 && cp[1].valorInicial === 0 && cp[0].tipo === "entero" && cp[0].max === 99, "plantilla: un campo entero por fila, con su cantidad");
+  ok(M.claveFila(filas[0]) === "q_1_IN", "la clave coincide con la del error del bridge");
+  ok(JSON.stringify(M.conectoresDesdeValores(filas, { q_1_IN: 2, q_1_OUT: null })) === '[{"id_tipo_conector":1,"direccion":"IN","cantidad":2},{"id_tipo_conector":1,"direccion":"OUT","cantidad":0}]', "valores → lista del bridge (null = 0)");
+  ok(M.totalConectores(filas, { q_1_IN: 2, q_1_OUT: 5 }) === 7, "total de conectores");
+  ok(JSON.stringify(M.soloRapida({ nombre: "X", id_tipo_equipo: 1, critico: true, ancho_mm: 3 })) === '{"nombre":"X","id_tipo_equipo":1,"id_marca":null,"modelo":null,"num_inventario":null,"num_serie":null}', "alta rápida: solo viajan sus campos");
+  ok(M.nombreEquipo({ id_equipo: 4, nombre: "CAM" }) === "CAM" && M.nombreEquipo({ id_equipo: 4, nombre: null }) === "#4" && M.nombreConector({ id: 9 }) === "#9", "nombres");
+  ok(M.detalleUsos([{ tabla: "posicion_en_rack", n: 1, efecto: "anula" }], tr)[0].tabla === "«Posiciones en rack»", "etiqueta de usos de B.4");
+  const lado = M.camposLado(tr);
+  ok(lado.length === 1 && lado[0].nombre === "lado" && lado[0].tipo === "select" && lado[0].requerido === true && lado[0].opciones.map((o) => o.valor).join() === "A,B" && lado[0].opciones[0].etiqueta === "«Lado A (conector OUT)»", "formulario del lado del extremo desconectado");
+}
+
+if (escenario === "equipos") {               // B.4: equipos y conectores con el bridge REAL (Pyodide): alta, alta rápida, edición, baja, deshacer
+  const E = await rpcPyodide();
+  instalarDom();
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""INSERT INTO tipo_conector(id_tipo_conector,nombre) VALUES (2,'IN'),(3,'XLR');
+INSERT INTO marca(id_marca,nombre) VALUES (1,'Sony');""")
+c.commit(); c.close()`);
+  const sql = (q) => E.py.runPython(`import sqlite3\nc = sqlite3.connect("/app/data/database/db.db"); r = c.execute(${JSON.stringify(q)}).fetchall(); c.close(); r`).toJs();
+  const txt = (s) => $(s)?.textContent;
+  const dlg = () => document.querySelector("dialog.form-dialogo");
+  const boton = (re, raiz = document) => [...raiz.querySelectorAll("button")].find((b) => re.test(b.textContent));
+  const poner = (nom, v) => { dlg().querySelector(`[name=${nom}]`).value = v; };
+  const enviar = async (ms = 500) => { dlg().querySelector("form").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); await tick(ms); };
+  const toast = () => [...document.querySelectorAll("#toasts .toast")].at(-1);
+  const limpiarToasts = () => document.querySelectorAll("#toasts .toast").forEach((e) => e.remove());
+  const err = (c) => dlg().querySelector(`[data-campo=${c}] .form-error`).textContent;
+  const idHash = () => Number(window.location.hash.split("/")[2]);       // las tablas son AUTOINCREMENT: tras un deshacer el id siguiente no se reutiliza
+  const ultimo = (tabla, pk) => sql(`SELECT MAX(${pk}) FROM ${tabla}`)[0][0];
+  const opts = (nom) => [...dlg().querySelectorAll(`[name=${nom}] option`)].map((o) => o.textContent);
+
+  // 1) pantalla Equipos: botones de alta
+  await ir("#/equipos"); await tick(150);
+  ok(boton(/Nuevo equipo/) && boton(/Alta rápida/), "la pantalla ofrece Nuevo equipo y Alta rápida");
+  ok(document.querySelectorAll("#contenido .arbol-fila").length === 3, "árbol de la base de prueba");
+
+  // 2) alta con error del bridge no hay (nombre vacío se valida local); alta correcta y deshacer
+  boton(/Nuevo equipo/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Nuevo equipo" && opts("id_tipo_equipo").join("|") === "— Elegí —|CAMARA" && opts("id_marca").join("|") === "— Elegí —|Sony", "diálogo de alta con tipos y marcas del bridge");
+  await enviar(60);
+  ok(err("nombre") === "Obligatorio", "nombre obligatorio (validado en el navegador)");
+  poner("nombre", "VTR 1"); poner("id_tipo_equipo", "1"); poner("id_marca", "1"); poner("ancho_mm", "480,5"); dlg().querySelector("[name=critico]").checked = true; await enviar(800);
+  const vtr = idHash();
+  ok(!dlg() && vtr === ultimo("equipo", "id_equipo") && txt("#contenido h2") === "VTR 1", "alta: abre la ficha del equipo nuevo");
+  ok(JSON.stringify(sql(`SELECT nombre, id_tipo_equipo, id_marca, ancho_mm FROM equipo WHERE id_equipo=${vtr}`)[0]) === '["VTR 1",1,1,480.5]' && sql(`SELECT COUNT(*) FROM equipo_critico WHERE id_equipo=${vtr}`)[0][0] === 1, "guardado con coma decimal y marcado crítico");
+  ok(E.rpc.escrituras >= 1 && /Se agregó el equipo «VTR 1»/.test(toast().textContent) && boton(/Deshacer/, toast()), "aviso con Deshacer");
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(sql(`SELECT COUNT(*) FROM equipo WHERE id_equipo=${vtr}`)[0][0] === 0 && window.location.hash === "#/equipos", "deshacer el alta: se borra aunque quedó marcado crítico");
+  limpiarToasts();
+
+  // 3) alta rápida: dos pasos
+  await tick(150); boton(/Alta rápida/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Alta rápida de equipo" && !dlg().querySelector("[name=ancho_mm]") && dlg().querySelector("[name=num_inventario]"), "paso 1: solo los campos de la alta rápida");
+  poner("nombre", "SW 1"); poner("id_tipo_equipo", "1"); await enviar(400);
+  ok(dlg() && dlg().querySelector("h3").textContent === "Conectores de «SW 1»" && dlg().querySelector("[name=q_1_IN]") && dlg().querySelector("[name=q_3_OUT]"), "paso 2: una fila por tipo de conector y dirección");
+  ok(sql("SELECT COUNT(*) FROM equipo")[0][0] === 2, "hasta acá no se creó nada");
+  poner("q_1_IN", "3"); poner("q_1_OUT", "1"); poner("q_2_IN", "2"); poner("q_3_OUT", "100"); await enviar(100);
+  ok(err("q_3_OUT") === "Máximo 99" && sql("SELECT COUNT(*) FROM equipo")[0][0] === 2, "cantidad fuera de rango: error y no crea nada");
+  poner("q_3_OUT", "0"); await enviar(900);
+  const sw1 = idHash();
+  ok(!dlg() && sw1 === ultimo("equipo", "id_equipo") && txt("#contenido h2") === "SW 1", "alta rápida: abre la ficha");
+  ok(sql(`SELECT nombre FROM conector WHERE id_equipo=${sw1} ORDER BY id_conector`).map((r) => r[0]).join() === "IN BNC 01,IN BNC 02,IN BNC 03,OUT BNC,IN 01,IN 02", "conectores con los nombres del desktop: " + sql(`SELECT nombre FROM conector WHERE id_equipo=${sw1} ORDER BY id_conector`).map((r) => r[0]));
+  ok(/con 6 conector\(es\)/.test(toast().textContent) && document.querySelectorAll("tr[data-conector]").length === 6, "aviso y ficha con los 6 conectores");
+  ok(sql("SELECT COUNT(*) FROM plantilla_conector WHERE id_tipo_equipo=1")[0][0] === 3, "la plantilla del tipo quedó guardada");
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(sql(`SELECT COUNT(*) FROM equipo WHERE id_equipo=${sw1}`)[0][0] === 0 && sql(`SELECT COUNT(*) FROM conector WHERE id_equipo=${sw1}`)[0][0] === 0, "deshacer la alta rápida: se lleva el equipo y sus conectores");
+  limpiarToasts();
+  boton(/Alta rápida/).click(); await tick(150); poner("nombre", "SW 2"); poner("id_tipo_equipo", "1"); await enviar(400);
+  ok(dlg().querySelector("[name=q_1_IN]").value === "3" && dlg().querySelector("[name=q_1_OUT]").value === "1", "paso 2 parte de la plantilla guardada del tipo");
+  boton(/Cancelar/, dlg()).click(); await tick(); if (dlg()) { globalThis.confirm = () => true; boton(/Cancelar/, dlg()).click(); await tick(); }
+  ok(!dlg() && sql("SELECT COUNT(*) FROM equipo WHERE nombre='SW 2'")[0][0] === 0, "cancelar el paso 2 no crea nada");
+  limpiarToasts();
+
+  // 4) ficha del equipo: editar y deshacer; no toca imagen ni coordenadas
+  await ir("#/equipos/1"); await tick(150);
+  ok(boton(/^Editar$/) && boton(/Conector/) && boton(/^Eliminar$/), "ficha: Editar, + Conector y Eliminar");
+  boton(/^Editar$/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Editar equipo" && dlg().querySelector("[name=nombre]").value === "CAM 1" && dlg().querySelector("[name=modelo]").value === "HDC-3500", "edición precargada");
+  poner("nombre", "CAM 1 HD"); poner("num_inventario", "A-7"); await enviar(800);
+  ok(JSON.stringify(sql("SELECT nombre, num_inventario, id_imagen FROM equipo WHERE id_equipo=1")[0]) === '["CAM 1 HD","A-7",1]', "guardado; la imagen sigue");
+  ok(txt("#contenido h2") === "CAM 1 HD", "la ficha se repinta");
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(sql("SELECT nombre, num_inventario FROM equipo WHERE id_equipo=1")[0].join() === "CAM 1," , "deshacer la edición");
+  limpiarToasts();
+
+  // 5) conectores: alta desde el equipo, editar, borrar
+  boton(/Conector/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Nuevo conector" && /Equipo: CAM 1/.test(dlg().textContent), "alta de conector desde la ficha del equipo");
+  await enviar(60);
+  ok(err("nombre") === "Obligatorio", "nombre obligatorio");
+  poner("nombre", "AUX"); poner("id_tipo_conector", "3"); await enviar(800);
+  const aux = ultimo("conector", "id_conector");
+  ok(sql(`SELECT nombre, id_equipo, id_tipo_conector FROM conector WHERE id_conector=${aux}`)[0].join() === "AUX,1,3" && document.querySelectorAll("tr[data-conector]").length === 3, "conector creado y la ficha lo muestra");
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(sql(`SELECT COUNT(*) FROM conector WHERE id_conector=${aux}`)[0][0] === 0, "deshacer el alta del conector");
+  limpiarToasts();
+  await ir("#/conectores/1"); await tick(150);
+  boton(/^Editar$/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Editar conector" && dlg().querySelector("[name=nombre]").value === "OUT 1", "edición de conector precargada");
+  poner("nombre", "OUT PGM"); poner("modo_canal", "ESTEREO"); await enviar(800);
+  ok(JSON.stringify(sql("SELECT nombre, modo_canal, id_imagen, coordenada_x_en_imagen, coordenada_y_en_imagen FROM conector WHERE id_conector=1")[0]) === '["OUT PGM","ESTEREO",1,40,55]', "guardado; imagen y coordenadas intactas");
+  limpiarToasts();
+  boton(/^Eliminar$/).click(); await tick(200);
+  ok(/¿Eliminar el conector «OUT PGM»\?/.test(dlg().textContent) && /1 Conexiones — también se eliminarán/.test(dlg().textContent), "avisa que se lleva la conexión: " + dlg().textContent.replace(/\s+/g, " "));
+  ok(document.activeElement === boton(/Cancelar/, dlg()), "foco en Cancelar (acción destructiva)");
+  boton(/Cancelar/, dlg()).click(); await tick();
+  ok(sql("SELECT COUNT(*) FROM conector WHERE id_conector=1")[0][0] === 1, "cancelar no borra");
+  boton(/^Eliminar$/).click(); await tick(200); boton(/Eliminar$/, dlg()).click(); await tick(800);
+  ok(sql("SELECT COUNT(*) FROM conector WHERE id_conector=1")[0][0] === 0 && sql("SELECT COUNT(*) FROM conexion WHERE id_conector=1")[0][0] === 0 && window.location.hash === "#/equipos/1", "borrado con su conexión y vuelve a la ficha del equipo");
+  ok(!document.querySelector("#toasts .toast.ok button:not([aria-label])") && [...document.querySelectorAll("#toasts .toast.aviso")].some((e) => /Se eliminó el conector/.test(e.textContent)), "con conexiones: sin Deshacer, solo aviso");
+  limpiarToasts();
+
+  // 6) baja de equipo: arrastra conectores y conexiones y lo avisa
+  await ir("#/equipos/2"); await tick(150);
+  boton(/^Eliminar$/).click(); await tick(200);
+  ok(/¿Eliminar el equipo «CAM 2»\?/.test(dlg().textContent) && /Conectores — también se eliminarán/.test(dlg().textContent) && /Conexiones — también se eliminarán/.test(dlg().textContent), "avisa lo que se lleva: " + dlg().textContent.replace(/\s+/g, " "));
+  boton(/Eliminar$/, dlg()).click(); await tick(800);
+  ok(sql("SELECT COUNT(*) FROM equipo WHERE id_equipo=2")[0][0] === 0 && window.location.hash === "#/equipos", "equipo borrado; vuelve a la lista");
+  limpiarToasts();
+  boton(/Nuevo equipo/).click(); await tick(150); poner("nombre", "LIBRE"); await enviar(800);
+  const libre = idHash();
+  boton(/^Eliminar$/).click(); await tick(200);
+  ok(/No tiene conectores, conexiones ni otros datos asociados\./.test(dlg().textContent), "equipo sin uso: lo dice");
+  boton(/Eliminar$/, dlg()).click(); await tick(800);
+  ok(boton(/Deshacer/, toast()), "sin uso: se ofrece Deshacer");
+  boton(/Deshacer/, toast()).click(); await tick(800);
+  ok(sql(`SELECT nombre FROM equipo WHERE id_equipo=${libre}`)[0][0] === "LIBRE" && window.location.hash === "#/equipos/" + libre, "deshacer la baja: vuelve con el mismo id");
+  limpiarToasts();
+
+  // 6b) extremo desconectado (equipo FANTASMA) desde la ficha de un cable
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""INSERT INTO tipo_equipo(id_tipo_equipo,nombre,rol_senal) VALUES (9,'EXTREMO','FANTASMA');
+INSERT INTO tipo_conector(id_tipo_conector,nombre) VALUES (4,'OUT');
+INSERT INTO cable(id_cable,codigo,estado,es_cable_conexion_interna) VALUES (7,'C-007','VERIFICADO',0);""")
+c.commit(); c.close()`);
+  await ir("#/cables/7"); await tick(150);
+  ok(boton(/Extremo desconectado/) && !boton(/Extremo desconectado/).disabled, "la ficha del cable ofrece Extremo desconectado");
+  boton(/Extremo desconectado/).click(); await tick(200);
+  ok(dlg().querySelector("h3").textContent === "Marcar extremo desconectado" && opts("lado").join("|") === "— Elegí —|Lado A (conector OUT)|Lado B (conector IN)", "sin extremos: se pregunta el lado");
+  await enviar(60);
+  ok(err("lado") === "Obligatorio" && sql("SELECT COUNT(*) FROM equipo WHERE id_tipo_equipo=9")[0][0] === 0, "el lado es obligatorio y no se crea nada");
+  poner("lado", "A"); await enviar(800);
+  ok(!dlg() && sql("SELECT e.nombre, c.nombre FROM equipo e JOIN conector c ON c.id_equipo=e.id_equipo WHERE e.id_tipo_equipo=9")[0].join() === "EXTREMO A DESCONECTADO C-007,OUT", "equipo FANTASMA con su conector OUT");
+  ok(document.querySelectorAll("tr[data-conexion]").length === 1 && /Se creó el extremo desconectado «EXTREMO A DESCONECTADO C-007»/.test(toast().textContent), "la ficha muestra la punta nueva y avisa");
+  limpiarToasts();
+  boton(/Extremo desconectado/).click(); await tick(800);
+  ok(!dlg() && document.querySelectorAll("tr[data-conexion]").length === 2 && sql("SELECT c.nombre FROM equipo e JOIN conector c ON c.id_equipo=e.id_equipo WHERE e.nombre LIKE 'EXTREMO B%'")[0][0] === "IN", "con un extremo OUT el lado B se infiere sin preguntar");
+  ok(boton(/Extremo desconectado/).disabled === true, "con dos extremos queda deshabilitado");
+  boton(/Deshacer/, toast()).click(); await tick(800);
+  ok(sql("SELECT COUNT(*) FROM equipo WHERE nombre LIKE 'EXTREMO B%'")[0][0] === 0 && document.querySelectorAll("tr[data-conexion]").length === 1 && !boton(/Extremo desconectado/).disabled, "deshacer: se va el equipo y la ficha vuelve a ofrecerlo");
+  limpiarToasts();
+
+  // 7) idioma
+  await ir("#/equipos"); await tick(150);
+  await cambiar("#sel-idioma", "en");
+  ok(boton(/New equipment/) && boton(/Quick add/), "lista en inglés");
+  await ir("#/equipos/1"); await tick(150);
+  boton(/^Edit$/).click(); await tick(200);
+  ok(dlg().querySelector("h3").textContent === "Edit equipment" && dlg().querySelector("[data-campo=num_serie] label").textContent === "Serial no.", "diálogo en inglés");
+  boton(/Cancel/, dlg()).click(); await tick();
+  await cambiar("#sel-idioma", "es");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

@@ -207,6 +207,32 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-04 — Fase B.4 de `plan_pyodide_v1.md` (equipos y conectores), sobre `main` en `9febf74` (A.1–A.11 y B.1–B.3 mergeadas, PR #98)._
+
+### Current Focus
+B.4 entregada como diff: ABM de equipos (alta, **alta rápida con plantilla de conectores**, edición, baja) y de conectores (alta desde la ficha del equipo, edición, baja), más «Marcar extremo desconectado» (equipo FANTASMA) desde la ficha del cable, que B.3 había dejado para esta etapa. `ui_web/equipos_web.py` (nuevo: 6 lecturas y 11 escrituras sobre los métodos de `Modelo`), `bridge.py` (registra el módulo), `worker.js`, `sw.js`, `app/equipos_abm.js` + `app/equipos_modelo.js` (acciones y lógica pura), `app/fichas.js` y `app/equipos_arbol.js` (botones), `app/cables_abm.js` (3 helpers exportados), `app/catalogos_modelo.js` (etiquetas de usos), `i18n_web.py` (~58 claves EN/PT). Pendiente: smoke test en navegador real con el `db.db` real (lo hace Fede) y el commit (lo hace Fede).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 a A.11 (Fase A cerrada)
+- [x] Done — B.1 formulario/diálogo genérico
+- [x] Done — B.2 catálogos básicos
+- [x] Done — B.3 cables y conexiones
+- [x] Done — B.4 equipos y conectores (diff presentado; `test_equipos_b4.py` 100, escenarios `equipos_modelo` 15 y `equipos` 50, `test_sw` 90, los 22 escenarios de `test_shell.mjs` y los demás tests Python OK; falta smoke en navegador real)
+- [ ] Todo — B.5 a B.12, luego C
+
+### Latest Blockers/Discoveries
+- Smoke a hacer (`python3 -m http.server 8000` en `ui_web/`, `http://127.0.0.1:8000/app.html#/equipos` con el db.db real; **Ctrl+F5 o "Update on reload" del service worker** porque `sw.js` cambió): (1) «Nuevo equipo» sin nombre → error en el campo; con datos abre la ficha; «Deshacer» lo borra; (2) «⚡ Alta rápida»: paso 1 datos, paso 2 cantidades (con un tipo que ya tenga plantilla en el desktop deben venir sus cantidades); crea los conectores con los nombres del desktop (`IN 01`, `OUT BNC`…) y la plantilla queda guardada; (3) **editar un equipo y un conector que ya tengan imagen y coordenadas y comprobar en la ficha que los marcadores siguen donde estaban**; (4) borrar un equipo con conexiones: el diálogo lista lo que se lleva (conectores, conexiones, etc.) y no ofrece Deshacer; sin nada asociado sí; (5) en la ficha de un cable con 0 o 1 extremos, «⚡ Extremo desconectado» (pide que exista un tipo de equipo con rol FANTASMA y tipos de conector `IN`/`OUT`); (6) F5 después de cada escritura: los cambios persisten (`syncfs` del worker, no probado en Node).
+- **Decisión a confirmar**: la edición NO usa `Modelo.modificacion_equipo` / `modificacion_conector`. Se verificó (con el `Modelo` real, sin la imagen en disco) que ambos dejan las coordenadas en NULL cuando no pueden medir la imagen, y en la web las imágenes viven en OPFS. La edición hace un `UPDATE` solo de los campos del formulario; imagen, picon y coordenadas se editan en B.8.
+- Otras diferencias con el desktop (a confirmar): (a) el nombre del equipo es obligatorio (como en su alta rápida; el desktop no lo exige en la ficha completa); (b) el equipo de un conector no se cambia al editar; (c) la alta rápida es atómica (valida la plantilla entera antes de crear y, si falla a mitad, borra el equipo); (d) «equipo crítico» también se puede marcar en el alta (el desktop lo habilita solo al editar); (e) qué arrastra una baja se calcula siguiendo las FK de la base, sin lista propia de tablas.
+- Cambio de estructura de tablas: **ninguno**. Solo columnas y tablas existentes. Guardar otro campo NO migra una base vieja (probado: no crea `equipo_critico` ni `es_modulo_de_frame`); marcarlas sí, como en el desktop. La alta rápida crea `plantilla_conector` si no existe (igual que `Modelo.guardar_plantilla_conector`).
+- Todos los tests Python y `test_shell.mjs` que copian `bridge.py` ahora copian también `equipos_web.py` (bridge lo importa). `sw.js`: agregados `equipos_web.py`, `app/equipos_abm.js` y `app/equipos_modelo.js` a `ARCHIVOS`. `core.zip` no cambia.
+- Las tablas son `AUTOINCREMENT`: tras un «Deshacer» de un alta el id siguiente no se reutiliza (los escenarios de Node ya no asumen ids).
+- Hallazgo en el repo (sin tocar): en `ui_web/tests/` apareció un `test_equipos.py` **sin versionar**, que no escribí yo y que prueba una API distinta (`plantilla_conectores`, `cable_extremo_formulario`, `critico`, `crudo`…). No está en `HEAD` ni en el historial. No se usa ni se incluye en el diff; el test de esta etapa es `test_equipos_b4.py`. Conviene borrarlo o decidir qué es antes de commitear.
+- Para correr `test_shell.mjs` hace falta `npm i jsdom pyodide@314.0.7` en `ui_web/tests` (no se versiona `node_modules`).
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-03 — Fase B.3 de `plan_pyodide_v1.md` (cables y conexiones), sobre `main` en `c5c2764` (A.1–A.11, B.1 y B.2 mergeadas, PR #97)._
 
 ### Current Focus
