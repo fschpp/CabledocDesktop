@@ -22,6 +22,7 @@ shutil.copy(os.path.join(RAIZ, "data", "schema_db.sql"), os.path.join(app, "data
 shutil.copy(os.path.join(RAIZ, "ui_web", "bridge.py"), os.path.join(app, "bridge.py"))
 shutil.copy(os.path.join(RAIZ, "ui_web", "catalogos_web.py"), os.path.join(app, "catalogos_web.py"))   # bridge.py lo importa (B.2)
 shutil.copy(os.path.join(RAIZ, "ui_web", "cables_web.py"), os.path.join(app, "cables_web.py"))   # ídem (B.3)
+shutil.copy(os.path.join(RAIZ, "ui_web", "equipos_web.py"), os.path.join(app, "equipos_web.py"))   # ídem (B.4)
 sys.path.insert(0, app)
 
 import core.modelo as m  # noqa: E402

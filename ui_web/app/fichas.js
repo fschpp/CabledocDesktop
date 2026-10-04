@@ -1,5 +1,6 @@
 // Fichas (A.4): equipo, conector y cable, más la lista de cables que lleva a sus fichas. Son de lectura salvo cable y conexiones (B.3: alta, edición,
-// baja y fusión de cables; alta, edición y baja de conexiones — ver cables_abm.js).
+// baja y fusión de cables; alta, edición y baja de conexiones — ver cables_abm.js) y equipo y conector (B.4: edición y baja de ambos, alta de
+// conectores desde la ficha del equipo — ver equipos_abm.js).
 // Cada vista es (ctx) → Node con ctx = { rpc, args, gen }; los datos salen del bridge (equipo_ficha, conector_ficha, cable_ficha, cables_lista).
 import { h } from "./dom.js";
 import { t, idioma } from "./i18n.js";
@@ -8,6 +9,7 @@ import { normalizar } from "./arbol.js";
 import { reportar } from "./errores.js";
 import { altaCable, cableTemporal, editarCable, eliminarCable, fusionarCables, altaConexion, editarConexion, eliminarConexion } from "./cables_abm.js";
 import { alternarSeleccion } from "./cables_modelo.js";
+import { editarEquipo, eliminarEquipo, altaConector, editarConector, eliminarConector, extremoDesconectado } from "./equipos_abm.js";
 
 const vacio = (v) => v == null || v === "" || (typeof v === "number" && Number.isNaN(v));
 const ruta = (tipo, id) => `#/${tipo}/${encodeURIComponent(id)}`;
@@ -71,6 +73,10 @@ export async function fichaEquipo({ rpc, args }) {
     h("p", { class: "sub" }, [e.tipo, [e.marca, e.modelo].filter(Boolean).join(" ")].filter(Boolean).join(" · ")),
     h("p", { class: "acciones" }, h("a", { href: ruta("conexiones", e.id_equipo) }, "🔗 " + t("Árbol de conexiones")),
       " · ", h("a", { href: "#/analisis/impacto/equipo/" + e.id_equipo }, "📉 " + t("Impacto si falla"))),
+    h("p", { class: "acciones abm" },
+      boton(t("Editar"), "editar", () => editarEquipo(rpc, e.id_equipo)), " ",
+      boton("+ " + t("Conector"), "conector", () => altaConector(rpc, e.id_equipo)), " ",
+      boton(t("Eliminar"), "eliminar", () => eliminarEquipo(rpc, { id_equipo: e.id_equipo, nombre: e.nombre }), "peligro")),
     datos([["Marca", e.marca], ["Tipo", e.tipo], ["Modelo", e.modelo], ["Inventario", e.num_inventario], ["Serie", e.num_serie],
       ["Rol de señal", e.rol_senal], ["Fabricación", e.fecha_fabricacion], ["Equipo usado", Number(e.es_equipo_usado) ? t("Sí") : null],
       ["Dimensiones", dim], ["Señal requerida (MHz)", e.senal_requerida_mhz], ["Manual", e.path_manual],
@@ -114,6 +120,9 @@ export async function fichaConector({ rpc, args }) {
     h("h2", {}, c.nombre || "#" + c.id_conector),
     h("p", { class: "sub" }, [c.equipo, c.tipo_conector].filter(Boolean).join(" · ")),
     h("p", { class: "acciones" }, h("a", { href: "#/analisis/diagnostico/" + c.id_conector }, "🩺 " + t("Diagnosticar falla desde este conector"))),
+    h("p", { class: "acciones abm" },
+      boton(t("Editar"), "editar", () => editarConector(rpc, c.id_conector)), " ",
+      boton(t("Eliminar"), "eliminar", () => eliminarConector(rpc, { id_conector: c.id_conector, nombre: c.nombre, id_equipo: c.id_equipo }), "peligro")),
     datos([["Equipo", c.id_equipo != null ? enlace("equipos", c.id_equipo, c.equipo) : null], ["Tipo", c.tipo_conector], ["Ficha", c.ficha],
       ["Balance", c.modo_balance], ["Canal", c.modo_canal], ["Señal", senalTxt(c.senal)],
       ["Ruteo de entrada (matriz)", r ? [enlace("equipos", r.id_equipo, r.equipo), " / ", enlace("conectores", r.id_conector, r.conector)] : null],
@@ -141,6 +150,7 @@ export async function fichaCable({ rpc, args }) {
     h("p", { class: "acciones abm" },
       boton(t("Editar"), "editar", () => editarCable(rpc, k.id_cable)), " ",
       boton("+ " + t("Conexión"), "conexion", () => altaConexion(rpc, { id_cable: k.id_cable })), " ",
+      botonExtremo(k, rpc), " ",
       boton(t("Eliminar"), "eliminar", () => eliminarCable(rpc, k), "peligro")),
     datos([["Código", k.codigo], ["Tipo de cable", k.tipo_cable], ["Ficha", k.ficha], ["Longitud", vacio(k.longitud) ? null : num(k.longitud) + u],
       ["Estado", k.estado], ["Metraje impreso", metraje.every(vacio) ? null : metraje.map((v) => (vacio(v) ? "?" : v)).join(" / ") + (k.unidad_metraje_impreso ? " " + k.unidad_metraje_impreso : "")],
@@ -158,6 +168,13 @@ export async function fichaCable({ rpc, args }) {
           boton(t("Quitar"), "quitar-conexion", () => eliminarConexion(rpc, x.id_conexion, `${k.codigo || "#" + k.id_cable} → ${x.equipo || t("Extremo suelto")}${x.conector ? " / " + x.conector : ""}`), "peligro",
             t("Quitar conexión") + " #" + x.id_conexion)))))
       : h("p", { class: "sub" }, t("Sin conexión"))));
+}
+
+// B.4: «Marcar extremo desconectado» (equipo FANTASMA); con los dos extremos ya documentados queda deshabilitado.
+function botonExtremo(k, rpc) {
+  const b = boton("⚡ " + t("Extremo desconectado"), "extremo", () => extremoDesconectado(rpc, { id_cable: k.id_cable, codigo: k.codigo }));
+  if (k.extremos.length >= 2) { b.disabled = true; b.title = t("Este cable ya tiene sus dos extremos documentados."); }
+  return b;
 }
 
 // ── Lista de cables ──────────────────────────────────────────────────────────

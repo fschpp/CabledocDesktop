@@ -47,6 +47,7 @@ async function init() {
   py.FS.writeFile("/app/datos_web.py", await (await fetch("datos_web.py")).text());
   py.FS.writeFile("/app/catalogos_web.py", await (await fetch("catalogos_web.py")).text());   // B.2: bridge.py lo importa al cargarse
   py.FS.writeFile("/app/cables_web.py", await (await fetch("cables_web.py")).text());         // B.3: ídem (importa catalogos_web)
+  py.FS.writeFile("/app/equipos_web.py", await (await fetch("equipos_web.py")).text());       // B.4: ídem (importa catalogos_web y cables_web)
   py.runPython("import sys; sys.path.insert(0, '/app')");
   log(`core.zip (${Math.round(zip.byteLength / 1024)} KB) montado en ${((performance.now() - t1) / 1000).toFixed(2)} s`);
   py.FS.mkdirTree(DBDIR);

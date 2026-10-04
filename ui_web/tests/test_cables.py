@@ -17,7 +17,7 @@ app = os.path.join(tmp, "app")
 shutil.copytree(os.path.join(RAIZ, "core"), os.path.join(app, "core"), ignore=shutil.ignore_patterns("__pycache__", "log.txt"))
 os.makedirs(os.path.join(app, "data"))
 shutil.copy(os.path.join(RAIZ, "data", "schema_db.sql"), os.path.join(app, "data", "schema_db.sql"))
-for f in ("bridge.py", "catalogos_web.py", "cables_web.py"):
+for f in ("bridge.py", "catalogos_web.py", "cables_web.py", "equipos_web.py"):
     shutil.copy(os.path.join(RAIZ, "ui_web", f), os.path.join(app, f))
 sys.path.insert(0, app)
 
