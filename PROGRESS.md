@@ -207,6 +207,31 @@ referencia rápida para no repetirlos:
 
 ## Current Focus
 
+_Última actualización: 2026-10-03 — Fase B.3 de `plan_pyodide_v1.md` (cables y conexiones), sobre `main` en `c5c2764` (A.1–A.11, B.1 y B.2 mergeadas, PR #97)._
+
+### Current Focus
+B.3 entregada como diff: ABM de cables (alta, alta rápida «temporal», edición, baja y fusión de dos cables) y de conexiones (alta, edición y baja), dentro de las fichas de cable y de conector y de la lista de cables. `ui_web/cables_web.py` (nuevo: `cable_formulario/usos/alta/temporal/modificar/baja/restaurar/fusionar/fusion_deshacer` y `conexion_formulario/usos/alta/modificar/baja/restaurar`, sobre los métodos de `Modelo`), `bridge.py` (registra los dos módulos de escritura), `worker.js`, `app/cables_abm.js` + `app/cables_modelo.js` (acciones y lógica pura), `app/fichas.js` (botones), `app/formulario.js` (select encadenado equipo → conector, aditivo). Pendiente: smoke test en navegador real (lo hace Fede) y commit. Siguiente: B.4 (equipos y conectores).
+
+### Todo List
+- [x] Done — 0.1 a 0.8, Fase 0 cerrada con GO
+- [x] Done — A.1 a A.11 (Fase A cerrada)
+- [x] Done — B.1 formulario/diálogo genérico
+- [x] Done — B.2 catálogos básicos
+- [x] Done — B.3 cables y conexiones (diff presentado; `test_cables.py` 80, escenarios `cables_modelo` 26 y `cables` 66, `test_sw` 87, los 20 escenarios de `test_shell.mjs` y los demás tests Python OK; falta smoke en navegador real)
+- [ ] Todo — B.4 a B.12, luego C
+
+### Latest Blockers/Discoveries
+- Smoke a hacer (`python3 -m http.server 8000` en `ui_web/`, `http://127.0.0.1:8000/app.html#/cables` con el db.db real; **Ctrl+F5 o \"Update on reload\" del service worker** porque `sw.js` cambió): (1) «Nuevo cable» con un código que ya existe → error en el campo y el diálogo sigue abierto; con uno nuevo abre su ficha; (2) «⚡ Temporal» crea `SIN ETIQUETA NNNN` (el siguiente libre); (3) en la ficha de un cable: Editar (armado, override de ancho de banda), «+ Conexión» (equipo → conector encadenados; avisa si el conector ya tenía otra conexión o el cable pasa de 2 extremos), Editar/Quitar por extremo; (4) en la ficha de un conector: «Conectar a un cable»; (5) en la lista, marcar 2 cables → «Fusionar», con un código ya usado debe rechazar sin mover nada; (6) cada acción ofrece «Deshacer» y tras F5 los cambios siguen (syncfs); (7) Eliminar un cable con conexiones lista lo que se lleva y NO ofrece Deshacer.
+- **Diferencias con el desktop (decisiones a confirmar)**: (a) el código de cable no se puede repetir (la columna es UNIQUE: el desktop falla con IntegrityError; acá se rechaza sin distinguir mayúsculas); (b) editar un cable FUSIONADO conserva su estado (el combo del desktop lo pisa con VERIFICADO); (c) editar una conexión conserva `es_conexion_interna` (el desktop la pisa con 0); (d) no se puede repetir cable+conector, ni fusionar un cable ya fusionado, ni usar como código definitivo el de OTRO cable (el desktop falla a mitad de la fusión, después de mover las conexiones); (e) los cables FUSIONADOS e internos no se ofrecen para conectar; (f) los equipos de sistema («SIN EQUIPO», «EMPALME BNC 1») no se ofrecen al elegir conector.
+- **Fuera de esta entrega** (siguen en GTK): «Simular remoción» (ya está en Análisis → Impacto, enlazado desde las fichas), «Extender con otro cable» (extensiones), «Marcar extremo desconectado» (equipo FANTASMA; es B.4, equipos) y la auditoría de campo (B.10). Editar un extremo suelto de una extensión solo permite ficha y armado.
+- Cambio de estructura de tablas: **ninguno**. Solo columnas existentes. Como en el desktop, `Modelo.asegurar_*` migra columnas de armado/override al guardarlos en una base vieja; guardar otro campo NO migra (probado).
+- Fusión: el deshacer devuelve las MISMAS conexiones (por id) al secundario y restaura código/estado de ambos en una sola transacción; se niega si el secundario ya no está fusionado en ese principal. Baja de un cable con conexiones: las FK se llevan sus conexiones, extensiones, cambios de escenario e incidentes; por eso el diálogo lo lista y no se ofrece Deshacer (solo cuando no arrastró nada).
+- `formulario.js` (B.1) ganó, de forma aditiva, el campo `select` encadenado (`dependeDe` + `cargarOpciones`); no cambia ningún uso existente (`formulario` 46 chequeos siguen OK).
+- Los tests Python que copian `bridge.py` ahora copian también `cables_web.py` (bridge lo importa). `sw.js`: agregados `cables_web.py`, `app/cables_abm.js` y `app/cables_modelo.js` a `ARCHIVOS`. `core.zip` no cambia.
+- Para correr `test_shell.mjs` hace falta `npm i jsdom pyodide@314.0.7` en `ui_web/tests` (no se versiona `node_modules`).
+
+## Current Focus (sesión anterior)
+
 _Última actualización: 2026-10-03 — Fase B.2 de `plan_pyodide_v1.md` (catálogos básicos), sobre `main` en `91152bd` (A.1–A.11 y B.1 mergeadas, PR #96)._
 
 ### Current Focus

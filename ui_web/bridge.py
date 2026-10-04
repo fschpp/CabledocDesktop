@@ -1336,9 +1336,11 @@ FUNCIONES["firmas"] = firmas
 # ── Escritura (Fase B): módulos aparte que se registran acá ──────────────────
 # Se importan al final porque usan helpers de este módulo (de forma diferida, vía `import bridge`).
 import catalogos_web  # noqa: E402
+import cables_web  # noqa: E402
 
-ESCRITURAS = {f.__name__ for f in catalogos_web.ESCRITURAS}      # nombres de las funciones que modifican la base
-FUNCIONES.update({f.__name__: f for f in catalogos_web.LECTURAS + catalogos_web.ESCRITURAS})
+_MODULOS_ESCRITURA = (catalogos_web, cables_web)                  # B.2 catálogos, B.3 cables y conexiones
+ESCRITURAS = {f.__name__ for m in _MODULOS_ESCRITURA for f in m.ESCRITURAS}      # nombres de las funciones que modifican la base
+FUNCIONES.update({f.__name__: f for m in _MODULOS_ESCRITURA for f in m.LECTURAS + m.ESCRITURAS})
 
 
 def call(fn, args_json="{}"):

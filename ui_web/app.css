@@ -185,3 +185,8 @@ dialog.form-dialogo h3{margin:0 0 .6rem}
 .tabla td.acciones{white-space:nowrap;text-align:right}
 .tabla td.acciones button{padding:.15rem .55rem}
 .catalogos-usos{margin:.3rem 0 0;padding-left:1.2rem}
+
+/* Cables y conexiones (B.3) */
+.toast.aviso{border-color:var(--aviso)}
+.acciones.abm button{margin-right:.2rem}
+.acciones-fila{margin-left:.6rem;white-space:nowrap}.acciones-fila button{padding:.05rem .45rem;font-size:.85rem}

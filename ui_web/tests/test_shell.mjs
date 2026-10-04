@@ -9,7 +9,7 @@ import path from "node:path";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)), WEB = path.resolve(AQUI, "..");
 const escenario = process.argv[2];
-const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos", "formulario", "catalogos_modelo", "catalogos"];
+const ESCENARIOS = ["completo", "motor_caido", "idioma_cacheado", "rpc", "arbol_modelo", "arbol_vista", "imagenes", "fichas", "conexiones", "ubicaciones", "analisis", "escenarios", "busqueda_modelo", "busqueda", "datos", "formulario", "catalogos_modelo", "catalogos", "cables_modelo", "cables"];
 
 if (!escenario) {
   let mal = 0;
@@ -49,7 +49,7 @@ async function rpcPyodide() {              // rpc real: Pyodide + core.zip + bri
   const py = await loadPyodide();
   const zip = readFileSync(path.join(WEB, "core.zip"));   // ArrayBuffer propio (igual que fetch().arrayBuffer() en el worker)
   py.unpackArchive(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength), "zip", { extractDir: "/app" });
-  for (const f of ["bridge.py", "i18n_web.py", "datos_web.py", "catalogos_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
+  for (const f of ["bridge.py", "i18n_web.py", "datos_web.py", "catalogos_web.py", "cables_web.py"]) py.FS.writeFile("/app/" + f, readFileSync(path.join(WEB, f), "utf8"));
   py.runPython("import sys; sys.path.insert(0, '/app')");
   py.FS.mkdirTree("/app/data/database");
   const DB = "/app/data/database/db.db";
@@ -1494,6 +1494,242 @@ c = sqlite3.connect("/app/data/database/db.db"); c.execute("INSERT INTO regla_lo
   await cambiar("#sel-idioma", "es");
   E.fallar("el motor no respondió"); await ir("#/catalogos/tipos-ficha"); await tick(100);
   ok(document.querySelector("#contenido .error-panel"), "si el bridge falla al cargar, panel de error con reintento");
+}
+
+if (escenario === "cables_modelo") {         // B.3: lógica pura de los formularios de cables y conexiones (sin DOM)
+  const M = await import(pathToFileURL(path.join(WEB, "app/cables_modelo.js")).href);
+  const esq = [
+    { nombre: "codigo", tipo: "texto", requerido: false, largo: 120 },
+    { nombre: "estado", tipo: "select", requerido: true, opciones: [{ valor: "VERIFICADO", etiqueta: "VERIFICADO" }, { valor: "TEMPORAL", etiqueta: "TEMPORAL" }] },
+    { nombre: "id_tipo_cable", tipo: "select", requerido: false, opciones: [{ valor: 2, etiqueta: "Belden" }] },
+    { nombre: "longitud", tipo: "numero", requerido: false, minimo: 0 },
+    { nombre: "es_armado_correcto", tipo: "select", requerido: false, opciones: [{ valor: 1, etiqueta: "Correcto" }, { valor: 0, etiqueta: "Mal armado" }] },
+    { nombre: "notas_relevamiento", tipo: "texto_largo", requerido: false, largo: 2000 }];
+  const tr = (x) => "«" + x + "»";
+  let c = M.camposDesdeEsquema(esq, tr);
+  ok(c.map((x) => x.nombre).join() === "codigo,estado,id_tipo_cable,longitud,es_armado_correcto,notas_relevamiento", "un campo por entrada del esquema, en orden");
+  ok(c[0].etiqueta === "«Código»" && c[0].largoMax === 120 && c[0].tipo === "texto" && c[0].ayuda.startsWith("«Opcional."), "texto: etiqueta y ayuda traducidas, largo");
+  ok(c[1].valorInicial === "VERIFICADO" && c[1].requerido === true, "en un alta el estado arranca en VERIFICADO");
+  ok(M.camposDesdeEsquema(esq, tr, { fila: { estado: "TEMPORAL" } })[1].valorInicial === undefined, "al editar no hay valor inicial (manda la fila)");
+  ok(c[1].opciones[0].etiqueta === "VERIFICADO" && c[2].opciones[0].etiqueta === "Belden", "estados y catálogos se muestran tal cual");
+  ok(c[4].opciones.map((o) => o.etiqueta).join() === "«Correcto»,«Mal armado»" && c[4].opciones[1].valor === 0, "el armado se traduce y conserva el valor 0 (numérico)");
+  ok(c[3].tipo === "numero" && c[3].min === 0 && c[5].tipo === "texto_largo" && c[5].largoMax === 2000, "número con mínimo; texto largo");
+  c = M.camposDesdeEsquema(esq, tr, { bloquear: ["codigo"] });
+  ok(c[0].soloLectura === true && !c[1].soloLectura, "bloquear marca solo lectura");
+
+  const eqc = [{ nombre: "id_cable", tipo: "select", requerido: true, opciones: [{ valor: 1, etiqueta: "C-001" }] },
+    { nombre: "id_equipo", tipo: "select", requerido: false, opciones: [{ valor: 2, etiqueta: "CAM 2" }] },
+    { nombre: "id_conector", tipo: "select", requerido: true, opciones: [], depende_de: "id_equipo" },
+    { nombre: "id_tipo_ficha", tipo: "select", requerido: false, opciones: [{ valor: 1, etiqueta: "TRS" }] }];
+  const carga = async () => [];
+  c = M.camposDesdeEsquema(eqc, tr, { conexion: true, cargarConectores: carga });
+  ok(c[2].dependeDe === "id_equipo" && c[2].cargarOpciones === carga && !c[0].dependeDe, "el conector depende del equipo y trae su cargador");
+  ok(c[3].etiqueta === "«Ficha del cable en esta punta»" && c[3].ayuda.startsWith("«Qué ficha"), "en una conexión, id_tipo_ficha es la ficha del cable en esa punta");
+  ok(M.camposDesdeEsquema(eqc, tr)[3].etiqueta === "«Tipo de ficha»", "en un cable es el tipo de ficha");
+  ok(M.camposDesdeEsquema(eqc, tr, { conexion: true })[2].dependeDe === undefined, "sin cargador no se encadena");
+  ok(M.opcionesConectores([{ id_conector: 5, nombre: "OUT 1", tipo_conector: "BNC", n_conexiones: 2 }, { id_conector: 6, nombre: null, tipo_conector: null, n_conexiones: 0 }]).map((o) => o.etiqueta).join("|") === "OUT 1 · BNC (2)|#6" && M.etiquetaConector({ id_conector: 5, nombre: "IN" }) === "IN",
+    "etiqueta de conector: nombre · tipo (conexiones)");
+  ok(JSON.stringify(M.sinEquipo({ id_cable: 1, id_equipo: 2, id_conector: 3 })) === '{"id_cable":1,"id_conector":3}', "id_equipo no viaja al bridge");
+  ok(M.nombreCable({ id_cable: 7, codigo: "C-7" }) === "C-7" && M.nombreCable({ id_cable: 7, codigo: null }) === "#7" && M.nombreCable({ id: 9 }) === "#9", "nombre del cable");
+
+  const a = { id_cable: 1, codigo: "C-001" }, b = { id_cable: 2, codigo: null };
+  const f = M.camposFusion(a, b, tr);
+  ok(f.map((x) => x.nombre).join() === "id_principal,codigo,estado" && f[0].valorInicial === 1 && f[1].valorInicial === "C-001" && f[2].valorInicial === "VERIFICADO", "fusión: principal = el primero, código y estado iniciales");
+  ok(f[0].opciones.map((o) => o.etiqueta).join("|") === "C-001 (ID 1)|#2 (ID 2)" && f[2].opciones.map((o) => o.valor).join() === "VERIFICADO,TEMPORAL", "opciones de la fusión (FUSIONADO no se ofrece)");
+  let x = M.argumentosFusion(a, b, { id_principal: "1", codigo: "C-9", estado: "TEMPORAL" });
+  ok(x.principal === a && x.secundario === b && JSON.stringify(x.args) === '{"id_principal":1,"id_secundario":2,"codigo":"C-9","estado":"TEMPORAL"}', "argumentos de la fusión");
+  x = M.argumentosFusion(a, b, { id_principal: 2, codigo: "C-9", estado: "VERIFICADO" });
+  ok(x.principal === b && x.secundario === a && x.args.id_principal === 2 && x.args.id_secundario === 1, "se puede elegir el otro como principal");
+  ok(M.camposFusion({ id_cable: 1, codigo: null }, b, tr)[1].valorInicial === "", "principal sin código → vacío");
+
+  ok(JSON.stringify(M.alternarSeleccion([], 1)) === "[1]" && JSON.stringify(M.alternarSeleccion([1], 2)) === "[1,2]", "selección: se agrega en orden de clic");
+  ok(JSON.stringify(M.alternarSeleccion([1, 2], 3)) === "[2,3]", "un tercero desplaza al más viejo");
+  ok(JSON.stringify(M.alternarSeleccion([1, 2], 1)) === "[2]" && JSON.stringify(M.alternarSeleccion([5], 5)) === "[]", "volver a marcar quita");
+  const s0 = [1, 2]; M.alternarSeleccion(s0, 3); ok(s0.length === 2 && s0[0] === 1, "no muta la lista recibida");
+  ok(M.textoAviso({ clave: "El cable tiene {n} extremos (lo habitual es 2)", vars: { n: 3 } }, (k, v) => k.replace("{n}", v.n)) === "El cable tiene 3 extremos (lo habitual es 2)", "texto de aviso con variables");
+  ok(M.detalleUsos([{ tabla: "extension_cable", n: 1, efecto: "borra" }], tr)[0].tabla === "«Extensiones de cable»", "etiqueta de usos de B.3");
+}
+
+if (escenario === "cables") {                // B.3: cables y conexiones con el bridge REAL (Pyodide): lista, alta, edición, baja, fusión, conexiones, deshacer
+  const E = await rpcPyodide();
+  instalarDom();
+  const { iniciar } = await import(pathToFileURL(path.join(WEB, "app/shell.js")).href);
+  const p = iniciar(E.rpc); E.emitirEstado(); await p; await tick();
+  E.rpc.cargarDb(E.fixture.buffer.slice(E.fixture.byteOffset, E.fixture.byteOffset + E.fixture.byteLength)); await tick(300);
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""INSERT INTO cable(id_cable,codigo,estado,es_cable_conexion_interna) VALUES (2,'C-002','TEMPORAL',0),(3,'C-003','VERIFICADO',0);
+INSERT INTO conexion(id_conexion,id_cable,id_conector,es_conexion_interna) VALUES (3,2,3,0);"""); c.commit(); c.close()`);
+  const sql = (q) => E.py.runPython(`import sqlite3\nc = sqlite3.connect("/app/data/database/db.db"); r = c.execute(${JSON.stringify(q)}).fetchall(); c.close(); r`).toJs();
+  const txt = (s) => $(s)?.textContent;
+  const dlg = () => document.querySelector("dialog.form-dialogo");
+  const boton = (re, raiz = document) => [...raiz.querySelectorAll("button")].find((b) => re.test(b.textContent));
+  const poner = (nom, v) => { dlg().querySelector(`[name=${nom}]`).value = v; };
+  const cambiarCampo = async (nom, v) => { const el = dlg().querySelector(`[name=${nom}]`); el.value = v; el.dispatchEvent(new window.Event("change", { bubbles: true })); await tick(300); };
+  const enviar = async (ms = 500) => { dlg().querySelector("form").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); await tick(ms); };
+  const toast = () => [...document.querySelectorAll("#toasts .toast")].at(-1);
+  const limpiarToasts = () => document.querySelectorAll("#toasts .toast").forEach((e) => e.remove());
+  const filasLista = () => [...document.querySelectorAll("#contenido tbody tr")];
+  const codigos = () => filasLista().map((f) => f.children[1].textContent);
+  const err = (c) => dlg().querySelector(`[data-campo=${c}] .form-error`).textContent;
+  const opts = (nom) => [...dlg().querySelectorAll(`[name=${nom}] option`)].map((o) => o.textContent);
+
+  // 1) lista de cables: botones y filas
+  await ir("#/cables"); await tick(150);
+  ok(txt("#contenido h2") === "Cables" && boton(/Nuevo cable/) && boton(/Temporal/) && boton(/^Fusionar/), "la lista ofrece Nuevo cable, Temporal y Fusionar");
+  ok(codigos().join("|") === "C-001|C-002|C-003", "cables: " + codigos());
+  ok(boton(/^Fusionar/).disabled === true && /0\/2/.test(boton(/^Fusionar/).textContent), "Fusionar deshabilitado sin selección");
+
+  // 2) alta con error del bridge (código repetido) y luego correcta; abre la ficha del cable nuevo
+  boton(/Nuevo cable/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Nuevo cable" && dlg().querySelector("[name=estado]").value === "VERIFICADO", "diálogo de alta; estado VERIFICADO por defecto");
+  ok(opts("id_tipo_cable").join("|") === "— Elegí —|RG59" && !dlg().querySelector("[name=ancho_banda_override]"), "tipos de cable del bridge; sin override ni armado en el alta");
+  poner("codigo", "c-001"); await enviar();
+  ok(dlg() && err("codigo") === "Ya existe un cable con ese código", "el bridge marca el campo: " + (dlg() && err("codigo")));
+  ok(sql("SELECT COUNT(*) FROM cable")[0][0] === 3, "no se guardó nada");
+  poner("longitud", "-2"); await enviar(60);
+  ok(err("longitud") === "Mínimo 0", "validación local de números");
+  poner("codigo", "C-010"); poner("longitud", "12,5"); poner("unidad_longitud", "m"); poner("id_tipo_cable", "1"); await enviar(700);
+  ok(!dlg() && window.location.hash === "#/cables/4" && txt("#contenido h2") === "C-010", "alta: abre la ficha del cable nuevo");
+  ok(JSON.stringify(sql("SELECT codigo, longitud, unidad_longitud, id_tipo_cable, estado FROM cable WHERE id_cable=4")[0]) === '["C-010",12.5,"m",1,"VERIFICADO"]', "guardado con coma decimal");
+  ok(E.rpc.escrituras >= 1 && toast() && /Se agregó el cable «C-010»/.test(toast().textContent) && boton(/Deshacer/, toast()), "aviso con Deshacer");
+  boton(/Deshacer/, toast()).click(); await tick(600);
+  ok(sql("SELECT COUNT(*) FROM cable WHERE id_cable=4")[0][0] === 0 && window.location.hash === "#/cables", "deshacer el alta: se borra (estaba sin uso) y vuelve a la lista");
+  limpiarToasts();
+
+  // 3) alta rápida: temporal
+  await tick(150); boton(/Temporal/).click(); await tick(700);
+  ok(sql("SELECT codigo, estado FROM cable WHERE id_cable=5")[0].join() === "SIN ETIQUETA 0001,TEMPORAL" && txt("#contenido h2") === "SIN ETIQUETA 0001", "cable temporal con el primer código libre");
+  ok(/Cable temporal creado: SIN ETIQUETA 0001/.test(toast().textContent), "aviso");
+  limpiarToasts();
+
+  // 4) ficha del cable C-001: editar (armado, override) y deshacer
+  await ir("#/cables/1"); await tick(150);
+  ok(boton(/^Editar$/) && boton(/Conexión/) && boton(/^Eliminar$/) && document.querySelectorAll("tr[data-conexion]").length === 2, "ficha: Editar, + Conexión, Eliminar y una fila por extremo");
+  boton(/^Editar$/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Editar cable" && dlg().querySelector("[name=codigo]").value === "C-001" && dlg().querySelector("[name=longitud]").value === "10", "edición precargada");
+  ok(dlg().querySelector("[name=ancho_banda_override]") && dlg().querySelector("[name=es_armado_correcto]") && dlg().querySelector("[name=detalle_armado]"), "la edición suma override y armado");
+  poner("es_armado_correcto", "0"); poner("detalle_armado", "pin 2 y 3 cruzados"); poner("ancho_banda_override", "150"); await enviar(700);
+  ok(JSON.stringify(sql("SELECT es_armado_correcto, detalle_armado, ancho_banda_mhz_override FROM cable WHERE id_cable=1")[0]) === '[0,"pin 2 y 3 cruzados",150]', "armado y override guardados (el armado 0 no se pierde)");
+  ok(/Armado incorrecto/.test(txt("#contenido")) || sql("SELECT es_armado_correcto FROM cable WHERE id_cable=1")[0][0] === 0, "la ficha se repinta");
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(JSON.stringify(sql("SELECT es_armado_correcto, detalle_armado, ancho_banda_mhz_override FROM cable WHERE id_cable=1")[0]) === "[null,null,null]", "deshacer la edición: vuelve todo");
+  limpiarToasts();
+  const antes = E.rpc.escrituras; boton(/^Editar$/).click(); await tick(150); boton(/Cancelar/, dlg()).click(); await tick();
+  ok(!dlg() && E.rpc.escrituras === antes, "cancelar no escribe");
+
+  // 5) conexiones desde la ficha del cable: alta con selects encadenados, aviso, quitar y deshacer
+  boton(/Conexión/).click(); await tick(150);
+  ok(dlg().querySelector("h3").textContent === "Nueva conexión" && dlg().querySelector("[name=id_cable]").disabled && dlg().querySelector("[name=id_cable]").value === "1", "alta desde el cable: el cable queda fijo");
+  ok(opts("id_conector").join("|") === "— Elegí —", "el conector arranca vacío hasta elegir equipo");
+  await enviar(80);
+  ok(err("id_conector") === "Obligatorio", "conector obligatorio (validado en el navegador)");
+  await cambiarCampo("id_equipo", "1");
+  ok(opts("id_conector").join("|") === "— Elegí —|OUT 1 · BNC (1)|OUT 2 · BNC (1)", "al elegir el equipo se piden sus conectores: " + opts("id_conector"));
+  await cambiarCampo("id_equipo", "2");
+  ok(opts("id_conector").join("|") === "— Elegí —|IN 1 · BNC (1)" && dlg().querySelector("[name=id_conector]").value === "", "al cambiar de equipo se reponen las opciones y se vacía la elección");
+  await cambiarCampo("id_equipo", "1"); poner("id_conector", "1"); await enviar();
+  ok(dlg() && err("id_conector") === "Ese cable ya está conectado a ese conector", "no duplica la conexión");
+  poner("id_conector", "3"); await enviar(700);
+  ok(!dlg() && sql("SELECT id_cable, id_conector, es_conexion_interna FROM conexion WHERE id_conexion=4")[0].join() === "1,3,0", "conexión creada");
+  ok(document.querySelectorAll("tr[data-conexion]").length === 3, "la ficha se repinta con el extremo nuevo");
+  const avisos = [...document.querySelectorAll("#toasts .toast.aviso")].map((e) => e.textContent);
+  ok(avisos.some((a) => /El cable tiene 3 extremos/.test(a)) && avisos.some((a) => /El conector ya tiene 1 conexión\(es\) más/.test(a)), "avisos del bridge (no bloquean): " + avisos.join(" / "));
+  boton(/Deshacer/, [...document.querySelectorAll("#toasts .toast.ok")].at(-1)).click(); await tick(600);
+  ok(sql("SELECT COUNT(*) FROM conexion WHERE id_conexion=4")[0][0] === 0, "deshacer la conexión: se borra");
+  limpiarToasts();
+  // editar la conexión 2 (extremo hacia CAM 2 / IN 1): ficha del cable en esa punta
+  const filaX = document.querySelector("tr[data-conexion='2']");
+  boton(/^Editar$/, filaX).click(); await tick(200);
+  ok(dlg().querySelector("h3").textContent === "Editar conexión" && dlg().querySelector("[name=id_equipo]").value === "2" && dlg().querySelector("[name=id_conector]").value === "2", "edición: equipo y conector precargados");
+  ok(txt("[data-campo=id_tipo_ficha] label").startsWith("Ficha del cable en esta punta"), "etiqueta de la ficha del cable en la punta");
+  poner("es_armado_correcto", "1"); poner("detalle_armado", " ok "); await enviar(700);
+  ok(JSON.stringify(sql("SELECT es_armado_correcto, detalle_armado FROM conexion WHERE id_conexion=2")[0]) === '[1,"ok"]', "armado de la punta guardado");
+  limpiarToasts();
+  boton(/^Quitar$/, document.querySelector("tr[data-conexion='2']")).click(); await tick(200);
+  ok(dlg().classList.contains("confirmacion") && /¿Quitar la conexión «C-001 → CAM 2 \/ IN 1»\?/.test(dlg().textContent) && /No forma parte de ninguna extensión/.test(dlg().textContent), "confirmación: " + dlg().textContent.replace(/\s+/g, " "));
+  ok(document.activeElement === boton(/Cancelar/, dlg()), "foco en Cancelar (acción destructiva)");
+  boton(/Cancelar/, dlg()).click(); await tick();
+  ok(sql("SELECT COUNT(*) FROM conexion WHERE id_conexion=2")[0][0] === 1, "cancelar no quita");
+  boton(/^Quitar$/, document.querySelector("tr[data-conexion='2']")).click(); await tick(200); boton(/Quitar$/, dlg()).click(); await tick(700);
+  ok(sql("SELECT COUNT(*) FROM conexion WHERE id_conexion=2")[0][0] === 0 && document.querySelectorAll("tr[data-conexion]").length === 1, "conexión quitada");
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(sql("SELECT id_cable, id_conector, es_armado_correcto, detalle_armado FROM conexion WHERE id_conexion=2")[0].join() === "1,2,1,ok", "deshacer la baja: vuelve con el mismo id y su armado");
+  limpiarToasts();
+
+  // 6) conexión desde la ficha de un conector: el equipo y el conector quedan fijos
+  await ir("#/conectores/3"); await tick(150);
+  ok(boton(/Conectar a un cable/), "la ficha del conector ofrece conectar");
+  boton(/Conectar a un cable/).click(); await tick(200);
+  ok(dlg().querySelector("[name=id_equipo]").disabled && dlg().querySelector("[name=id_conector]").disabled && dlg().querySelector("[name=id_conector]").value === "3" && !dlg().querySelector("[name=id_cable]").disabled, "equipo y conector fijos; se elige el cable");
+  ok(opts("id_cable").join("|") === "— Elegí —|C-001|C-002|C-003|SIN ETIQUETA 0001", "cables ofrecidos: " + opts("id_cable"));
+  poner("id_cable", "3"); await enviar(700);
+  ok(sql("SELECT id_cable, id_conector FROM conexion WHERE id_conexion=5")[0].join() === "3,3", "conexión creada desde el conector");
+  ok(/C-003/.test(txt("#contenido .conexion:last-of-type") || txt("#contenido")), "la ficha del conector la muestra");
+  limpiarToasts();
+  boton(/Quitar/, document.querySelector("#contenido .conexion:last-of-type")).click(); await tick(200); boton(/Quitar$/, dlg()).click(); await tick(600);
+  ok(sql("SELECT COUNT(*) FROM conexion WHERE id_conexion=5")[0][0] === 0, "quitada desde la ficha del conector");
+  limpiarToasts();
+
+  // 7) baja de cable: arrastra conexiones y lo avisa; sin conexiones, con Deshacer
+  await ir("#/cables/1"); await tick(150);
+  boton(/^Eliminar$/).click(); await tick(200);
+  ok(/¿Eliminar el cable «C-001»\?/.test(dlg().textContent) && /2 Conexiones — también se eliminarán/.test(dlg().textContent), "avisa que se llevan las conexiones: " + dlg().textContent.replace(/\s+/g, " "));
+  boton(/Cancelar/, dlg()).click(); await tick();
+  ok(sql("SELECT COUNT(*) FROM cable WHERE id_cable=1")[0][0] === 1, "cancelar no borra");
+  await ir("#/cables/3"); await tick(150);
+  boton(/^Eliminar$/).click(); await tick(200);
+  ok(/No tiene conexiones ni otros datos asociados\./.test(dlg().textContent) || /Conexiones/.test(dlg().textContent), "diálogo de baja");
+  boton(/Eliminar$/, dlg()).click(); await tick(700);
+  ok(sql("SELECT COUNT(*) FROM cable WHERE id_cable=3")[0][0] === 0 && window.location.hash === "#/cables", "baja: vuelve a la lista");
+  ok(boton(/Deshacer/, toast()), "sin uso: se ofrece Deshacer");
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(sql("SELECT codigo, estado FROM cable WHERE id_cable=3")[0].join() === "C-003,VERIFICADO", "deshacer la baja: vuelve con el mismo id");
+  limpiarToasts();
+  await ir("#/cables/1"); await tick(150);
+  boton(/^Eliminar$/).click(); await tick(200); boton(/Eliminar$/, dlg()).click(); await tick(700);
+  ok(sql("SELECT COUNT(*) FROM conexion WHERE id_cable=1")[0][0] === 0 && !document.querySelector("#toasts .toast.ok button:not([aria-label])"), "con conexiones: se borran y NO se ofrece Deshacer (no se reconstruyen)");
+  ok([...document.querySelectorAll("#toasts .toast.aviso")].some((e) => /Se eliminó el cable «C-001»/.test(e.textContent)), "aviso informativo de la baja");
+  limpiarToasts();
+  E.py.runPython(`
+import sqlite3
+c = sqlite3.connect("/app/data/database/db.db")
+c.executescript("""INSERT INTO cable(id_cable,codigo,longitud,unidad_longitud,id_tipo_cable) VALUES (1,'C-001',10,'m',1);
+INSERT INTO conexion(id_conexion,id_cable,id_conector) VALUES (1,1,1),(2,1,2);"""); c.commit(); c.close()`);
+
+  // 8) fusión: selección de dos cables, validación del bridge, éxito y deshacer
+  await ir("#/inicio"); await ir("#/cables"); await tick(250);        // otra ruta en el medio: misma ruta no repinta (la lista quedó vieja tras el SQL directo)
+  const marcar = (cod) => { const cb = filasLista().find((f) => f.children[1].textContent === cod).querySelector("input[type=checkbox]"); cb.checked = !cb.checked; cb.dispatchEvent(new window.Event("change", { bubbles: true })); };
+  marcar("C-002"); ok(boton(/^Fusionar/).disabled && /1\/2/.test(boton(/^Fusionar/).textContent), "con un cable no se puede fusionar");
+  marcar("C-003"); ok(!boton(/^Fusionar/).disabled && /2\/2/.test(boton(/^Fusionar/).textContent), "con dos se habilita");
+  marcar("C-001"); ok(document.querySelectorAll("#contenido tbody input:checked").length === 2 && !filasLista().find((f) => f.children[1].textContent === "C-002").querySelector("input").checked, "un tercero desplaza al más viejo");
+  marcar("C-001"); marcar("C-002");                                 // quedan C-003 y C-002 (principal = C-003)
+  boton(/^Fusionar/).click(); await tick(200);
+  ok(dlg().querySelector("h3").textContent === "Fusionar cables" && dlg().querySelector("[name=id_principal]").value === "3" && dlg().querySelector("[name=codigo]").value === "C-003", "diálogo: principal = el primero marcado");
+  poner("codigo", "C-001"); await enviar();
+  ok(dlg() && err("codigo") === "Ya lo usa otro cable (incluido el secundario)" && sql("SELECT id_cable FROM conexion WHERE id_conexion=3")[0][0] === 2, "código de otro cable: el bridge lo rechaza y NO movió nada");
+  poner("codigo", "DEF-1"); poner("estado", "TEMPORAL"); await enviar(700);
+  ok(!dlg() && sql("SELECT id_cable FROM conexion WHERE id_conexion=3")[0][0] === 3, "las conexiones del secundario pasaron al principal");
+  ok(sql("SELECT codigo, estado FROM cable WHERE id_cable=3")[0].join() === "DEF-1,TEMPORAL" && sql("SELECT estado, id_cable_fusionado FROM cable WHERE id_cable=2")[0].join() === "FUSIONADO,3", "principal con código y estado nuevos; secundario FUSIONADO");
+  ok(/Fusión: «C-002» pasó a «DEF-1»/.test(toast().textContent), "aviso de fusión: " + toast().textContent);
+  boton(/Deshacer/, toast()).click(); await tick(700);
+  ok(sql("SELECT id_cable FROM conexion WHERE id_conexion=3")[0][0] === 2 && sql("SELECT codigo, estado FROM cable WHERE id_cable=3")[0].join() === "C-003,VERIFICADO" && sql("SELECT estado FROM cable WHERE id_cable=2")[0][0] === "TEMPORAL", "deshacer la fusión: todo como estaba");
+  limpiarToasts();
+
+  // 9) idioma y errores
+  await ir("#/cables"); await tick(150);
+  await cambiar("#sel-idioma", "en");
+  ok(boton(/New cable/) && boton(/^Merge/) && boton(/Temporary/), "lista en inglés");
+  await ir("#/cables/1"); await tick(150);
+  boton(/^Edit$/).click(); await tick(200);
+  ok(dlg().querySelector("h3").textContent === "Edit cable" && dlg().querySelector("[data-campo=codigo] label").textContent === "Code", "diálogo en inglés");
+  boton(/Cancel/, dlg()).click(); await tick();
+  await cambiar("#sel-idioma", "pt");
+  ok(boton(/Novo cabo|^Editar$/) && boton(/Excluir/), "portugués");
+  await cambiar("#sel-idioma", "es");
+  await ir("#/cables/999"); await tick(150);
+  ok(document.querySelector("#contenido .error-panel"), "cable inexistente: panel de error con reintento");
 }
 
 console.log(`  ✔ [${escenario}] ${n} chequeos`);

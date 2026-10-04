@@ -11,7 +11,7 @@
 import { h } from "./dom.js";
 import { t } from "./i18n.js";
 import { reportar, texto as textoError } from "./errores.js";
-import { ErrorFormulario, valoresIniciales, validar, hayCambios } from "./formulario_modelo.js";
+import { ErrorFormulario, valoresIniciales, validar, hayCambios, normalizarCampo } from "./formulario_modelo.js";
 
 export { ErrorFormulario, crearPilaDeshacer } from "./formulario_modelo.js";
 
@@ -41,7 +41,7 @@ function crearCampo(c, valor, base) {
   const id = base + "-" + c.nombre, idErr = id + "-err", idAyuda = id + "-ayuda";
   const comunes = { id, name: c.nombre, disabled: c.soloLectura, "aria-describedby": [c.ayuda ? idAyuda : null, idErr].filter(Boolean).join(" ") };
   if (c.requerido && c.tipo !== "checkbox") comunes["aria-required"] = "true";
-  let control, leer;
+  let control, leer, reponer = null;
   if (c.tipo === "texto_largo") {
     control = h("textarea", { ...comunes, rows: c.filas || 4 }); control.value = valor; leer = () => control.value;
   } else if (c.tipo === "select") {
@@ -50,6 +50,10 @@ function crearCampo(c, valor, base) {
       vacio ? h("option", { value: "" }, t("— Elegí —")) : null,
       (c.opciones || []).map((o) => h("option", { value: String(o.valor) }, o.etiqueta ?? String(o.valor))));
     control.value = valor === "" || valor == null ? "" : String(valor); leer = () => control.value;
+    reponer = (ops) => {                                  // select encadenado (B.3): reemplaza las opciones y deja el valor vacío
+      control.replaceChildren(h("option", { value: "" }, t("— Elegí —")), ...ops.map((o) => h("option", { value: String(o.valor) }, o.etiqueta ?? String(o.valor))));
+      control.value = "";
+    };
   } else if (c.tipo === "checkbox") {
     control = h("input", { ...comunes, type: "checkbox" }); control.checked = Boolean(valor); leer = () => control.checked;
   } else {
@@ -66,7 +70,7 @@ function crearCampo(c, valor, base) {
     c.tipo === "checkbox" ? etiqueta : [etiqueta, control],
     c.ayuda ? h("div", { class: "form-ayuda", id: idAyuda }, c.ayuda) : null, errorEl);
   return {
-    fila, control, leer,
+    fila, control, leer, reponer,
     error(texto) {
       errorEl.textContent = texto || "";
       if (texto) { control.setAttribute("aria-invalid", "true"); fila.classList.add("con-error"); }
@@ -81,6 +85,22 @@ export function abrirFormulario({ titulo, descripcion, campos, valores = {}, env
     const ui = Object.fromEntries(campos.map((c) => [c.nombre, crearCampo(c, inicial[c.nombre], base)]));
     const leerTodo = () => Object.fromEntries(campos.map((c) => [c.nombre, ui[c.nombre].leer()]));
     let enviando = false, terminado = false;
+    // Select encadenado (B.3): { dependeDe: "otro_campo", cargarOpciones: async (valorDelOtro) => [{valor, etiqueta}] }.
+    // Al cambiar el campo padre se piden las opciones del hijo (una respuesta vieja no pisa a una más nueva) y su valor queda vacío.
+    for (const c of campos) {
+      const padre = campos.find((p) => p.nombre === c.dependeDe), hijo = ui[c.nombre];
+      if (!padre || !c.cargarOpciones || !hijo.reponer) continue;
+      let seq = 0;
+      ui[padre.nombre].control.addEventListener("change", async () => {
+        const mia = ++seq, ctl = hijo.control;
+        ctl.disabled = true;
+        try {
+          const ops = await c.cargarOpciones(normalizarCampo(padre, ui[padre.nombre].leer()));
+          if (mia === seq) { c.opciones = ops; hijo.reponer(ops); }
+        } catch (err) { if (mia === seq) { c.opciones = []; hijo.reponer([]); reportar(err, "No se pudieron cargar las opciones"); } }
+        finally { if (mia === seq) ctl.disabled = Boolean(c.soloLectura); }
+      });
+    }
 
     const general = h("div", { class: "form-general", role: "alert" });
     const btnOk = h("button", { type: "submit", class: "primario" }, t(textoEnviar));

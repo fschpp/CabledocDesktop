@@ -61,6 +61,7 @@ export const ETIQUETA_USO = {
   plantilla_conector: "Plantillas de conectores", regla_logica: "Reglas lógicas", estrategia_visual: "Estrategias visuales",
   catalogo_simbolo_conector: "Símbolos de conector", senal_en_conector: "Señales asignadas a conectores",
   senal_linaje: "Relaciones de linaje de señal", imagen_senal_conector: "Imágenes de señal de conector",
+  extension_cable: "Extensiones de cable", escenario_cambio: "Cambios de escenario", incidente_cable: "Incidentes de cable", diagnostico_sesion: "Sesiones de diagnóstico",   // B.3 (borrar un cable)
 };
 
 // Campos de abrirFormulario() a partir del esquema del bridge. `tr` traduce (la UI pasa t). `fila` = registro que se edita
